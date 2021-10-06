@@ -5,14 +5,23 @@ import math
 import numpy as np
 import seaborn as sns
 from matplotlib import pyplot as plt
+from typing import Callable
 
 
 SaliencyResult = namedtuple('SaliencyResult', ('saliency', 'names', 'weights'))
 
 
 def get_saliency(
+        cost_fn: Callable[('y', 'yhat'), 'scalar'],
         model:T.nn.Module, loader:T.utils.data.DataLoader,
-        device:str, num_minibatches:int=float('inf')):
+        device:str, num_minibatches:int=float('inf'),
+        ):
+    """
+    Args:
+        num_minibatches: Num minibatches from `loader` to get saliency scores.
+        cost_fn: reduces y and yhat to a scalar to compute gradient.
+            For example: `cost_fn = lambda y,yh: (y*yh).sum()`
+    """
     model.to(device, non_blocking=True)
     model.eval()
     # get the set of all 2d spatial filters for all layers of model
@@ -34,14 +43,14 @@ def get_saliency(
         y = y.to(device, non_blocking=True)
         yhat = model(x)
         # rescale yhat to all ones or zeros.
+        #  (effect of multiplying partial deriv of each class w.r.t. weight times a scalar).
         with T.no_grad():
             yhat /= yhat
             #  yhat[yhat != 0] /= yhat[yhat!=0]
 
         # get gradients, making all predictions for correct classes correct
         #  (y*yhat).sum().backward(retain_graph=False)
-        grads = T.autograd.grad(
-            ((y)*(yhat)).sum(), weights, retain_graph=False)
+        grads = T.autograd.grad(cost_fn(y, yhat), weights, retain_graph=False)
         with T.no_grad():
             #  for filters, grads in zip(filters_all_layers, grads_all_layers):
             _saliency = [(weights_layer * grads_layer).abs() / N
@@ -93,6 +102,7 @@ def get_flat_view(s: SaliencyResult):
 
 
 def reinitialize_least_salient(
+        cost_fn: Callable[('y', 'yhat'), 'scalar'],
         model:T.nn.Module, loader:T.utils.data.DataLoader,
         device:str, M:int, frac:float):
     """Re-initialize the `frac` amount of least salient weights in the model with random values.
@@ -101,6 +111,7 @@ def reinitialize_least_salient(
     `frac` fraction of weights with smallest saliency scores in [0,1]
     """
     s = get_saliency(
+        cost_fn=cost_fn,
         model=model, loader=loader, device=device,
         num_minibatches=M)
     sflat = get_flat_view(s)

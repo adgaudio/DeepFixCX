@@ -19,6 +19,7 @@ import torchvision.models as tvm
 import torchvision.transforms as tvt
 
 from deepfix.models import effnetv2_s
+from deepfix.weight_saliency import reinitialize_least_salient
 
 
 MODELS = {
@@ -88,7 +89,7 @@ def get_efficientnetv1(name, pretraining, in_channels, out_channels):
     if pretraining == 'imagenetadv':
         mdl = EfficientNet.from_pretrained(
             name, advprop=True, in_channels=in_channels, num_classes=out_channels)
-    elif pretraining == 'imagenet': 
+    elif pretraining == 'imagenet':
         mdl = EfficientNet.from_pretrained(
             name, in_channels=in_channels, num_classes=out_channels)
     else:
@@ -147,18 +148,17 @@ def get_dset_intel_mobileodt(stage_trainval:str, use_val:str, stage_test:str, au
     dset_trainval = D.IntelMobileODTCervical(stage_trainval, base_dir)
     _y = [dset_trainval.getitem(i, load_img=False)
           for i in range(len(dset_trainval))]
+    dct = {'test_dset': D.IntelMobileODTCervical(stage_test, base_dir)}
     if use_val == 'noval':
-        frac = 0
+        dct['train_dset'] = dset_trainval
+        dct['val_dset'] = None
     else:
-        assert use_val == 'val', f'unrecognized option: {val}'
-        frac = .3
-    idxs_train, idxs_val = list(
-        StratifiedShuffleSplit(1, test_size=.3).split(
-            np.arange(len(dset_trainval)), _y))[0]
-    dct = dict(
-        train_dset=T.utils.data.Subset(dset_trainval, idxs_train),
-        val_dset=T.utils.data.Subset(dset_trainval, idxs_val),
-        test_dset=D.IntelMobileODTCervical(stage_test, base_dir))
+        assert use_val == 'val', f'unrecognized option: {use_val}'
+        idxs_train, idxs_val = list(
+            StratifiedShuffleSplit(1, test_size=.3).split(
+                np.arange(len(dset_trainval)), _y))[0]
+        dct['train_dset'] = T.utils.data.Subset(dset_trainval, idxs_train)
+        dct['val_dset'] = T.utils.data.Subset(dset_trainval, idxs_val)
 
     # preprocess train/val/test images all the same way
     preprocess_v1 = tvt.Compose([
@@ -176,8 +176,11 @@ def get_dset_intel_mobileodt(stage_trainval:str, use_val:str, stage_test:str, au
         for k,v in dct.items()}
     dct.update(dict(
         train_loader=DataLoader(dct['train_dset'], batch_size=20, shuffle=True),
-        val_loader=DataLoader(dct['val_dset'], batch_size=20),
         test_loader=DataLoader(dct['test_dset'], batch_size=20),))
+    if dct['val_dset'] is None:
+        dct['val_loader'] = None
+    else:
+        dct['val_loader'] = DataLoader(dct['val_dset'], batch_size=20)
     class_names = [x.replace('_', ' ') for x in D.IntelMobileODTCervical.LABEL_NAMES]
     return dct, class_names
 
@@ -221,38 +224,65 @@ def get_dset_loaders_resultfactory(dset_spec:str) -> dict:
     return dct
 
 
-def get_deepfix_strategy(strategy_spec:str) -> Callable:
+class DeepFix_TrainOneEpoch:
     """
-    DeepFix proposes to re-initialize weights of the model during training.
+    DeepFix: Re-initialize bottom `P` fraction of least salient weights
+    every `N` epochs.  Wraps a `train_one_epoch` function.
 
-    Args:
-        strategy_spec: one of {'baseline', 'reinit:N:P'}
-          `baseline` - does no reinitialization during training.
-          `reinit:N:P` - reinitialize bottom `P` least salient weights (`P` is a
-              fraction in [0-1]) every `N` epochs.
+    Example Usage:
+        >>> using_deepfix = DeepFixTrainingStrategy(
+                N=3, P=.2, train_one_epoch_fn=TL.train_one_epoch)
+        >>> cfg = TrainConfig(..., train_one_epoch=using_deepfix)
+        >>> cfg.train()
     """
-    method = TL.train_one_epoch
-    if strategy_spec == 'off':
-        return method
-    name, N = strategy_spec.split(':')
-    if name == 'reinit':
-        N = float(N)
-        #  kind of like this, but in a class instead
-        def everyN(N):
-            global counter
-            counter = 0
-            def __train_one_epoch(*args, **kwargs):
-                global counter
-                print('DEBUGGING', counter)
-                counter = (counter + 1) % N
-                if counter == 0:
-                    ...
-                    #  reinit
-                return TL.train_one_epoch(*args, **kwargs)
-            return __train_one_epoch
-        return everyN(N)  # TODO: finish
-    else:
-        raise NotImplementedError('todo')
+    def __init__(self, N:int, P:float, R:int,
+                 train_one_epoch_fn:Callable[TL.TrainConfig, TL.Result]):
+        """
+        Args:
+            N: Re-initialize weights every N epochs.  N>1.
+            P: The fraction of least salient weights to re-initialize.  0<=P<=1.
+            R: Num repetitions.  How many times to re-initialize in a row.
+            train_one_epoch_fn: The function used to train the model.
+                Expects as input a TL.TrainConfig and outputs a TL.Result.
+        """
+        assert 0 <= P <= 1, 'sanity check: 0 <= P <= 1'
+        assert N >= 1, 'sanity check: N > 1'
+        assert R >=1
+        self.N, self.P, self.R = N, P, R
+        self._wrapped_train_one_epoch = train_one_epoch_fn
+        self._counter = 0
+
+    def __call__(self, cfg:TL.TrainConfig):
+        self._counter = (self._counter + 1) % self.N
+        print(self._counter)
+        if self._counter % self.N == 0:
+            print('DeepFix REINIT')
+            for i in range(self.R):
+                reinitialize_least_salient(
+                    lambda y, yh: yh[y].sum(),
+                    model=cfg.model, loader=cfg.train_loader,
+                    device=cfg.device, M=50, frac=self.P*((self.R-i)/self.R))
+        return self._wrapped_train_one_epoch(cfg)
+        """
+        # TODO for deepfix:
+        # 1. Do I need gradients or is magnitude sufficient
+        # 2. How to tweak the fraction. (iterative re-init or not)
+        # 3. how to define/learn the distribution of weights?
+        #     - be sensitive to spatial location, channel, layer
+        # 4. Iterative initialization better?
+        # 5. consider turn "off" re-initialization after N epochs.
+        # 6. consider re-starting the optimizer (because momentum)
+
+        # hyperparameter tune N,P,R
+        """
+
+
+def get_deepfix_strategy(deepfix_spec:str):
+    if deepfix_spec == 'off':
+        return TL.train_one_epoch
+    elif deepfix_spec.startswith('reinit:'):
+        _, N, P, R = deepfix_spec.split(':')
+        return DeepFix_TrainOneEpoch(int(N), float(P), int(R), TL.train_one_epoch)
 
 
 def train_config(args:'TrainOptions') -> TL.TrainConfig:
@@ -262,10 +292,6 @@ def train_config(args:'TrainOptions') -> TL.TrainConfig:
         **get_dset_loaders_resultfactory(args.dset),
         device=args.device,
         epochs=args.epochs,
-        checkpoint_if = (
-            lambda cfg, log_data:
-            f'{cfg.base_dir}/checkpoints/epoch_{cfg.epochs}.pth'
-            if log_data['epoch'] in {cfg.epochs, cfg.start_epoch} else None),
         train_one_epoch=get_deepfix_strategy(args.deepfix),
         experiment_id=args.experiment_id,
     )
@@ -273,22 +299,25 @@ def train_config(args:'TrainOptions') -> TL.TrainConfig:
 
 @dc.dataclass
 class TrainOptions:
-    """High-level configuration for training PyTorch models"""
+    """High-level configuration for training PyTorch models
+    on the IntelMobileODTCervical dataset.
+    """
     epochs:int = 50
     device:str = 'cuda' if T.cuda.is_available() else 'cpu'
     dset:str = choice(
         'intel_mobileodt:train:val:test:v1',
         'intel_mobileodt:train+additional:val:test:v1',
         'intel_mobileodt:train+additional:noval:test:v1',
-        default='intel_mobileodt:train+additional:val:test:v1')
+        default='intel_mobileodt:train:val:test:v1')
     opt:str = 'SGD:lr=.001:momentum=.9'
     lossfn:str = choice(*(x[0] for x in LOSS_FNS.keys()), default='CrossEntropyLoss')
-    model:str = 'effnetv2:untrained:3:3'
-    deepfix:str = 'off' # DeepFix Re-initialization Method
+    model:str = 'resnet18:imagenet:3:3'  # Model specification adheres to the template "model_name:pretraining:in_ch:out_ch"
+    deepfix:str = 'off'  # DeepFix Re-initialization Method.  "off" or "reinit:N:P:R"
     experiment_id:str = 'debugging'
 
     def execute(self):
-        return self.build().train()
+        cfg = train_config(self)
+        cfg.train(cfg)
 
 
 def main():
@@ -298,9 +327,6 @@ def main():
     print(args)
     cfg = train_config(args)
     cfg.train(cfg)
-    # TODO: modify the train_one_epoch method to incorporate re-initialization
-    # TODO: dataset augmentation: fix cross dataset contamination by hashing imgs
-    #  TODO: choose loss
 
 
 if __name__ == "__main__":
