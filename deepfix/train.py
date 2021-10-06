@@ -221,29 +221,35 @@ def get_dset_loaders_resultfactory(dset_spec:str) -> dict:
     return dct
 
 
-def get_deepfix_strategy(strategy:str) -> Callable:
+def get_deepfix_strategy(strategy_spec:str) -> Callable:
     """
     DeepFix proposes to re-initialize weights of the model during training.
 
     Args:
-        strategy: one of {'baseline', 'reinit:N'}
-          'baseline' - does nothing.  just to compare against a 
+        strategy_spec: one of {'baseline', 'reinit:N:P'}
+          `baseline` - does no reinitialization during training.
+          `reinit:N:P` - reinitialize bottom `P` least salient weights (`P` is a
+              fraction in [0-1]) every `N` epochs.
     """
     method = TL.train_one_epoch
-    if strategy == 'off':
+    if strategy_spec == 'off':
         return method
-    name, N = strategy.split(':')
-    if strategy == 'reinit':
+    name, N = strategy_spec.split(':')
+    if name == 'reinit':
         N = float(N)
         #  kind of like this, but in a class instead
         def everyN(N):
+            global counter
             counter = 0
             def __train_one_epoch(*args, **kwargs):
+                global counter
+                print('DEBUGGING', counter)
                 counter = (counter + 1) % N
                 if counter == 0:
                     ...
                     #  reinit
                 return TL.train_one_epoch(*args, **kwargs)
+            return __train_one_epoch
         return everyN(N)  # TODO: finish
     else:
         raise NotImplementedError('todo')
