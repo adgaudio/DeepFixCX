@@ -4,16 +4,18 @@ with varying config.
 
 I wish a machine could automate setting up decent baseline models and datasets
 """
-from argparse_dataclass import ArgumentParser
+from efficientnet_pytorch import EfficientNet
 from pampy import match
+from simple_parsing import ArgumentParser, choice
 from simplepytorch import datasets as D
 from simplepytorch import trainlib as TL
 from sklearn.model_selection import StratifiedShuffleSplit
 from torch.utils.data import Dataset, DataLoader
-from typing import Union
+from typing import Union, Callable
 import dataclasses as dc
 import numpy as np
 import torch as T
+import torchvision.models as tvm
 import torchvision.transforms as tvt
 
 from deepfix.models import effnetv2_s
@@ -22,25 +24,84 @@ from deepfix.models import effnetv2_s
 MODELS = {
     ('effnetv2', str, str, str): (
         lambda pretrain, in_ch, out_ch: get_effnetv2(pretrain, int(in_ch), int(out_ch))),
+    ('resnet50', str, str, str): (
+        lambda pretrain, in_ch, out_ch: get_resnet('resnet50', pretrain, int(in_ch), int(out_ch))),
+    ('resnet18', str, str, str): (
+        lambda pretrain, in_ch, out_ch: get_resnet('resnet18', pretrain, int(in_ch), int(out_ch))),
+    ('efficientnet-b0', str, str, str): (
+        lambda pretrain, in_ch, out_ch: get_efficientnetv1('efficientnet-b0', pretrain, int(in_ch), int(out_ch))),
+    ('efficientnet-b1', str, str, str): (
+        lambda pretrain, in_ch, out_ch: get_efficientnetv1('efficientnet-b1', pretrain, int(in_ch), int(out_ch))),
 }
 
 LOSS_FNS = {
-    ('BCEWithLogitsLoss', ): lambda _: T.nn.BCEWithLogitsLoss()
+    ('BCEWithLogitsLoss', ): lambda _: T.nn.BCEWithLogitsLoss(),
+    ('CrossEntropyLoss', ): lambda _: T.nn.CrossEntropyLoss(),
+    ('CE_intelmobileodt', ): lambda _: loss_intelmobileodt,
 }
 
 DSETS = {
-    ('intel_mobileodt', str, str, str): (
-        lambda train, test, aug: get_dset_intel_mobileodt(train, test, aug)),
+    ('intel_mobileodt', str, str, str, str): (
+        lambda train, val, test, aug: get_dset_intel_mobileodt(train, val, test, aug)),
 }
 
+def loss_intelmobileodt(yhat, y):
+    """BCE Loss with class balancing weights.
+
+    Not sure this actually helps
+
+    because Type 2 is the hardest class, it
+    has the most samples, and it separates Type 1 from Type 3.  Arguably, Type 2
+    samples are on the decision boundary between Type 1 and 3.
+    Class balancing weights make it harder to focus on class 2.
+    """
+    #  assert y.shape == yhat.shape, 'sanity check'
+    #  assert y.dtype == yhat.dtype, 'sanity check'
+
+    # class distribution of stage='train'
+    w = T.tensor([249, 781, 450], dtype=y.dtype, device=y.device)
+    w = (w.max() / w).reshape(1, 3)
+    # w can have any of the shapes:  (B,1) or (1,C) or (B,C)
+    #  return T.nn.functional.binary_cross_entropy_with_logits(yhat, y, weight=w)
+    return T.nn.functional.cross_entropy(yhat, y, weight=w)
+    # can't apply focal loss unless do it manually.
 
 def get_effnetv2(pretraining, in_channels, out_channels):
     assert pretraining == 'untrained', 'error: no pre-trained weights currently available for EfficientNetV2'
-    mdl = effnetv2_s(num_classes=3)
-    if in_channels != 3:
-        conv2d = mdl.features[0][0]
+    mdl = effnetv2_s(num_classes=out_channels)
+    _modify_conv2d(conv2d=mdl.features[0][0], in_channels=in_channels)
+    return mdl
+
+
+def get_resnet(name, pretraining, in_channels, out_channels):
+    assert pretraining in {'untrained', 'imagenet'}
+    mdl = getattr(tvm, name)(
+        pretrained=True if pretraining == 'imagenet' else False)
+    _modify_conv2d(mdl.conv1, in_channels)
+    mdl.fc = T.nn.Linear(
+        in_features=mdl.fc.in_features, out_features=out_channels, bias=True)
+    return mdl
+
+
+def get_efficientnetv1(name, pretraining, in_channels, out_channels):
+    assert pretraining in {'untrained', 'imagenet', 'imagenetadv'}
+    if pretraining == 'imagenetadv':
+        mdl = EfficientNet.from_pretrained(
+            name, advprop=True, in_channels=in_channels, num_classes=out_channels)
+    elif pretraining == 'imagenet': 
+        mdl = EfficientNet.from_pretrained(
+            name, in_channels=in_channels, num_classes=out_channels)
+    else:
+        mdl = EfficientNet.from_name(
+            name, in_channels=in_channels, num_classes=out_channels)
+    return mdl
+
+
+def _modify_conv2d(conv2d:T.nn.Module, in_channels:int, ):
+    """Inplace modify conv2d layer to ensure has in_channels"""
+    if in_channels != conv2d.in_channels:
         conv2d.in_channels = in_channels
-        if in_channels < 3:
+        if in_channels < conv2d.in_channels:
             conv2d.weight = T.nn.Parameter(conv2d.weight.data[:,[1],:,:])
         else:
             raise NotImplementedError('code for this written but not tested')
@@ -50,8 +111,7 @@ def get_effnetv2(pretraining, in_channels, out_channels):
                 dtype=conv2d.weight.dtype, device=conv2d.weight.device)
             T.nn.init.kaiming_uniform_(tmp)
             conv2d.weight = T.nn.Parameter(tmp)
-        assert conv2d.bias is None
-    return mdl
+        assert conv2d.bias is None, 'bias not implemented yet'
 
 
 def onehot(y, nclasses):
@@ -59,7 +119,7 @@ def onehot(y, nclasses):
             .scatter_(1, y.unsqueeze(1), 1)
 
 
-def get_dset_intel_mobileodt(stage_trainval:str, stage_test:str, augment:str
+def get_dset_intel_mobileodt(stage_trainval:str, use_val:str, stage_test:str, augment:str
                              ) -> (dict[str,Union[Dataset,DataLoader]], tuple[str]):
     """Obtain train/val/test splits for the IntelMobileODT Cervical Cancer
     Colposcopy dataset, and the data loaders.
@@ -68,6 +128,8 @@ def get_dset_intel_mobileodt(stage_trainval:str, stage_test:str, augment:str
         stage_trainval: the `stage` for training and validation.
             i.e. Possible choices:  {'train', 'train+additional'}
             Train / val split is 70/30 random stratified split.
+        use_val: Whether to create a validation set
+            Choices:  {"val", "noval"}
         stage_test: the `stage` for test set.  Should be "test".
         augment: Type of augmentations to apply.  One of {'v1', }.
             "v1" - make the aspect ratio .75, resize images to (200,150), and convert in range [0,1]
@@ -85,6 +147,11 @@ def get_dset_intel_mobileodt(stage_trainval:str, stage_test:str, augment:str
     dset_trainval = D.IntelMobileODTCervical(stage_trainval, base_dir)
     _y = [dset_trainval.getitem(i, load_img=False)
           for i in range(len(dset_trainval))]
+    if use_val == 'noval':
+        frac = 0
+    else:
+        assert use_val == 'val', f'unrecognized option: {val}'
+        frac = .3
     idxs_train, idxs_val = list(
         StratifiedShuffleSplit(1, test_size=.3).split(
             np.arange(len(dset_trainval)), _y))[0]
@@ -104,7 +171,8 @@ def get_dset_intel_mobileodt(stage_trainval:str, stage_test:str, augment:str
     ])
     dct = {k: D.PreProcess(v, lambda xy: (
         preprocess_v1(xy[0]),
-        onehot(xy[1].unsqueeze(0).long()-1, 3).squeeze_().float()))
+        #  onehot(xy[1].unsqueeze(0).long()-1, 3).squeeze_().float()))
+        xy[1].long()-1))
         for k,v in dct.items()}
     dct.update(dict(
         train_loader=DataLoader(dct['train_dset'], batch_size=20, shuffle=True),
@@ -120,11 +188,11 @@ def get_model_opt(model_spec:str, opt_spec:str, device:str
     Args:
         model_spec: a string of form,
             "model_name:pretraining:in_channels:out_classes".  For example:
-            "effnetv2:imagenet_pretrained:1:5"
+            "effnetv2:untrained:1:5"
         opt_spec: Specifies how to create optimizer.
             First value is a pytorch Optimizer in T.optim.*.
             Other values are numerical parameters.
-            Example: "SGD:lr=.001:momentum=.9"
+            Example: "SGD:lr=.003:momentum=.9"
         device: e.g. 'cpu' or 'gpu'
     Returns:
         a pytorch model and optimizer
@@ -145,42 +213,88 @@ def get_lossfn(loss_spec:str) -> T.nn.Module:
 def get_dset_loaders_resultfactory(dset_spec:str) -> dict:
     dct, class_names = match(
         dset_spec.split(':'), *(x for y in DSETS.items() for x in y))
-    dct['result_factory'] = lambda: TL.MultiLabelBinaryClassification(
-            class_names, binarize_fn=lambda yh: (T.sigmoid(yh)>.5).long())
+    #  dct['result_factory'] = lambda: TL.MultiLabelBinaryClassification(
+            #  class_names, binarize_fn=lambda yh: (T.sigmoid(yh)>.5).long())
+    dct['result_factory'] = lambda: TL.MultiClassClassification(
+            len(class_names), binarize_fn=lambda yh: yh.softmax(1).argmax(1))
+
     return dct
 
 
-def train_config(args):
+def get_deepfix_strategy(strategy:str) -> Callable:
+    """
+    DeepFix proposes to re-initialize weights of the model during training.
+
+    Args:
+        strategy: one of {'baseline', 'reinit:N'}
+          'baseline' - does nothing.  just to compare against a 
+    """
+    method = TL.train_one_epoch
+    if strategy == 'off':
+        return method
+    name, N = strategy.split(':')
+    if strategy == 'reinit':
+        N = float(N)
+        #  kind of like this, but in a class instead
+        def everyN(N):
+            counter = 0
+            def __train_one_epoch(*args, **kwargs):
+                counter = (counter + 1) % N
+                if counter == 0:
+                    ...
+                    #  reinit
+                return TL.train_one_epoch(*args, **kwargs)
+        return everyN(N)  # TODO: finish
+    else:
+        raise NotImplementedError('todo')
+
+
+def train_config(args:'TrainOptions') -> TL.TrainConfig:
     return TL.TrainConfig(
-        **get_model_opt(args['model'], args['opt'], args['device']),
-        loss_fn=get_lossfn(args['lossfn']),
-        **get_dset_loaders_resultfactory(args['dset']),
-        device=args['device'],
-        epochs=args['epochs'],
+        **get_model_opt(args.model, args.opt, args.device),
+        loss_fn=get_lossfn(args.lossfn),
+        **get_dset_loaders_resultfactory(args.dset),
+        device=args.device,
+        epochs=args.epochs,
         checkpoint_if = (
             lambda cfg, log_data:
             f'{cfg.base_dir}/checkpoints/epoch_{cfg.epochs}.pth'
-            if log_data['epoch'] in {cfg.epochs, cfg.start_epoch} else None)
+            if log_data['epoch'] in {cfg.epochs, cfg.start_epoch} else None),
+        train_one_epoch=get_deepfix_strategy(args.deepfix),
+        experiment_id=args.experiment_id,
     )
 
 
 @dc.dataclass
-class CmdLineOptions:
-    epochs:int = 20
+class TrainOptions:
+    """High-level configuration for training PyTorch models"""
+    epochs:int = 50
     device:str = 'cuda' if T.cuda.is_available() else 'cpu'
-    dset:str = 'intel_mobileodt:train:test:v1'
+    dset:str = choice(
+        'intel_mobileodt:train:val:test:v1',
+        'intel_mobileodt:train+additional:val:test:v1',
+        'intel_mobileodt:train+additional:noval:test:v1',
+        default='intel_mobileodt:train+additional:val:test:v1')
     opt:str = 'SGD:lr=.001:momentum=.9'
-    lossfn:str = 'BCEWithLogitsLoss'
-    #  dset:str = 'intel_mobileodt:train+additional:test'
-    model:str = 'effnetv2:untrained:3:1'  # todo: verify num output classes.
+    lossfn:str = choice(*(x[0] for x in LOSS_FNS.keys()), default='CrossEntropyLoss')
+    model:str = 'effnetv2:untrained:3:3'
+    deepfix:str = 'off' # DeepFix Re-initialization Method
+    experiment_id:str = 'debugging'
+
+    def execute(self):
+        return self.build().train()
 
 
 def main():
-    args = ArgumentParser(CmdLineOptions).parse_args().__dict__
+    p = ArgumentParser()
+    p.add_arguments(TrainOptions, dest='TrainOptions')
+    args = p.parse_args().TrainOptions
+    print(args)
     cfg = train_config(args)
     cfg.train(cfg)
     # TODO: modify the train_one_epoch method to incorporate re-initialization
     # TODO: dataset augmentation: fix cross dataset contamination by hashing imgs
+    #  TODO: choose loss
 
 
 if __name__ == "__main__":
