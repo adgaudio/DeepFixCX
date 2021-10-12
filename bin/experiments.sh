@@ -59,7 +59,7 @@ EOF
   done
 }
 I3_part2() {
-  # initialize model with weight distribution
+  # initialize model from a histogram for each scalar parameter (deepfix dhist method)
   # local fpout=./results/${V}.I3
   # mkdir -p "$fpout"
   # find ./histograms -name "hist_*.pth" | parallel echo \
