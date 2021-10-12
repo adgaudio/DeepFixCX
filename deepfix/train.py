@@ -298,14 +298,26 @@ class DeepFix_TrainOneEpoch:
 class DeepFix_DHist:
     fp: str
     train_one_epoch_fn:Callable[TL.TrainConfig, TL.Result] = TL.train_one_epoch
+    init_with_hist:bool = True
+    fixed:bool = False
     _called = False
 
     def __call__(self, cfg: TL.TrainConfig):
         if not self._called:
             self._called = True
-            hist = T.load(self.fp)
-            print('DeepFix HISTOGRAM Initialization')
-            init_from_hist_(cfg.model, hist)
+            if self.init_with_hist:
+                hist = T.load(self.fp)
+                print('DeepFix HISTOGRAM Initialization')
+                init_from_hist_(cfg.model, hist)
+            if self.fixed:
+                for layer in cfg.model.modules():
+                    layer.requires_grad_(False)
+                for name,x in list(cfg.model.named_modules())[::-1]:
+                    if len(list(x.parameters())):
+                        x.requires_grad_(True)
+                        break
+                print(f"DeepFix:  all layers fixed ...except layer: {name}")
+
         return self.train_one_epoch_fn(cfg)
 
 
@@ -319,6 +331,12 @@ def get_deepfix_train_strategy(deepfix_spec:str):
         fp = deepfix_spec.split(':', 1)[1]
         assert exists(fp), f'histogram file not found: {fp}'
         return DeepFix_DHist(fp)
+    elif deepfix_spec.startswith('dfhist:'):
+        fp = deepfix_spec.split(':', 1)[1]
+        assert exists(fp), f'histogram file not found: {fp}'
+        return DeepFix_DHist(fp, fixed=True)
+    elif deepfix_spec == 'fixed':
+        return DeepFix_DHist(fp, fixed=True, init_with_hist=False)
     else:
         raise NotImplementedError(deepfix_spec)
 
