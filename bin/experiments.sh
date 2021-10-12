@@ -19,8 +19,8 @@ expand() {
 }
 
 # lockfile_ignore=true  # disable lockfile
-lockfile_maxsuccesses=5
-lockfile_maxconcurrent=5
+lockfile_maxsuccesses=6
+lockfile_maxconcurrent=6
 lockfile_maxfailures=1
 
 V=1  # experiment version number
@@ -28,7 +28,6 @@ V=1  # experiment version number
 
 I1() {
 local deepfix="reinit:2:.2:1"  # N:P:R
-
 local e1="${V}.I1.baseline"
 local e2="${V}.I1.$deepfix"
 cat <<EOF
@@ -49,6 +48,41 @@ EOF
 done ; done
 }
 
+I3() {
+  # find the distribution of weights for each scalar parameter in the network
+  for m in nth_most_salient nth_weight ; do
+  for sm in "weight*grad" "grad" "weight" ; do
+cat <<EOF
+python bin/find_distribution.py --mode '$m' --saliency_mode '$sm' --base_dir "results/${V}.I3"
+EOF
+  done
+  done
+}
+I3_part2() {
+  # initialize model with weight distribution
+  # local fpout=./results/${V}.I3
+  # mkdir -p "$fpout"
+  # find ./histograms -name "hist_*.pth" | parallel echo \
+    # python deepfix/train.py bin/eval_distribution.py "{}" "${fpout}/{/.}.csv"
+  local e1="${V}.I3.baseline"
+  local e2="${V}.I3.dhist"
+  local params=" --model resnet18:untrained:3:3 --opt SGD:lr=0.005:momentum=.8:nesterov=1 "
+  cat <<EOF
+$e1 python deepfix/train.py     --experiment_id $e1     --deepfix off $params
+$e2.sg python deepfix/train.py  --experiment_id $e2.sg  --deepfix dhist:./results/${V}.I3/histograms/hist_nth_most_salient.wsgrad_resnet18:untrained:3:3.pth
+$e2.sw python deepfix/train.py  --experiment_id $e2.sw  --deepfix dhist:./results/${V}.I3/histograms/hist_nth_most_salient.wsweight_resnet18:untrained:3:3.pth
+$e2.swg python deepfix/train.py --experiment_id $e2.swg --deepfix dhist:./results/${V}.I3/histograms/hist_nth_most_salient_resnet18:untrained:3:3.pth
+$e2.ng python deepfix/train.py  --experiment_id $e2.ng  --deepfix dhist:./results/${V}.I3/histograms/hist_nth_weight.wsgrad_resnet18:untrained:3:3.pth
+$e2.nw python deepfix/train.py  --experiment_id $e2.nw  --deepfix dhist:./results/${V}.I3/histograms/hist_nth_weight.wsweight_resnet18:untrained:3:3.pth
+$e2.nwg python deepfix/train.py --experiment_id $e2.nwg --deepfix dhist:./results/${V}.I3/histograms/hist_nth_weight_resnet18:untrained:3:3.pth
+$e1 python deepfix/train.py     --experiment_id $e1     --deepfix off $params
+$e1 python deepfix/train.py     --experiment_id $e1     --deepfix off $params
+$e1.imagenet python deepfix/train.py     --experiment_id $e1.imagenet     --deepfix off
+EOF
+}
 
-I1 | expand 3 | run_gpus 5
-I2 | run_gpus 5
+
+# I1 | expand 3 | run_gpus 5
+# I2 | run_gpus 5
+# I3 I3_part2| parallel -j 5
+I3_part2 | run_gpus 5

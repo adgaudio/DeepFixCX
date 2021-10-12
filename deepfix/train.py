@@ -4,6 +4,7 @@ with varying config.
 
 I wish a machine could automate setting up decent baseline models and datasets
 """
+from os.path import exists
 from efficientnet_pytorch import EfficientNet
 import pampy
 from simple_parsing import ArgumentParser, choice
@@ -20,6 +21,7 @@ import torchvision.transforms as tvt
 
 from deepfix.models import effnetv2_s
 from deepfix.weight_saliency import reinitialize_least_salient, costfn_multiclass
+from deepfix.init_from_distribution import init_from_hist_
 
 
 MODELS = {
@@ -292,12 +294,33 @@ class DeepFix_TrainOneEpoch:
         """
 
 
-def get_deepfix_strategy(deepfix_spec:str):
+@dc.dataclass
+class DeepFix_DHist:
+    fp: str
+    train_one_epoch_fn:Callable[TL.TrainConfig, TL.Result] = TL.train_one_epoch
+    _called = False
+
+    def __call__(self, cfg: TL.TrainConfig):
+        if not self._called:
+            self._called = True
+            hist = T.load(self.fp)
+            print('DeepFix HISTOGRAM Initialization')
+            init_from_hist_(cfg.model, hist)
+        return self.train_one_epoch_fn(cfg)
+
+
+def get_deepfix_train_strategy(deepfix_spec:str):
     if deepfix_spec == 'off':
         return TL.train_one_epoch
     elif deepfix_spec.startswith('reinit:'):
         _, N, P, R = deepfix_spec.split(':')
         return DeepFix_TrainOneEpoch(int(N), float(P), int(R), TL.train_one_epoch)
+    elif deepfix_spec.startswith('dhist:'):
+        fp = deepfix_spec.split(':', 1)[1]
+        assert exists(fp), f'histogram file not found: {fp}'
+        return DeepFix_DHist(fp)
+    else:
+        raise NotImplementedError(deepfix_spec)
 
 
 def train_config(args:'TrainOptions') -> TL.TrainConfig:
@@ -307,7 +330,7 @@ def train_config(args:'TrainOptions') -> TL.TrainConfig:
         **get_dset_loaders_resultfactory(args.dset),
         device=args.device,
         epochs=args.epochs,
-        train_one_epoch=get_deepfix_strategy(args.deepfix),
+        train_one_epoch=get_deepfix_train_strategy(args.deepfix),
         experiment_id=args.experiment_id,
     )
 
@@ -327,8 +350,9 @@ class TrainOptions:
     opt:str = 'SGD:lr=.001:momentum=.9:nesterov=1'
     lossfn:str = choice(*(x[0] for x in LOSS_FNS.keys()), default='CrossEntropyLoss')
     model:str = 'resnet18:imagenet:3:3'  # Model specification adheres to the template "model_name:pretraining:in_ch:out_ch"
-    deepfix:str = 'off'  # DeepFix Re-initialization Method.  "off" or "reinit:N:P:R"
+    deepfix:str = 'off'  # DeepFix Re-initialization Method.  "off" or "reinit:N:P:R" or "dinit:path_to_histogram.pth"
     experiment_id:str = 'debugging'
+    init:str = 'unchanged'  # 'unchanged' or 'dhist:path_to_histogram.pth'
 
     def execute(self):
         cfg = train_config(self)

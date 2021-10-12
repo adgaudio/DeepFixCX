@@ -36,7 +36,7 @@ class SaliencyResult:
             yield self.ParamSaliencyResult(a,b,c)
 
 
-def costfn_multiclass(y:T.Tensor, yhat:T.Tensor, gain=30):  #, use_sigmoid:bool=False):
+def costfn_multiclass(y:T.Tensor, yhat:T.Tensor, gain=100):  #, use_sigmoid:bool=False):
     """
     Multi-class cost function for weight saliency of correct outputs.
 
@@ -61,9 +61,9 @@ def costfn_multiclass(y:T.Tensor, yhat:T.Tensor, gain=30):  #, use_sigmoid:bool=
     assert y.shape == (B,)
     num_neg_classes = C-1
     num_pos_classes = 1
-    w = T.ones_like(yhat) * -1/2 / num_neg_classes
-    w[T.arange(B), y] = 1/2 / num_pos_classes
-    return (yhat * w).sum() * 30
+    w = T.ones_like(yhat) * -1/2 / num_neg_classes * gain
+    w[T.arange(B), y] = 1/2 / num_pos_classes * gain
+    return (yhat * w).sum()
 
 
 def get_saliency(
@@ -116,10 +116,10 @@ def get_saliency(
                     for weights_layer, grads_layer in zip(weights, grads)]
             elif mode == 'grad':
                 _saliency = [(grads_layer).abs() / N for grads_layer in grads]
+            elif mode == 'weight':
+                _saliency = [(weights_layer).abs() / N for weights_layer in weights]
             else:
                 raise NotImplementedError(mode)
-                #  _saliency = [(weights_layer).abs() / N
-                #              for weights_layer in weights]
             saliency = [x + y for x,y in zip(saliency, _saliency)]
     return SaliencyResult(
         saliency, names, [x.detach() for x in weights])
