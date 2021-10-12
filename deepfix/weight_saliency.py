@@ -173,7 +173,7 @@ def reinitialize_parameters_(param_name:str, layer_inst:T.nn.Module, randvals:T.
 def get_flat_view(s: SaliencyResult):
     s2s = T.cat([x.view(-1) for x in s.saliency])
     s2w = T.cat([x.view(-1) for x in s.weights])
-    s2n = np.array([name for name, w in zip(s.names, s.weights)
+    s2n = np.array([name for name, w in zip(s.param_names, s.weights)
                     for _ in range(w.numel())])
     return SaliencyResult(s2s, s2n, s2w)
 
@@ -205,14 +205,14 @@ def reinitialize_least_salient(
     # --> group all weights by layer.
     _idx_bins = np.roll(np.cumsum([x.numel() for x in s.weights]), 1)
     _idx_bins[0] = 0
-    paramname_to_idx = {paramname: _idx_bins[v] for v, paramname in enumerate(s.names)}
+    paramname_to_idx = {paramname: _idx_bins[v] for v, paramname in enumerate(s.param_names)}
     group_by_paramname = T.bucketize(
         s_lo, T.tensor(_idx_bins, device=s_lo.device), right=True)
     # --> Update the (globally) least salient weights across all paramnames
     for paramname in group_by_paramname.unique():
         mask = group_by_paramname == paramname
         flat_idxs = s_lo[mask]
-        paramname = [sflat.names[i] for i in flat_idxs]
+        paramname = [sflat.param_names[i] for i in flat_idxs]
         assert all(x == paramname[0] for x in paramname)
         paramname = paramname[0]
         param = model.get_parameter(paramname)

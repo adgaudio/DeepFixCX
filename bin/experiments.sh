@@ -30,7 +30,7 @@ I1() {
 local deepfix="reinit:2:.2:1"  # N:P:R
 
 local e1="${V}.I1.baseline"
-local e2="I${V}_$deepfix"
+local e2="${V}.I1.$deepfix"
 cat <<EOF
 $e1 python deepfix/train.py  --experiment_id $e1 --deepfix off
 $e2 python deepfix/train.py  --experiment_id $e2 --deepfix $deepfix

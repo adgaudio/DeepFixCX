@@ -46,37 +46,47 @@ def reinit_model(model:T.nn.Module, bn=False):
             raise NotImplementedError(f'how to reinitialize parameter {name}?')
 
 
-def plot_histograms(histograms, mode, model):
+def plot_histograms(histograms, mode, model, save=False):
     from matplotlib import pyplot as plt
     fig1, axs1 = plt.subplots(6,4, figsize=(12, 8))
     fig2, axs2 = plt.subplots(6,4, figsize=(12, 8))
-    for key, ax1, ax2 in zip(histograms.keys(), axs1.reshape(-1), axs2.reshape(-1)):
+    fig3, axs3 = plt.subplots(6,4, figsize=(12, 8))
+    for key, ax1, ax2, ax3 in zip(histograms.keys(), axs1.reshape(-1), axs2.reshape(-1), axs3.reshape(-1)):
         counts, bin_edges = histograms[key]
         for i in range(min(5, len(counts))):
-            ax1.scatter(bin_edges.cpu().numpy(), counts[i].cpu().numpy(), marker='.')
-            ax2.scatter(bin_edges.cpu().numpy(), counts[-1*i].cpu().numpy(), marker='.')
+            #  ax1.scatter(bin_edges.cpu().numpy(), counts[i].cpu().numpy(), marker='.')
+            #  ax2.scatter(bin_edges.cpu().numpy(), counts[-1*i].cpu().numpy(), marker='.')
+            ax1.plot(bin_edges.cpu().numpy(), counts[i].cpu().numpy())
+            ax2.plot(bin_edges.cpu().numpy(), counts[-1*i].cpu().numpy())
+            ax3.plot(bin_edges.cpu().numpy(), counts[len(counts)//2-2+i].cpu().numpy())
         [ax.set_title(key) for ax in [ax1, ax2]]
     fig1.suptitle(f'Distribution of Most Salient Weights\nAcross Layers of {args.model}')
     fig2.suptitle(f'Distribution of Least Salient Weights\nAcross Layers of {args.model}')
+    fig3.suptitle(f'Distribution of Median Salient Weights\nAcross Layers of {args.model}')
     fig1.tight_layout()
     fig2.tight_layout()
-    fig1.savefig(f'dist_first_{mode}_{model}.png', bbox_inches='tight')
-    fig2.savefig(f'dist_last_{mode}_{model}.png', bbox_inches='tight')
+    fig3.tight_layout()
+    if save:
+        fig1.savefig(f'dist_first_{mode}_{model}.png', bbox_inches='tight')
+        fig2.savefig(f'dist_last_{mode}_{model}.png', bbox_inches='tight')
+        fig3.savefig(f'dist_middle_{mode}_{model}.png', bbox_inches='tight')
 
 
 if __name__ == "__main__":
     cfg, args = get_cfg()
     loader = cfg.train_loader
     device = cfg.device
-    mdl = cfg.model
+    mdl = cfg.model.eval()
     del cfg
 
     mode = 'nth_most_salient'
     #  mode = 'nth_weight'
+    #  saliency_mode = 'grad'
+    saliency_mode = 'weight*grad'
 
     histograms = {}  # dict[int:np.ndarray]  of {'param_name': 'counts of shape (numel,bins)'}
     ranges = None  # {'param_name': Optional[int]}  # bounds (e.g. range) of the histogram.  assume pre-training and fine-tuning decreases the bound.
-    num_iter = 100  # 500  # num models for the probability distribution
+    num_iter = 500  # num models for the probability distribution
     for i in range(num_iter):
         print('iter', i)
         if ranges is None:
@@ -92,6 +102,7 @@ if __name__ == "__main__":
         sr:W.SaliencyResult = W.get_saliency(
             cost_fn=W.costfn_multiclass, model=mdl, loader=loader,
             device=device, num_minibatches=1,  # TODO: more minibatches?
+            mode=saliency_mode
         )
         # update a per-weight distribution
         for layer_idx,psr in enumerate(sr):
@@ -122,8 +133,8 @@ if __name__ == "__main__":
                 counts[rowidxs, chosen_bin] += saliency.view(-1)
 
     # save histograms to disk
-    T.save(histograms, f'hist_{mode}_{args.model}.pth')
-    plot_histograms(histograms, mode, args.model)
+    T.save(histograms, f'hist_{mode + ".wsgrad"}_{args.model}.pth')
+    plot_histograms(histograms, mode+ ".wsgrad", args.model, save=True)
 
 
 
