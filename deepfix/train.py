@@ -5,7 +5,7 @@ with varying config.
 I wish a machine could automate setting up decent baseline models and datasets
 """
 from efficientnet_pytorch import EfficientNet
-from pampy import match
+import pampy
 from simple_parsing import ArgumentParser, choice
 from simplepytorch import datasets as D
 from simplepytorch import trainlib as TL
@@ -19,7 +19,7 @@ import torchvision.models as tvm
 import torchvision.transforms as tvt
 
 from deepfix.models import effnetv2_s
-from deepfix.weight_saliency import reinitialize_least_salient
+from deepfix.weight_saliency import reinitialize_least_salient, costfn_multiclass
 
 
 MODELS = {
@@ -185,6 +185,10 @@ def get_dset_intel_mobileodt(stage_trainval:str, use_val:str, stage_test:str, au
     return dct, class_names
 
 
+def match(spec:str, dct:dict):
+    return pampy.match(spec.split(':'), *(x for y in dct.items() for x in y))
+
+
 def get_model_opt(model_spec:str, opt_spec:str, device:str
                   ) -> dict[str, Union[T.nn.Module, T.optim.Optimizer]]:
     """
@@ -200,7 +204,7 @@ def get_model_opt(model_spec:str, opt_spec:str, device:str
     Returns:
         a pytorch model and optimizer
     """
-    mdl = match(model_spec.split(':'), *(x for y in MODELS.items() for x in y))
+    mdl = match(model_spec, MODELS)
     mdl = mdl.to(device, non_blocking=True)
     # optimizer
     spec = opt_spec.split(':')
@@ -210,12 +214,11 @@ def get_model_opt(model_spec:str, opt_spec:str, device:str
 
 
 def get_lossfn(loss_spec:str) -> T.nn.Module:
-    return match(loss_spec.split(':'), *(x for y in LOSS_FNS.items() for x in y))
+    return match(loss_spec, LOSS_FNS)
 
 
 def get_dset_loaders_resultfactory(dset_spec:str) -> dict:
-    dct, class_names = match(
-        dset_spec.split(':'), *(x for y in DSETS.items() for x in y))
+    dct, class_names = match(dset_spec, DSETS)
     #  dct['result_factory'] = lambda: TL.MultiLabelBinaryClassification(
             #  class_names, binarize_fn=lambda yh: (T.sigmoid(yh)>.5).long())
     dct['result_factory'] = lambda: TL.MultiClassClassification(
@@ -254,26 +257,38 @@ class DeepFix_TrainOneEpoch:
 
     def __call__(self, cfg:TL.TrainConfig):
         self._counter = (self._counter + 1) % self.N
-        print(self._counter)
         if self._counter % self.N == 0:
             print('DeepFix REINIT')
             for i in range(self.R):
                 reinitialize_least_salient(
-                    lambda y, yh: yh[y].sum(),
+                    costfn_multiclass,
+                    #  lambda y, yh: yh[y].sum(),  # TODO: wrong
                     model=cfg.model, loader=cfg.train_loader,
-                    device=cfg.device, M=50, frac=self.P*((self.R-i)/self.R))
+                    device=cfg.device, M=50, frac=self.P*((self.R-i)/self.R),
+                    opt=cfg.optimizer
+                )
         return self._wrapped_train_one_epoch(cfg)
         """
         # TODO for deepfix:
-        # 1. Do I need gradients or is magnitude sufficient
-        # 2. How to tweak the fraction. (iterative re-init or not)
-        # 3. how to define/learn the distribution of weights?
-        #     - be sensitive to spatial location, channel, layer
-        # 4. Iterative initialization better?
-        # 5. consider turn "off" re-initialization after N epochs.
-        # 6. consider re-starting the optimizer (because momentum)
+        - how to define/learn the distribution of weights?
+             - be sensitive to spatial location, channel, layer
+        - hyperparameter tune N,P,R
+        - test that we are actuallying zeroing the least salient weights!
+        - sanity check: randomly reinit instead of saliency
 
-        # hyperparameter tune N,P,R
+        done for deepfix:
+        # 1. Do I need gradients or is magnitude sufficient
+          - maybe we don't need weights.  need gradients.
+
+        # 4. Iterative initialization better?
+          - not really, no.
+            # 2. How to tweak the fraction. (iterative re-init or not)
+
+        # 5. consider turn "off" re-initialization at end after N epochs.
+          - basically not necessary with N,P,R
+
+        # 6. consider re-starting the optimizer (or remove momentum)
+          - resetting momentum to 0 gives worse performance?
         """
 
 
@@ -309,7 +324,7 @@ class TrainOptions:
         'intel_mobileodt:train+additional:val:test:v1',
         'intel_mobileodt:train+additional:noval:test:v1',
         default='intel_mobileodt:train:val:test:v1')
-    opt:str = 'SGD:lr=.001:momentum=.9'
+    opt:str = 'SGD:lr=.001:momentum=.9:nesterov=1'
     lossfn:str = choice(*(x[0] for x in LOSS_FNS.keys()), default='CrossEntropyLoss')
     model:str = 'resnet18:imagenet:3:3'  # Model specification adheres to the template "model_name:pretraining:in_ch:out_ch"
     deepfix:str = 'off'  # DeepFix Re-initialization Method.  "off" or "reinit:N:P:R"
@@ -331,3 +346,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+    # re-init net, get saliency, use to compute dist of values for each parameter.
+      # can analyze to see patterns or verify thry I suppose
