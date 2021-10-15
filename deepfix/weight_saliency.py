@@ -124,6 +124,26 @@ def get_saliency(
     return SaliencyResult(
         saliency, names, [x.detach() for x in weights])
 
+def get_kaiming_uniform_bounds(model:T.nn.Module) -> dict[str,Optional[tuple[float,float]]]:
+    """
+    For the purpose of storing histograms for each of the model's named
+    parameters, compute the range of each histogram.  For all weights
+    associated to a parameter, the range is the same.
+    """
+    rv = {}
+    for param_name, param in model.named_parameters():
+        layer = model.get_submodule(param_name.rsplit('.', 1)[0])
+        if isinstance(layer, (T.nn.modules.conv._ConvNd, T.nn.Linear)):
+            # compute bound of kaiming uniform U[-b,b]
+            bound = get_kaiming_uniform_bound(layer.weight.data)
+            bound = (-1.*bound, 1.*bound)
+        elif isinstance(layer, T.nn.modules.batchnorm._BatchNorm):
+            bound = None
+        else:
+            raise NotImplementedError(f'How to compute the bound on this parameter:  {param_name}')
+        rv[param_name] = bound
+    return rv
+
 
 def get_kaiming_uniform_bound(tensor, gain=math.sqrt(1./3), mode:str='fan_in'):
     """
@@ -230,9 +250,9 @@ def reinitialize_least_salient(
             if 'momentum_buffer' in z:
                 assert z['momentum_buffer'].shape == param.shape, 'sanity check'
                 z['momentum_buffer'][x] = 0
-                assert len(z) == 1, f"TODO: optimizer has other parameters might need to re-initialize: {z.keys()}"
+                assert len(z) == 1, f"Not Implemented: optimizer has other parameters might need to re-initialize: {z.keys()}"
             else:
-                assert len(z) == 0, f'TODO:  optimizer has other parameters might need to re-initialize: {z.keys()}'
+                assert len(z) == 0, f'Not Implemented:  optimizer has other parameters might need to re-initialize: {z.keys()}'
 
 
 def test_reinitialize_parameters_():
@@ -250,7 +270,7 @@ def test_reinitialize_parameters_():
             z.reset_parameters()
             b = pytorch_bounds
             pytorch_bounds = [max(b[0], z.weight.data.abs().max().item()),
-                           max(b[1], z.bias.data.abs().max().item())]
+                              max(b[1], z.bias.data.abs().max().item())]
         # exact bounds
         our_bounds = [
             reinitialize_parameters_(

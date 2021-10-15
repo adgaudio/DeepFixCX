@@ -5,27 +5,7 @@ from os import makedirs
 from dataclasses import dataclass
 from deepfix.train import TrainOptions, train_config
 from deepfix import weight_saliency as W
-
-
-def get_ranges(model:T.nn.Module) -> dict[str,Optional[tuple[float,float]]]:
-    """
-    For the purpose of storing histograms for each of the model's named
-    parameters, compute the range of each histogram.  For all weights
-    associated to a parameter, the range is the same.
-    """
-    rv = {}
-    for param_name, param in model.named_parameters():
-        layer = model.get_submodule(param_name.rsplit('.', 1)[0])
-        if isinstance(layer, (T.nn.modules.conv._ConvNd, T.nn.Linear)):
-            # compute bound of kaiming uniform U[-b,b]
-            bound = W.get_kaiming_uniform_bound(layer.weight.data)
-            bound = (-1.*bound, 1.*bound)
-        elif isinstance(layer, T.nn.modules.batchnorm._BatchNorm):
-            bound = None
-        else:
-            raise NotImplementedError(f'How to compute the bound on this parameter:  {param_name}')
-        rv[param_name] = bound
-    return rv
+from deepfix.init_from_distribution import 
 
 
 def reinit_model(model:T.nn.Module, bn=False):
@@ -39,7 +19,7 @@ def reinit_model(model:T.nn.Module, bn=False):
             raise NotImplementedError(f'how to reinitialize parameter {name}?')
 
 
-def plot_histograms(histograms, mode, model, savedir=None):
+def plot_histograms(histograms, mode, model, save_dir=None):
     from matplotlib import pyplot as plt
     fig1, axs1 = plt.subplots(6,4, figsize=(12, 8))
     fig2, axs2 = plt.subplots(6,4, figsize=(12, 8))
@@ -60,11 +40,16 @@ def plot_histograms(histograms, mode, model, savedir=None):
     fig1.tight_layout()
     fig2.tight_layout()
     fig3.tight_layout()
-    if savedir:
-        makedirs(savedir, exist_ok=True)
-        fig1.savefig(f'{save_dir}/dist_first_{mode}_{model}.png', bbox_inches='tight')
-        fig2.savefig(f'{save_dir}/dist_last_{mode}_{model}.png', bbox_inches='tight')
-        fig3.savefig(f'{save_dir}/dist_middle_{mode}_{model}.png', bbox_inches='tight')
+    if save_dir:
+        fps = [
+            f'{save_dir}/dist_first_{mode}_{model}.png',
+            f'{save_dir}/dist_last_{mode}_{model}.png',
+            f'{save_dir}/dist_middle_{mode}_{model}.png'
+        ]
+        makedirs(save_dir, exist_ok=True)
+        for fp, fig in zip(fps, [fig1, fig2, fig3]):
+            fig.savefig(fp, bbox_inches='tight')
+            print(fp)
 
 
 if __name__ == "__main__":
@@ -100,18 +85,12 @@ if __name__ == "__main__":
     for i in range(args.Options.iters):
         print('iter', i)
         if ranges is None:
-            ranges = get_ranges(mdl)
+            ranges = W.get_kaiming_uniform_bounds(mdl)
         reinit_model(mdl)
-        # initialize with larger bounds:
-        #  for name, param in mdl.named_parameters():
-        #      if ranges[name] is not None:
-        #          param.data *= 400
-        #          a,b = ranges[name]
-        #          ranges[name] = 400.1*a, 400.1*b
         # observe saliency of weights
         sr:W.SaliencyResult = W.get_saliency(
             cost_fn=W.costfn_multiclass, model=mdl, loader=loader,
-            device=device, num_minibatches=1,  # TODO: more minibatches?
+            device=device, num_minibatches=100,  # TODO: 1 or 100 minibatches?
             mode=args.Options.saliency_mode
         )
         # update a per-weight distribution
@@ -119,8 +98,6 @@ if __name__ == "__main__":
             if ranges[psr.param_name] is None:
                 #  print(f'skip layer: {psr.param_name}')
                 continue
-
-            saliency = psr.saliency.view(-1).to('cpu') #, non_blocking=True)
             try:
                 counts, bin_edges = histograms[psr.param_name]
             except KeyError:  # initialize histogram first time
@@ -148,6 +125,7 @@ if __name__ == "__main__":
             if args.Options.mode == 'nth_most_salient':
                 chosen_bin = chosen_bin[T.argsort(psr.saliency.view(-1), descending=True)]
             chosen_bin = chosen_bin.to('cpu', non_blocking=True)
+            saliency = psr.saliency.view(-1).to('cpu') #, non_blocking=True)
 
             rowidxs = T.arange(counts.shape[0])
             if args.Options.mode == 'nth_most_salient':
@@ -168,21 +146,46 @@ if __name__ == "__main__":
 
     # save histograms to disk
     makedirs(f'{args.Options.base_dir}/histograms', exist_ok=True)
-    if args.Options.saliency_mode == 'weight*grad':
-        T.save(histograms, f'{args.Options.base_dir}/histograms/hist_{args.Options.mode}_{args.TrainOptions.model}.pth')
-        plot_histograms(
-            histograms, args.Options.mode, args.TrainOptions.model,
-            savedir=f'{args.Options.base_dir}/histograms/plots')
-    else:
-        T.save(histograms, f'{args.Options.base_dir}/histograms/hist_{args.Options.mode}.ws{args.Options.saliency_mode}_{args.TrainOptions.model}.pth')
-        plot_histograms(
-            histograms,
-            args.Options.mode+ f".ws{args.Options.saliency_mode}", args.TrainOptions.model,
-            savedir='{args.Options.base_dir}/histograms/plots')
+    fp_hist = f'{args.Options.base_dir}/histograms/hist_{args.Options.mode}.ws{args.Options.saliency_mode}_{args.TrainOptions.model}.pth'
+    T.save(histograms, fp_hist)
+    print(fp_hist)
+    plot_histograms(
+        histograms,
+        args.Options.mode+ f".ws{args.Options.saliency_mode.replace('*', '')}", args.TrainOptions.model,
+        save_dir=f'{args.Options.base_dir}/histograms/plots')
 
 
 
-""" todo next
+"""
+
+TODO:
+    - Summarize findings of I3 tests
+      - outperform fromscratch baseline, but not imagenet baseline.
+
+      - not screwing with batchnorm.  should we inherit imagenet batchnorm weights to get better perf?
+      - num_minibatches=1.  maybe that was too small?
+      - performance of fixed models sucks (to be verified).
+      - which saliency is better?  grad, weight, or weight*grad ?
+
+    - Possible "I4" tests:
+        - use the hist to only initialize model with most salient weights.
+          --> if works on any models (e.g. the wsweight model), then the
+              distribution might tell us we should we avoid initializing near
+              zero, and instead sample values close to the bounds.
+        - only initialize with most / least salient weights (but no middle weights)
+        - only initialize with middle weights
+
+    - how to capture the distribution of imagenet weights?  (guidedsteer)
+
+
+    - check that the I3 tests didn't outperform the
+
+
+        """
+
+
+"""
+todo (old)
 
 re-init model by sampling from hist.
 evaluate the model
@@ -200,15 +203,9 @@ evaluate the model
         # TODO: try using the distribution with hyperband to select new initializations
         # TODO: distribution of either weights by saliency (e.g. quantile) or weights by size.
 
-        TODO: eval saliency with only gradient vs gradient*weight.
-
-
         # Q: Are the weights different in distribution?
         #
-        """
 
-
-"""
 
 shreshta mtg notes:
 

@@ -21,7 +21,8 @@ import torchvision.transforms as tvt
 
 from deepfix.models import effnetv2_s
 from deepfix.weight_saliency import reinitialize_least_salient, costfn_multiclass
-from deepfix.init_from_distribution import init_from_hist_
+from deepfix.init_from_distribution import init_from_hist_, init_from_beta
+from deepfix import deepfix_strategies as dfs
 
 
 MODELS = {
@@ -47,6 +48,7 @@ DSETS = {
     ('intel_mobileodt', str, str, str, str): (
         lambda train, val, test, aug: get_dset_intel_mobileodt(train, val, test, aug)),
 }
+
 
 def loss_intelmobileodt(yhat, y):
     """BCE Loss with class balancing weights.
@@ -229,114 +231,25 @@ def get_dset_loaders_resultfactory(dset_spec:str) -> dict:
     return dct
 
 
-class DeepFix_TrainOneEpoch:
-    """
-    DeepFix: Re-initialize bottom `P` fraction of least salient weights
-    every `N` epochs.  Wraps a `train_one_epoch` function.
-
-    Example Usage:
-        >>> using_deepfix = DeepFixTrainingStrategy(
-                N=3, P=.2, train_one_epoch_fn=TL.train_one_epoch)
-        >>> cfg = TrainConfig(..., train_one_epoch=using_deepfix)
-        >>> cfg.train()
-    """
-    def __init__(self, N:int, P:float, R:int,
-                 train_one_epoch_fn:Callable[TL.TrainConfig, TL.Result]):
-        """
-        Args:
-            N: Re-initialize weights every N epochs.  N>1.
-            P: The fraction of least salient weights to re-initialize.  0<=P<=1.
-            R: Num repetitions.  How many times to re-initialize in a row.
-            train_one_epoch_fn: The function used to train the model.
-                Expects as input a TL.TrainConfig and outputs a TL.Result.
-        """
-        assert 0 <= P <= 1, 'sanity check: 0 <= P <= 1'
-        assert N >= 1, 'sanity check: N > 1'
-        assert R >=1
-        self.N, self.P, self.R = N, P, R
-        self._wrapped_train_one_epoch = train_one_epoch_fn
-        self._counter = 0
-
-    def __call__(self, cfg:TL.TrainConfig):
-        self._counter = (self._counter + 1) % self.N
-        if self._counter % self.N == 0:
-            print('DeepFix REINIT')
-            for i in range(self.R):
-                reinitialize_least_salient(
-                    costfn_multiclass,
-                    #  lambda y, yh: yh[y].sum(),  # TODO: wrong
-                    model=cfg.model, loader=cfg.train_loader,
-                    device=cfg.device, M=50, frac=self.P*((self.R-i)/self.R),
-                    opt=cfg.optimizer
-                )
-        return self._wrapped_train_one_epoch(cfg)
-        """
-        # TODO for deepfix:
-        - how to define/learn the distribution of weights?
-             - be sensitive to spatial location, channel, layer
-        - hyperparameter tune N,P,R
-        - test that we are actuallying zeroing the least salient weights!
-        - sanity check: randomly reinit instead of saliency
-
-        done for deepfix:
-        # 1. Do I need gradients or is magnitude sufficient
-          - maybe we don't need weights.  need gradients.
-
-        # 4. Iterative initialization better?
-          - not really, no.
-            # 2. How to tweak the fraction. (iterative re-init or not)
-
-        # 5. consider turn "off" re-initialization at end after N epochs.
-          - basically not necessary with N,P,R
-
-        # 6. consider re-starting the optimizer (or remove momentum)
-          - resetting momentum to 0 gives worse performance?
-        """
-
-
-@dc.dataclass
-class DeepFix_DHist:
-    fp: str
-    train_one_epoch_fn:Callable[TL.TrainConfig, TL.Result] = TL.train_one_epoch
-    init_with_hist:bool = True
-    fixed:bool = False
-    _called = False
-
-    def __call__(self, cfg: TL.TrainConfig):
-        if not self._called:
-            self._called = True
-            if self.init_with_hist:
-                hist = T.load(self.fp)
-                print('DeepFix HISTOGRAM Initialization')
-                init_from_hist_(cfg.model, hist)
-            if self.fixed:
-                for layer in cfg.model.modules():
-                    layer.requires_grad_(False)
-                for name,x in list(cfg.model.named_modules())[::-1]:
-                    if len(list(x.parameters())):
-                        x.requires_grad_(True)
-                        break
-                print(f"DeepFix:  all layers fixed ...except layer: {name}")
-
-        return self.train_one_epoch_fn(cfg)
-
-
 def get_deepfix_train_strategy(deepfix_spec:str):
     if deepfix_spec == 'off':
         return TL.train_one_epoch
     elif deepfix_spec.startswith('reinit:'):
         _, N, P, R = deepfix_spec.split(':')
-        return DeepFix_TrainOneEpoch(int(N), float(P), int(R), TL.train_one_epoch)
+        return dfs.DeepFix_TrainOneEpoch(int(N), float(P), int(R), TL.train_one_epoch)
     elif deepfix_spec.startswith('dhist:'):
         fp = deepfix_spec.split(':', 1)[1]
         assert exists(fp), f'histogram file not found: {fp}'
-        return DeepFix_DHist(fp)
+        return dfs.DeepFix_DHist(fp)
     elif deepfix_spec.startswith('dfhist:'):
         fp = deepfix_spec.split(':', 1)[1]
         assert exists(fp), f'histogram file not found: {fp}'
-        return DeepFix_DHist(fp, fixed=True)
+        return dfs.DeepFix_DHist(fp, fixed=True)
     elif deepfix_spec == 'fixed':
-        return DeepFix_DHist(fp, fixed=True, init_with_hist=False)
+        return dfs.DeepFix_DHist('', fixed=True, init_with_hist=False)
+    elif deepfix_spec.startswith('beta:'):
+        alpha, beta = deepfix_spec.split(':')[1:]
+        return dfs.DeepFix_LambdaInit(init_from_beta, args=(float(alpha), float(beta)))
     else:
         raise NotImplementedError(deepfix_spec)
 
@@ -368,7 +281,9 @@ class TrainOptions:
     opt:str = 'SGD:lr=.001:momentum=.9:nesterov=1'
     lossfn:str = choice(*(x[0] for x in LOSS_FNS.keys()), default='CrossEntropyLoss')
     model:str = 'resnet18:imagenet:3:3'  # Model specification adheres to the template "model_name:pretraining:in_ch:out_ch"
-    deepfix:str = 'off'  # DeepFix Re-initialization Method.  "off" or "reinit:N:P:R" or "dinit:path_to_histogram.pth"
+    deepfix:str = 'off'  # DeepFix Re-initialization Method.
+                         #  "off" or "reinit:N:P:R" or "d[f]hist:path_to_histogram.pth"
+                         #  or "beta:A:B" for A,B as (float) parameters of the beta distribution
     experiment_id:str = 'debugging'
     init:str = 'unchanged'  # 'unchanged' or 'dhist:path_to_histogram.pth'
 
@@ -388,6 +303,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-    # re-init net, get saliency, use to compute dist of values for each parameter.
-      # can analyze to see patterns or verify thry I suppose

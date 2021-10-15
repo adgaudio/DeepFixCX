@@ -48,7 +48,7 @@ EOF
 done ; done
 }
 
-I3() {
+I3_part1() {
   # find the distribution of weights for each scalar parameter in the network
   for m in nth_most_salient nth_weight ; do
   for sm in "weight*grad" "grad" "weight" ; do
@@ -57,9 +57,14 @@ python bin/find_distribution.py --mode '$m' --saliency_mode '$sm' --base_dir "re
 EOF
   done
   done
+  # also show the distribution for the quantiles of a pre-trained network
+cat<<EOF
+python bin/find_distribution_single_model.py --model 'resnet18:untrained:3:3' --base_dir "results/${V}.I3/histograms_single_model"
+python bin/find_distribution_single_model.py --model 'resnet18:imagenet:3:3' --base_dir "results/${V}.I3/histograms_single_model"
+EOF
 }
 I3_part2() {
-  # initialize model from a histogram for each scalar parameter (deepfix dhist method)
+  # initialize model from a histogram for each scalar parameter obtained by analyzing untrained models (deepfix dhist method) 
   # local fpout=./results/${V}.I3
   # mkdir -p "$fpout"
   # find ./histograms -name "hist_*.pth" | parallel echo \
@@ -68,35 +73,54 @@ I3_part2() {
   local e2="${V}.I3.dhist"
   local e3="${V}.I3.dfhist"
   local e4="${V}.I3.fixed"
+  local e5="${V}.I3.dshist"
   local params=" --model resnet18:untrained:3:3 "
   cat <<EOF
-$e1 python deepfix/train.py     --experiment_id $e1     --deepfix off $params
-$e1.imagenet python deepfix/train.py     --experiment_id $e1.imagenet     --deepfix off
+run $e1 python deepfix/train.py     --experiment_id $e1     --deepfix off $params
+run $e1.imagenet python deepfix/train.py     --experiment_id $e1.imagenet     --deepfix off
 EOF
 cat <<EOF
-$e2.sg python deepfix/train.py  --experiment_id $e2.sg  --deepfix dhist:./results/${V}.I3/histograms/hist_nth_most_salient.wsgrad_resnet18:untrained:3:3.pth $params
-$e2.sw python deepfix/train.py  --experiment_id $e2.sw  --deepfix dhist:./results/${V}.I3/histograms/hist_nth_most_salient.wsweight_resnet18:untrained:3:3.pth $params
-$e2.swg python deepfix/train.py --experiment_id $e2.swg --deepfix dhist:./results/${V}.I3/histograms/hist_nth_most_salient_resnet18:untrained:3:3.pth $params
-$e2.ng python deepfix/train.py  --experiment_id $e2.ng  --deepfix dhist:./results/${V}.I3/histograms/hist_nth_weight.wsgrad_resnet18:untrained:3:3.pth $params
-$e2.nw python deepfix/train.py  --experiment_id $e2.nw  --deepfix dhist:./results/${V}.I3/histograms/hist_nth_weight.wsweight_resnet18:untrained:3:3.pth $params
-$e2.nwg python deepfix/train.py --experiment_id $e2.nwg --deepfix dhist:./results/${V}.I3/histograms/hist_nth_weight_resnet18:untrained:3:3.pth $params
+run $e2.sg python deepfix/train.py  --experiment_id $e2.sg  --deepfix dhist:./results/${V}.I3/histograms/hist_nth_most_salient.wsgrad_resnet18:untrained:3:3.pth $params
+run $e2.sw python deepfix/train.py  --experiment_id $e2.sw  --deepfix dhist:./results/${V}.I3/histograms/hist_nth_most_salient.wsweight_resnet18:untrained:3:3.pth $params
+run $e2.swg python deepfix/train.py --experiment_id $e2.swg --deepfix dhist:./results/${V}.I3/histograms/hist_nth_most_salient_resnet18:untrained:3:3.pth $params
+run $e2.ng python deepfix/train.py  --experiment_id $e2.ng  --deepfix dhist:./results/${V}.I3/histograms/hist_nth_weight.wsgrad_resnet18:untrained:3:3.pth $params
+run $e2.nw python deepfix/train.py  --experiment_id $e2.nw  --deepfix dhist:./results/${V}.I3/histograms/hist_nth_weight.wsweight_resnet18:untrained:3:3.pth $params
+run $e2.nwg python deepfix/train.py --experiment_id $e2.nwg --deepfix dhist:./results/${V}.I3/histograms/hist_nth_weight_resnet18:untrained:3:3.pth $params
 EOF
 cat <<EOF
-$e3.sg python deepfix/train.py  --experiment_id $e3.sg  --deepfix dfhist:./results/${V}.I3/histograms/hist_nth_most_salient.wsgrad_resnet18:untrained:3:3.pth $params
-$e3.sw python deepfix/train.py  --experiment_id $e3.sw  --deepfix dfhist:./results/${V}.I3/histograms/hist_nth_most_salient.wsweight_resnet18:untrained:3:3.pth $params
-$e3.swg python deepfix/train.py --experiment_id $e3.swg --deepfix dfhist:./results/${V}.I3/histograms/hist_nth_most_salient_resnet18:untrained:3:3.pth $params
-$e3.ng python deepfix/train.py  --experiment_id $e3.ng  --deepfix dfhist:./results/${V}.I3/histograms/hist_nth_weight.wsgrad_resnet18:untrained:3:3.pth $params
-$e3.nw python deepfix/train.py  --experiment_id $e3.nw  --deepfix dfhist:./results/${V}.I3/histograms/hist_nth_weight.wsweight_resnet18:untrained:3:3.pth $params
-$e3.nwg python deepfix/train.py --experiment_id $e3.nwg --deepfix dfhist:./results/${V}.I3/histograms/hist_nth_weight_resnet18:untrained:3:3.pth $params
+run $e3.sg python deepfix/train.py  --experiment_id $e3.sg  --deepfix dfhist:./results/${V}.I3/histograms/hist_nth_most_salient.wsgrad_resnet18:untrained:3:3.pth $params
+run $e3.sw python deepfix/train.py  --experiment_id $e3.sw  --deepfix dfhist:./results/${V}.I3/histograms/hist_nth_most_salient.wsweight_resnet18:untrained:3:3.pth $params
+run $e3.swg python deepfix/train.py --experiment_id $e3.swg --deepfix dfhist:./results/${V}.I3/histograms/hist_nth_most_salient_resnet18:untrained:3:3.pth $params
+run $e3.ng python deepfix/train.py  --experiment_id $e3.ng  --deepfix dfhist:./results/${V}.I3/histograms/hist_nth_weight.wsgrad_resnet18:untrained:3:3.pth $params
+run $e3.nw python deepfix/train.py  --experiment_id $e3.nw  --deepfix dfhist:./results/${V}.I3/histograms/hist_nth_weight.wsweight_resnet18:untrained:3:3.pth $params
+run $e3.nwg python deepfix/train.py --experiment_id $e3.nwg --deepfix dfhist:./results/${V}.I3/histograms/hist_nth_weight_resnet18:untrained:3:3.pth $params
 EOF
 cat <<EOF
-$e4 python deepfix/train.py     --experiment_id $e4     --deepfix fixed $params
-$e4.imagenet python deepfix/train.py     --experiment_id $e4.imagenet --deepfix fixed
+run $e4 python deepfix/train.py     --experiment_id $e4     --deepfix fixed $params
+run $e4.imagenet python deepfix/train.py     --experiment_id $e4.imagenet --deepfix fixed
+EOF
+# what happens when you initialize to the distribution of imagenet?  if you lose the pre-training benefit, then the value is in the path through layers.
+# ... the model doesn't learn basically at all.
+cat <<EOF
+run $e5 python deepfix/train.py --experiment_id $e5 --deepfix dfhist:./results/${V}.I3/histograms_single_model/resnet18:imagenet:3:3_weightgrad.pth $params
 EOF
 }
+
+I4() {
+  # try initializing to a U-shaped distribution (Beta distribution with alpha and beta < 1)
+  for pretraining in untrained imagenet ; do
+    for beta in .01 .2 .5 .8 ; do
+    local e="${V}.I4.beta.${beta}.${pretraining}"
+    echo run $e python deepfix/train.py --experiment_id $e --model resnet18:$pretraining:3:3 --deepfix beta:$beta:$beta
+  done
+done
+}
+
 
 
 # I1 | expand 3 | run_gpus 5
 # I2 | run_gpus 5
-# I3 I3_part2| parallel -j 5
-I3_part2 | run_gpus 5
+# I3_part1 | parallel -j 5
+# I3_part2 I3_part2 I3_part2 | parallel -j 5
+# I3_part2 | run_gpus 5
+I4 | parallel -j 1

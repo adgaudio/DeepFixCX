@@ -1,5 +1,37 @@
 from simple_parsing import ArgumentParser
 import torch as T
+from deepfix import weight_saliency as W
+
+
+def init_from_beta(model: T.nn.Module, alpha, beta):
+    """
+    Doesn't work - don't use it.
+
+    Use the same bounds that the Kaiming Uniform distribution uses, but sample
+    only values close to the boundaries.  Do this using a Beta distribution.
+    When both of Beta distribution parameters are less than 1, the distribution
+    is U-shaped and support is [0,1].
+
+    The idea is to address the switch effect by switching all nodes "on" at the
+    start.
+
+    The idea of this initialization is to modify Kaiming Uniform initialization:
+
+        x ~ U[a,b]  (kaiming uniform initialization)
+        x ~ Beta[.3, .3] * (b-a) - a  (our initialization)
+
+        Shares same bounds [a,b].  Doesn't share same variance.
+
+    """
+    pdist = T.distributions.Beta(alpha, beta)
+    bounds = W.get_kaiming_uniform_bounds(model)
+    for param_name, param in model.named_parameters():
+        layer_inst = model.get_submodule(param_name.rsplit('.', 1)[0])
+        if isinstance(layer_inst, (T.nn.modules.conv._ConvNd, T.nn.Linear)):
+            a,b = bounds[param_name]
+            param.data[:] = pdist.sample(param.shape) * (b-a) + a
+        #  else:
+            #  print('skip', layer_inst)
 
 
 def init_from_hist_(model:T.nn.Module, hist:dict[str, (T.Tensor, T.Tensor)]):
@@ -21,15 +53,17 @@ def init_from_hist_(model:T.nn.Module, hist:dict[str, (T.Tensor, T.Tensor)]):
     """
     for param_name in hist:
         counts, bin_edges = hist[param_name]
+        if counts.ndim == 1:
+            counts = counts.reshape(1,-1)
         bin_centers = (bin_edges[:-1] + bin_edges[1:])/2
         param = model.get_parameter(param_name)
         # convert histogram to cumulative probability distribution
-        cs = counts.cumsum(1)
+        cs = counts.cumsum(1).float()
         cs /= cs[:,[-1]]
         assert T.allclose(cs[:,-1], T.tensor(1.))
         # for each weight parameter, sample a value from the distribution
-        sample = T.rand((counts.shape[0], 1))
-        csbins = T.searchsorted(cs, sample)
+        sample = T.rand((param.numel(), 1), device=cs.device)
+        csbins = T.searchsorted(cs.expand((sample.shape[0], cs.shape[1])), sample)
         values = bin_centers[csbins]
         # add noise, staying within boundary of a bin
         bin_width = bin_edges[1] - bin_edges[0]
