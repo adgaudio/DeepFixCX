@@ -1,18 +1,17 @@
 import torch as T
-from typing import Optional
 from simple_parsing import ArgumentParser, choice
 from os import makedirs
 from dataclasses import dataclass
 from deepfix.train import TrainOptions, train_config
+from deepfix import init_from_distribution as DI
 from deepfix import weight_saliency as W
-from deepfix.init_from_distribution import 
 
 
 def reinit_model(model:T.nn.Module, bn=False):
     for name, param in model.named_parameters():
         layer = model.get_submodule(name.rsplit('.', 1)[0])
         if isinstance(layer, (T.nn.modules.conv._ConvNd, T.nn.Linear)):
-            W.reinitialize_parameters_(name, layer, param)
+            DI.reinitialize_parameters_(name, layer, param)
         elif isinstance(layer, T.nn.modules.batchnorm._NormBase):
             pass
         else:
@@ -85,7 +84,7 @@ if __name__ == "__main__":
     for i in range(args.Options.iters):
         print('iter', i)
         if ranges is None:
-            ranges = W.get_kaiming_uniform_bounds(mdl)
+            ranges = DI.get_kaiming_uniform_bounds(mdl)
         reinit_model(mdl)
         # observe saliency of weights
         sr:W.SaliencyResult = W.get_saliency(

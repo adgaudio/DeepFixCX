@@ -1,1 +1,1 @@
-from .effnetv2 import (effnetv2_s, effnetv2_m, effnetv2_l, effnetv2_xl, EffNetV2)
+from .api import get_effnetv2, get_resnet, get_efficientnetv1
