@@ -118,7 +118,6 @@ done
 
 
 E1() {
-
   echo run E1.resnet18.IntelMobileODT  python deepfix/train.py  --experiment_id E1.resnet18.IntelMobileODT  --deepfix off
   # for layer in pointwise spatial ; do
     # for model in resnet18:imagenet:1 efficientnet-b0:imagenetadv:1 ; do
@@ -129,6 +128,15 @@ E1() {
   echo python bin/vis_p2.py --layer pointwise --model resnet18:IntelMobileODT:3 --dset IntelMobileODT --allplots
 }
 
+E2() {
+  local args=" --dset intel_mobileodt:train:val:test:v1 --model resnet18:imagenet:3:3 --epochs 300"
+  cat <<EOF
+  run E2.IntelMobileODT.resnet18.baseline    python deepfix/train.py --deepfix off          $args
+  run E2.IntelMobileODT.resnet18.ghaarconv2d: python deepfix/train.py --deepfix ghaarconv2d:  $args
+  run E2.IntelMobileODT.resnet18.ghaarconv2d:conv1 python deepfix/train.py --deepfix ghaarconv2d:conv1  $args
+EOF
+}
+
 
 # I1 | expand 3 | run_gpus echo 5
 # I2 | run_gpus 5
@@ -137,4 +145,7 @@ E1() {
 # I3_part2 | run_gpus 5
 # I4 | parallel -j 1
 
-E1 | parallel -j 1
+# E1 | parallel -j 1
+# for i in {1..6} ; do
+E2 | parallel -j 2
+# done

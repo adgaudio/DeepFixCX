@@ -95,3 +95,46 @@ class GHaarConv2d(T.nn.Module):
             self.filters = None
             filters = self.ghaar(self.kernel_size, self.hvdf, constrain_f=self.constrain_f)
         return T.conv2d(x, filters, **self.conv2d_hyperparams)
+
+
+def convert_conv2d_to_gHaarConv2d(
+        model: T.nn.Module, ignore_layers:list[str] = (), kwargs:dict=None):
+    """Replace all spatial Conv2d layers with GHaarConv2d(**kwargs),
+    where kwargs overrides any defaults already defined in conv2d layer.
+    Idea adapted from https://discuss.pytorch.org/t/replacing-convs-modules-with-custom-convs-then-notimplementederror/17736/8
+
+    Note: GHaarConv2d doesn't support padding_mode.
+    """
+    recurse_on_these = []
+    for attr_name, conv2d in model.named_children():
+        if not isinstance(conv2d, T.nn.Conv2d):
+            recurse_on_these.append(conv2d)
+            continue
+        if conv2d.kernel_size[0] <= 1 or conv2d.kernel_size[1] <= 1:
+            continue
+        if attr_name in ignore_layers:
+            print("SKIP", attr_name)
+            continue
+        kws = dict(
+            in_channels=conv2d.in_channels,
+            out_channels=conv2d.out_channels,
+            kernel_size=conv2d.kernel_size, stride=conv2d.stride,
+            padding=conv2d.padding, dilation=conv2d.dilation,
+            groups=conv2d.groups, bias=conv2d.bias)
+        kws.update(kwargs or {})
+        new_conv2d = GHaarConv2d(**kws).to(conv2d.weight.device)
+        from efficientnet_pytorch.utils import Conv2dStaticSamePadding
+        if isinstance(conv2d, Conv2dStaticSamePadding):
+            # workaround for efficientnet
+            new_conv2d = T.nn.Sequential(
+                conv2d.static_padding,
+                new_conv2d)
+        elif issubclass(conv2d.__class__, T.nn.Conv2d) and conv2d.__class__ != T.nn.Conv2d:
+            print(
+                f"WARNING: converted an instance of {conv2d.__class__}that inherits from conv2d to"
+                " a GHaarConv2d.  This might cause bugs.")
+        setattr(model, attr_name, new_conv2d)
+    # --> recursive through child modules.
+    for child_module in recurse_on_these:
+        convert_conv2d_to_gHaarConv2d(child_module, ignore_layers, kwargs)
+    return model

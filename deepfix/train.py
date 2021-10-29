@@ -4,6 +4,7 @@ with varying config.
 
 I wish a machine could automate setting up decent baseline models and datasets
 """
+import os
 from os.path import exists
 import pampy
 from simple_parsing import ArgumentParser, choice
@@ -18,6 +19,7 @@ import torch as T
 import torchvision.transforms as tvt
 
 from deepfix.models import get_effnetv2, get_resnet, get_efficientnetv1
+from deepfix.models.ghaarconv import convert_conv2d_to_gHaarConv2d
 from deepfix.init_from_distribution import init_from_beta
 from deepfix import deepfix_strategies as dfs
 
@@ -200,8 +202,11 @@ def get_deepfix_train_strategy(deepfix_spec:str):
     elif deepfix_spec.startswith('beta:'):
         alpha, beta = deepfix_spec.split(':')[1:]
         return dfs.DeepFix_LambdaInit(init_from_beta, args=(float(alpha), float(beta)))
-    elif deepfix_spec == 'ghaarconv2d':
-        return dfs.DeepFix_GHaarConv2d()
+    elif deepfix_spec.startswith('ghaarconv2d:'):
+        ignore_layers = deepfix_spec.split(':')[1].split(',')
+        return dfs.DeepFix_LambdaInit(
+            convert_conv2d_to_gHaarConv2d, kwargs=dict(
+                ignore_layers=ignore_layers, ))
     else:
         raise NotImplementedError(deepfix_spec)
 
@@ -236,8 +241,9 @@ class TrainOptions:
     deepfix:str = 'off'  # DeepFix Re-initialization Method.
                          #  "off" or "reinit:N:P:R" or "d[f]hist:path_to_histogram.pth"
                          #  or "beta:A:B" for A,B as (float) parameters of the beta distribution
-                         # 'ghaarconv2d' Replaces all spatial convolutions with GHaarConv2d layer
-    experiment_id:str = 'debugging'
+                         # 'ghaarconv2d:layer1,layer2' Replaces all spatial convolutions with GHaarConv2d layer except the specified layers
+    experiment_id:str = os.environ.get('run_id', 'debugging')
+    prune:str = 'off'
 
     def execute(self):
         cfg = train_config(self)
@@ -250,6 +256,20 @@ def main():
     args = p.parse_args().TrainOptions
     print(args)
     cfg = train_config(args)
+
+    if args.prune != 'off':
+        assert args.prune.startswith('ChannelPrune:')
+        raise NotImplementedError('code is a bit hardcoded, so it is not available without hacking on it.')
+        print(args.prune)
+        from explainfix import channelprune
+        from deepfix.weight_saliency import costfn_multiclass
+        a = sum([x.numel() for x in cfg.model.parameters()])
+        channelprune(cfg.model, pct=5, grad_cost_fn=costfn_multiclass,
+                     loader=cfg.train_loader, device=cfg.device, num_minibatches=10)
+        b = sum([x.numel() for x in cfg.model.parameters()])
+        assert a/b != 1
+        print(f'done channelpruning.  {a/b}')
+
     cfg.train(cfg)
 
 
