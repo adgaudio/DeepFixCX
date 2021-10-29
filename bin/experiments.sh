@@ -117,10 +117,24 @@ done
 }
 
 
+E1() {
 
-# I1 | expand 3 | run_gpus 5
+  echo run E1.resnet18.IntelMobileODT  python deepfix/train.py  --experiment_id E1.resnet18.IntelMobileODT  --deepfix off
+  # for layer in pointwise spatial ; do
+    # for model in resnet18:imagenet:1 efficientnet-b0:imagenetadv:1 ; do
+      # for dset in CheXpert ; do
+        # echo python bin/vis_p2.py --layer $layer --model $model --dset $dset --allplots
+    # done ; done
+  # done
+  echo python bin/vis_p2.py --layer pointwise --model resnet18:IntelMobileODT:3 --dset IntelMobileODT --allplots
+}
+
+
+# I1 | expand 3 | run_gpus echo 5
 # I2 | run_gpus 5
 # I3_part1 | parallel -j 5
 # I3_part2 I3_part2 I3_part2 | parallel -j 5
 # I3_part2 | run_gpus 5
-I4 | parallel -j 1
+# I4 | parallel -j 1
+
+E1 | parallel -j 1

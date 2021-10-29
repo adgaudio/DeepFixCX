@@ -161,7 +161,7 @@ Y, YHat, Scalar = T.Tensor, T.Tensor, T.Tensor  # for type checking
 
 
 def reinitialize_least_salient(
-        cost_fn: Callable[('Y', 'YHat'), 'Scalar'],
+        cost_fn: Callable[('YHat', 'Y'), 'Scalar'],
         model:T.nn.Module, loader:T.utils.data.DataLoader,
         device:str, M:int, frac:float, opt:Optional[T.optim.Optimizer],
         reinitialize_fn:Callable[[str,T.nn.Module],T.Tensor]=reinitialize_parameters_

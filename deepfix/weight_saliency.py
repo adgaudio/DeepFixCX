@@ -34,7 +34,7 @@ class SaliencyResult:
             yield self.ParamSaliencyResult(a,b,c)
 
 
-def costfn_multiclass(y:T.Tensor, yhat:T.Tensor, gain=100):  #, use_sigmoid:bool=False):
+def costfn_multiclass(yhat:T.Tensor, y:T.Tensor, gain=100):  #, use_sigmoid:bool=False):
     """
     Multi-class cost function for weight saliency of correct outputs.
 
@@ -68,7 +68,7 @@ Y, YHat, Scalar = T.Tensor, T.Tensor, T.Tensor  # for type checking
 
 
 def get_saliency(
-        cost_fn: Callable[('Y', 'YHat'), 'Scalar'],
+        cost_fn: Callable[('YHat', 'Y'), 'Scalar'],
         model:T.nn.Module, loader:T.utils.data.DataLoader,
         device:str, num_minibatches:int=float('inf'),
     mode:str = 'weight*grad', param_names:Optional[list[str]]=None
@@ -77,7 +77,7 @@ def get_saliency(
     Args:
         num_minibatches: Num minibatches from `loader` to get saliency scores.
         cost_fn: reduces y and yhat to a scalar to compute gradient.
-            For example: `cost_fn = lambda y,yh: (y*yh).sum()`
+            For example: `cost_fn = lambda yh,y: (yh*y).sum()`
         mode: How to compute saliency. One of {'weight*grad', 'grad'}
     """
     model.to(device, non_blocking=True)
@@ -112,7 +112,7 @@ def get_saliency(
 
         # get gradients, making all predictions for correct classes correct
         #  (y*yhat).sum().backward(retain_graph=False)
-        grads = T.autograd.grad(cost_fn(y, yhat), weights, retain_graph=False)
+        grads = T.autograd.grad(cost_fn(yhat, y), weights, retain_graph=False)
         with T.no_grad():
             #  for filters, grads in zip(filters_all_layers, grads_all_layers):
             if mode == 'weight*grad':

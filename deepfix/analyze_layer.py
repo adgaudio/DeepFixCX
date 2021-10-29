@@ -114,6 +114,7 @@ def analyze_model_at_modules(
             X = X.to(device, non_blocking=True)
             y = y.to(device, non_blocking=True)
             del pre_acts[:], post_acts[:]
+            X.requires_grad_(True)
             yhat = model(X)
             loss = grad_cost_fn(yhat, y)
             grads_w = T.autograd.grad(loss, params_flat, retain_graph=True)
@@ -135,7 +136,7 @@ def analyze_model_at_modules(
                     grad_output=grads_post[i].detach().cpu(),
                 )
                 tmp = dict(named_params)
-                if len(tmp) < 2 and not set(tmp).difference({'weight', 'bias'}):
+                if len(tmp) <= 2 and not set(tmp).difference({'weight', 'bias'}):
                     dp = LayerDataPoint(
                         weight=tmp['weight'].detach().cpu(),
                         grad_weight=grads_w[lookup_param_to_flatidx[(module_name, 'weight')]].detach().cpu(),
