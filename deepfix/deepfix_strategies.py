@@ -2,8 +2,9 @@ from typing import Callable
 import dataclasses as dc
 import torch as T
 from simplepytorch import trainlib as TL
-from deepfix.weight_saliency import  costfn_multiclass
+from deepfix.weight_saliency import costfn_multiclass
 from deepfix.init_from_distribution import init_from_hist_, reinitialize_least_salient
+from deepfix.models.ghaarconv import GHaarConv2d
 
 
 class DeepFix_TrainOneEpoch:
@@ -63,6 +64,55 @@ class DeepFix_LambdaInit:
             self.init_fn(cfg.model, *self.args)
         return self.train_one_epoch_fn(cfg)
 
+
+@dc.dataclass
+class DeepFix_GHaarConv2d:
+    train_one_epoch_fn:Callable[TL.TrainConfig, TL.Result] = TL.train_one_epoch
+    kwargs:dict = dc.field(default_factory=dict)
+
+    def __call__(self, cfg: TL.TrainConfig):
+        print('Replace Spatial Conv2d layers with GHaarConv2d')
+        DeepFix_GHaarConv2d.convert_conv2d_to_gHaarConv2d(cfg.model, self.kwargs)
+        return self.train_one_epoch_fn(cfg)
+
+    @staticmethod
+    def convert_conv2d_to_gHaarConv2d(model: T.nn.Module, kwargs):
+        """Replace all spatial Conv2d layers with GHaarConv2d(**kwargs),
+        where kwargs overrides any defaults already defined in conv2d layer.
+        Idea adapted from https://discuss.pytorch.org/t/replacing-convs-modules-with-custom-convs-then-notimplementederror/17736/8
+
+        Note: GHaarConv2d doesn't support padding_mode.
+        """
+        recurse_on_these = []
+        for attr_name, conv2d in model.named_children():
+            if not isinstance(conv2d, T.nn.Conv2d):
+                recurse_on_these.append(conv2d)
+                continue
+            if conv2d.kernel_size[0] <= 1 or conv2d.kernel_size[1] <= 1:
+                continue
+            kws = dict(
+                in_channels=conv2d.in_channels,
+                out_channels=conv2d.out_channels,
+                kernel_size=conv2d.kernel_size, stride=conv2d.stride,
+                padding=conv2d.padding, dilation=conv2d.dilation,
+                groups=conv2d.groups, bias=conv2d.bias)
+            kws.update(kwargs)
+            new_conv2d = GHaarConv2d(**kws).to(conv2d.weight.device)
+            from efficientnet_pytorch.utils import Conv2dStaticSamePadding
+            if isinstance(conv2d, Conv2dStaticSamePadding):
+                # workaround for efficientnet
+                new_conv2d = T.nn.Sequential(
+                    conv2d.static_padding,
+                    new_conv2d)
+            elif issubclass(conv2d.__class__, T.nn.Conv2d) and conv2d.__class__ != T.nn.Conv2d:
+                print(
+                    f"WARNING: converted an instance of {conv2d.__class__}that inherits from conv2d to"
+                    " a GHaarConv2d.  This might cause bugs.")
+            setattr(model, attr_name, new_conv2d)
+        # --> recursive through child modules.
+        for child_module in recurse_on_these:
+            DeepFix_GHaarConv2d.convert_conv2d_to_gHaarConv2d(child_module, kwargs)
+        return model
 
 @dc.dataclass
 class DeepFix_DHist:

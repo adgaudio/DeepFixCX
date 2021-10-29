@@ -200,6 +200,8 @@ def get_deepfix_train_strategy(deepfix_spec:str):
     elif deepfix_spec.startswith('beta:'):
         alpha, beta = deepfix_spec.split(':')[1:]
         return dfs.DeepFix_LambdaInit(init_from_beta, args=(float(alpha), float(beta)))
+    elif deepfix_spec == 'ghaarconv2d':
+        return dfs.DeepFix_GHaarConv2d()
     else:
         raise NotImplementedError(deepfix_spec)
 
@@ -234,8 +236,8 @@ class TrainOptions:
     deepfix:str = 'off'  # DeepFix Re-initialization Method.
                          #  "off" or "reinit:N:P:R" or "d[f]hist:path_to_histogram.pth"
                          #  or "beta:A:B" for A,B as (float) parameters of the beta distribution
+                         # 'ghaarconv2d' Replaces all spatial convolutions with GHaarConv2d layer
     experiment_id:str = 'debugging'
-    init:str = 'unchanged'  # 'unchanged' or 'dhist:path_to_histogram.pth'
 
     def execute(self):
         cfg = train_config(self)
