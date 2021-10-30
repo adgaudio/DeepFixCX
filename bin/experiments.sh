@@ -129,11 +129,11 @@ E1() {
 }
 
 E2() {
-  local args=" --dset intel_mobileodt:train:val:test:v1 --model resnet18:imagenet:3:3 --epochs 300"
+  local args=" --dset intel_mobileodt:train+additional:val:test:v1 --model resnet18:imagenet:3:3 --epochs 300"
   cat <<EOF
-  run E2.IntelMobileODT.resnet18.baseline    python deepfix/train.py --deepfix off          $args
-  run E2.IntelMobileODT.resnet18.ghaarconv2d: python deepfix/train.py --deepfix ghaarconv2d:  $args
-  run E2.IntelMobileODT.resnet18.ghaarconv2d:conv1 python deepfix/train.py --deepfix ghaarconv2d:conv1  $args
+  E2.IntelMobileODT.resnet18.baseline          python deepfix/train.py --deepfix off                $args
+  E2.IntelMobileODT.resnet18.ghaarconv2d:      python deepfix/train.py --deepfix ghaarconv2d:       $args
+  E2.IntelMobileODT.resnet18.ghaarconv2d:conv1 python deepfix/train.py --deepfix ghaarconv2d:conv1  $args
 EOF
 }
 
@@ -147,5 +147,5 @@ EOF
 
 # E1 | parallel -j 1
 # for i in {1..6} ; do
-E2 | parallel -j 2
+E2 | run_gpus 3
 # done

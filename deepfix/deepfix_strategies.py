@@ -60,8 +60,7 @@ class DeepFix_LambdaInit:
     def __call__(self, cfg: TL.TrainConfig):
         if not self._called:
             self._called = True
-            print(f"DeepFix {self.init_fn.__name__}{self.args}, {self.kwargs}")
-            self.init_fn(cfg.model, *self.args, **self.kwargs)
+            self.init_fn(cfg, *self.args, **self.kwargs)
         return self.train_one_epoch_fn(cfg)
 
 

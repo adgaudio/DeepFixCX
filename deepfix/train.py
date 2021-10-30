@@ -12,7 +12,7 @@ from simplepytorch import datasets as D
 from simplepytorch import trainlib as TL
 from sklearn.model_selection import StratifiedShuffleSplit
 from torch.utils.data import Dataset, DataLoader
-from typing import Union
+from typing import Union, Optional
 import dataclasses as dc
 import numpy as np
 import torch as T
@@ -20,7 +20,7 @@ import torchvision.transforms as tvt
 
 from deepfix.models import get_effnetv2, get_resnet, get_efficientnetv1
 from deepfix.models.ghaarconv import convert_conv2d_to_gHaarConv2d
-from deepfix.init_from_distribution import init_from_beta
+from deepfix.init_from_distribution import init_from_beta, reset_optimizer
 from deepfix import deepfix_strategies as dfs
 
 
@@ -46,6 +46,8 @@ LOSS_FNS = {
 DSETS = {
     ('intel_mobileodt', str, str, str, str): (
         lambda train, val, test, aug: get_dset_intel_mobileodt(train, val, test, aug)),
+    #  ('origa', ... todo): ( lambda ...: get_dset_origa(...)
+    #  ('riga', ... todo): ( lambda ...: get_dset_riga(...)
 }
 
 
@@ -77,7 +79,7 @@ def onehot(y, nclasses):
 
 
 def get_dset_intel_mobileodt(stage_trainval:str, use_val:str, stage_test:str, augment:str
-                             ) -> (dict[str,Union[Dataset,DataLoader]], tuple[str]):
+                             ) -> (dict[str,Optional[Union[Dataset,DataLoader]]], tuple[str]):
     """Obtain train/val/test splits for the IntelMobileODT Cervical Cancer
     Colposcopy dataset, and the data loaders.
 
@@ -162,11 +164,8 @@ def get_model_opt(model_spec:str, opt_spec:str, device:str
     """
     mdl = match(model_spec, MODELS)
     mdl = mdl.to(device, non_blocking=True)
-    # optimizer
-    spec = opt_spec.split(':')
-    kls = getattr(T.optim, spec[0])
-    params = [(x,float(y)) for x,y in [kv.split('=') for kv in spec[1:]]]
-    return dict(model=mdl, optimizer=kls(mdl.parameters(), **dict(params)))
+    optimizer = reset_optimizer(opt_spec, mdl)
+    return dict(model=mdl, optimizer=optimizer)
 
 
 def get_lossfn(loss_spec:str) -> T.nn.Module:
@@ -183,7 +182,8 @@ def get_dset_loaders_resultfactory(dset_spec:str) -> dict:
     return dct
 
 
-def get_deepfix_train_strategy(deepfix_spec:str):
+def get_deepfix_train_strategy(args:'TrainOptions'):
+    deepfix_spec = args.deepfix
     if deepfix_spec == 'off':
         return TL.train_one_epoch
     elif deepfix_spec.startswith('reinit:'):
@@ -201,12 +201,17 @@ def get_deepfix_train_strategy(deepfix_spec:str):
         return dfs.DeepFix_DHist('', fixed=True, init_with_hist=False)
     elif deepfix_spec.startswith('beta:'):
         alpha, beta = deepfix_spec.split(':')[1:]
-        return dfs.DeepFix_LambdaInit(init_from_beta, args=(float(alpha), float(beta)))
+        return dfs.DeepFix_LambdaInit(
+            lambda cfg: init_from_beta(cfg.model, float(alpha), float(beta)))
     elif deepfix_spec.startswith('ghaarconv2d:'):
         ignore_layers = deepfix_spec.split(':')[1].split(',')
         return dfs.DeepFix_LambdaInit(
-            convert_conv2d_to_gHaarConv2d, kwargs=dict(
-                ignore_layers=ignore_layers, ))
+            lambda cfg: (
+                print(f'initialize {deepfix_spec}'),
+                convert_conv2d_to_gHaarConv2d(cfg.model, ignore_layers=ignore_layers),
+                reset_optimizer(args.opt, cfg.model),
+                print(cfg.model)
+            ))
     else:
         raise NotImplementedError(deepfix_spec)
 
@@ -218,7 +223,7 @@ def train_config(args:'TrainOptions') -> TL.TrainConfig:
         **get_dset_loaders_resultfactory(args.dset),
         device=args.device,
         epochs=args.epochs,
-        train_one_epoch=get_deepfix_train_strategy(args.deepfix),
+        train_one_epoch=get_deepfix_train_strategy(args),
         experiment_id=args.experiment_id,
     )
 
