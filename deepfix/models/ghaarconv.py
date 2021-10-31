@@ -42,11 +42,11 @@ class GHaarConv2d(T.nn.Module):
         self.filters = None  # filters are cached in eval mode.
         self.constrain_f = constrain_f
 
-    def reset_parameters(self, fmin=0, fmax=5) -> None:
+    def reset_parameters(self) -> None:
         # init h, v, d weights
         T.nn.init.uniform_(self.hvdf[..., :3], -1, 1)
         # init frequency
-        T.nn.init.uniform_(self.hvdf[..., 3], fmin, fmax)
+        T.nn.init.uniform_(self.hvdf[..., 3], 0, 2*(T.mean(self.kernel_size)-1))
         # bias, if enabled
         if self.bias is not None:  # kaiming uniform initialization
             in_ch = self.hvdf.shape[1]
