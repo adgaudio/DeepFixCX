@@ -42,7 +42,7 @@ def _modify_conv2d(conv2d:T.nn.Module, in_channels:int, ):
         if in_channels < conv2d.in_channels:
             conv2d.weight = T.nn.Parameter(conv2d.weight.data[:,[1],:,:])
         else:
-            raise NotImplementedError('code for this written but not tested')
+            #  raise NotImplementedError('code for this written but not tested')
             O,_,H,W = conv2d.weight.shape
             tmp = T.empty(
                 (O,in_channels,H,W),

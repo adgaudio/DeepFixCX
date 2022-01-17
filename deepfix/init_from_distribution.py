@@ -77,7 +77,11 @@ def init_from_hist_(model:T.nn.Module, hist:dict[str, (T.Tensor, T.Tensor)]):
 
 def reset_optimizer(opt_spec:str, model:T.nn.Module) -> T.optim.Optimizer:
     spec = opt_spec.split(':')
-    kls = getattr(T.optim, spec[0])
+    if opt_spec.startswith('AdaBound'):
+        import adabound  # trying this out.
+        kls = adabound.AdaBound
+    else:
+        kls = getattr(T.optim, spec[0])
     params = [(x,float(y)) for x,y in [kv.split('=') for kv in spec[1:]]]
     optimizer = kls(model.parameters(), **dict(params))
     return optimizer

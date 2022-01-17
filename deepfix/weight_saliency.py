@@ -36,24 +36,29 @@ class SaliencyResult:
 
 def costfn_multiclass(yhat:T.Tensor, y:T.Tensor, gain=100):  #, use_sigmoid:bool=False):
     """
-    Multi-class cost function for weight saliency of correct outputs.
+    Multi-class cost function for attributing saliency of correct outputs.
 
-    Compute `(yhat * w).sum()` and the gradient w.r.t `yhat` is `w`.
-    Just ignore model predictions `yhat`.
+    Compute `(yhat * w).sum()*gain` for a weight w that is positive for the
+    correct class and negative for incorrect classes, and satisfying `w.sum()
+    == 0` so saliency of predictions for correct and incorrect classes are
+    equal.
 
-    NOTE: The function doesn't matter much.  Just `yhat.sum()` gives nearly the
-    same results.
+    NOTE: The function doesn't matter much.  Just `yhat.sum()`
+    gives nearly the same results.
 
     Args:
         y: tensor of shape (B, ) containing class indices for each of B samples.
         yhat: tensor of shape (B, C) containing predictions of C classes for
             each of B samples
 
-    Backpropagion pushes the distribution `w = f(y)` through the network.
+    Backpropagation pushes the distribution `w = f(y)` through the network.
 
     `w` is defined as:
         - positive for correct class, negative for incorrect classes
         - constraint: the total sum of pos + neg = 0
+        - The vector `w` represents the correct class as +0.5 and remaining C-1
+          incorrect classes as -0.5/(C-1) so that we model how well predictions
+          agree with picking correct and incorrect classes
     """
     B,C = yhat.shape
     assert y.shape == (B,)

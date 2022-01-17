@@ -1,0 +1,4 @@
+source /opt/anaconda/bin/activate
+conda activate deepfix
+echo "Conda environment activated: deepfix"
+which python

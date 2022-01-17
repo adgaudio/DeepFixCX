@@ -1,2 +1,2 @@
 # DeepFix
-DeepFix: Weight Re-initialization (code)
+DeepFix: privacy preserving and explainable fixed weight compression for x-ray classification.

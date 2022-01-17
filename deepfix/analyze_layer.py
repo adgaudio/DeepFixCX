@@ -109,12 +109,12 @@ def analyze_model_at_modules(
         _analyze_model_at_modules__setup(model, module_names)
     # collect data with forward and backward passes
     returned_results = {mn: [] for mn in module_names}
-    for i, (module_name, named_params) in enumerate(all_named_params):
-        for jth_minibatch, (X, y) in enumerate(loader):
-            X = X.to(device, non_blocking=True)
-            y = y.to(device, non_blocking=True)
+    for jth_minibatch, (X, y) in enumerate(loader):
+        X = X.to(device, non_blocking=True)
+        y = y.to(device, non_blocking=True)
+        X.requires_grad_(True)
+        for i, (module_name, named_params) in enumerate(all_named_params):
             del pre_acts[:], post_acts[:]
-            X.requires_grad_(True)
             yhat = model(X)
             loss = grad_cost_fn(yhat, y)
             grads_w = T.autograd.grad(loss, params_flat, retain_graph=True)
