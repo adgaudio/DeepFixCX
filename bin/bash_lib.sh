@@ -119,12 +119,12 @@ function _lockfile_trap_exit() {
     local state='success'
     _lockfile_increment_stats "$lockfile_fp" 1 0 true
   fi
-  echo -e "STATE=$state\tDATE=\"$(date)\"\tHOSTNAME=\"$(hostname)\"" >> ${lockfile_fp}.log
   # remove the counter for the current job
   rm $__lockfile_active_job_fp
   # try to remove the tmp directory for active jobs associated with this
   # lock in case no jobs are actively running.
   rmdir $(_lockfile_get_tmpdir "$lockfile_fp") 2>/dev/null || true
+  echo -e "STATE=$state\tDATE=\"$(date)\"\tHOSTNAME=\"$(hostname)\"" >> ${lockfile_fp}.log
 }
 export -f _lockfile_trap_exit
 function _lockfile_trap_err() {
