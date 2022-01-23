@@ -204,7 +204,6 @@ def get_dset_chexpert(train_frac=.8, val_frac=.2, small=False,
         class_names = list(range(num_identities))
         get_ylabels = lambda dct: \
                 (D.CheXpert.format_labels(dct, labels=['index']) % num_identities).long()
-        ;
     else:
         raise NotImplementedError(f"unrecognized labels: {labels}")
     kws = dict(
