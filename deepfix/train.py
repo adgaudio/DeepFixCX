@@ -306,10 +306,10 @@ def get_dset_intel_mobileodt(stage_trainval:str, use_val:str, stage_test:str, au
 
 
 LOSS_FNS = {
-    ('BCEWithLogitsLoss', ): lambda _, out_ch: T.nn.BCEWithLogitsLoss(),
-    ('CrossEntropyLoss', ): lambda _, out_ch: T.nn.CrossEntropyLoss(),
-    ('CE_intelmobileodt', ): lambda _, out_ch: loss_intelmobileodt,
-    ('chexpert_uignore', ): lambda _, out_ch: LossCheXpertUignore(),
+    ('BCEWithLogitsLoss', ): lambda _: T.nn.BCEWithLogitsLoss(),
+    ('CrossEntropyLoss', ): lambda _: T.nn.CrossEntropyLoss(),
+    ('CE_intelmobileodt', ): lambda _: loss_intelmobileodt,
+    ('chexpert_uignore', ): lambda _: LossCheXpertUignore(),
     ('chexpert_identity', str): lambda out_ch: LossCheXpertIdentity(N=int(out_ch)),
 }
 
