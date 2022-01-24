@@ -203,7 +203,7 @@ def get_dset_chexpert(train_frac=.8, val_frac=.2, small=False,
     elif labels == 'identity':
         class_names = list(range(num_identities))
         get_ylabels = lambda dct: \
-            (D.CheXpert.format_labels(dct, labels=['index']) % num_identities).long()
+                (D.CheXpert.format_labels(dct, labels=['index']) % num_identities).long()
     else:
         raise NotImplementedError(f"unrecognized labels: {labels}")
     kws = dict(
@@ -230,7 +230,7 @@ def get_dset_chexpert(train_frac=.8, val_frac=.2, small=False,
     test_dset = kls(use_train_set=False, **kws)
     batch_dct = dict(
         batch_size=15, collate_fn=_upsample_pad_minibatch_imgs_to_same_size,
-        num_workers=int(os.environ.get("num_workers", 0)))  # upsample pad must take time
+        num_workers=int(os.environ.get("num_workers", 4)))  # upsample pad must take time
     train_loader=DataLoader(train_dset, shuffle=True, **batch_dct)
     val_loader=DataLoader(val_dset, **batch_dct)
     test_loader=DataLoader(test_dset, **batch_dct)
