@@ -21,6 +21,27 @@ def get_resnet(name, pretraining, in_channels, out_channels):
     return mdl
 
 
+def get_densenet(name:str, pretraining:str, in_channels:int, out_channels:int) -> tvm.DenseNet:
+    assert pretraining in {'imagenet', 'untrained', 'EFimagenet', 'EFuntrained'}
+    mdl = getattr(tvm, name)(
+        pretrained=True if 'imagenet' in pretraining else False)
+    if pretraining.startswith('EF'):
+        import explainfix
+        explainfix.fix_spatial_conv2d(mdl)
+    # ensure the first conv layer has in_channels
+    z = mdl.features.conv0.weight.data
+    if z.shape[1] >= in_channels:
+        mdl.features.conv0.weight.data = mdl.features.conv0.weight.data[:, :in_channels]
+    else:
+        mdl.features.conv0.weight.data = z.new_empty(z.shape[0], in_channels, *z.shape[2:])
+        T.nn.init.kaiming_normal_(mdl.features.conv0.weight)
+    assert mdl.features.conv0.weight.shape[1] == in_channels
+    mdl.features.conv0.in_channels = in_channels
+    # ensure the final layer has out_channels
+    mdl.classifier = T.nn.Linear(1024, out_channels, bias=True)
+    return mdl
+
+
 def get_efficientnetv1(name, pretraining, in_channels, out_channels):
     assert pretraining in {'untrained', 'imagenet', 'imagenetadv'}
     if pretraining == 'imagenetadv':
