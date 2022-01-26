@@ -194,18 +194,22 @@ def get_dset_chexpert(train_frac=.8, val_frac=.2, small=False,
         )
     """
     _label_cleanup_dct = dict(D.CheXpert.LABEL_CLEANUP_DICT)
-    if labels == 'diagnostic':
-        class_names = D.CheXpert.LABELS_DIAGNOSTIC
-        for k in class_names:
-            _label_cleanup_dct[k][np.nan] = 0  # remap missing value to negative
-        get_ylabels = lambda dct: \
-                D.CheXpert.format_labels(dct, labels=class_names).float()
-    elif labels == 'identity':
+    if labels == 'identity':
         class_names = list(range(num_identities))
         get_ylabels = lambda dct: \
                 (D.CheXpert.format_labels(dct, labels=['index']) % num_identities).long()
     else:
-        raise NotImplementedError(f"unrecognized labels: {labels}")
+        if labels == 'diagnostic':
+            class_names = D.CheXpert.LABELS_DIAGNOSTIC
+        elif labels == 'leaderboard':
+            class_names = D.CheXpert.LABELS_DIAGNOSTIC_LEADERBOARD
+        else:
+            class_names = [x.replace('_', ' ') for x in labels.split(',')]
+            assert all(x in D.CheXpert.LABELS_ALL for x in class_names), f'unrecognized class names: {labels}'
+        for k in class_names:
+            _label_cleanup_dct[k][np.nan] = 0  # remap missing value to negative
+        get_ylabels = lambda dct: \
+                D.CheXpert.format_labels(dct, labels=class_names).float()
     kws = dict(
         img_transform=tvt.Compose([
             #  tvt.RandomCrop((512, 512)),
@@ -324,6 +328,14 @@ DSETS = {
     ('chexpert_small', str, str): (
         lambda train_frac, val_frac: get_dset_chexpert(
             float(train_frac), float(val_frac), small=True, labels='diagnostic')),
+    ('chexpert_small', str, str, str): (
+        lambda train_frac, val_frac, labels: get_dset_chexpert(
+            float(train_frac), float(val_frac), small=True, labels=labels)),
+    # chexpert_small:.1:.1:diagnostic  # all 14 classes
+    # chexpert_small:.1:.1:leaderboard  # only 5 classes
+    # chexpert_small:.1:.1:Cardiomegaly,Pneumonia,Pleural_Effusion  # only the defined classes
+    #  'Atelectasis', 'Cardiomegaly', 'Consolidation', 'Edema', 'Pleural Effusion', ...
+
     ('chexpert_small_ID', str, str, str): (
         lambda num_identities, train_frac, val_frac: get_dset_chexpert(
             float(train_frac), float(val_frac), small=True,
