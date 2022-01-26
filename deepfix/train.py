@@ -475,32 +475,45 @@ def train_config(args:'TrainOptions') -> TL.TrainConfig:
 @dc.dataclass
 class TrainOptions:
     """High-level configuration for training PyTorch models
-    on the IntelMobileODTCervical dataset.
+    on the CheXpert or IntelMobileODTCervical datasets.
     """
     epochs:int = 50
     start_epoch:int = 0  # if "--start_epoch 1", then don't evaluate perf before training.
     device:str = 'cuda' if T.cuda.is_available() else 'cpu'
-    dset:str = None #choice(
-        #  'intel_mobileodt:train:val:test:v1',
-        #  'intel_mobileodt:train+additional:val:test:v1',
-        #  'intel_mobileodt:train+additional:noval:test:v1',
-        #  'chexpert:.8:.2', 'chexpert:.01:.01', 'chexpert:.001:.001',
-        #  'chexpert_small:.8:.2', 'chexpert_small:.01:.01',
-        #   'chexpert_small:.001:.001',
-        #  default='intel_mobileodt:train:val:test:v1')
+
+    dset:str = None 
+    """
+      Choose the dataset.  Some options:
+          --dset intel_mobileodt:train:val:test:v1
+          --dset intel_mobileodt:train+additional:val:test:v1
+          --dset intel_mobileodt:train+additional:noval:test:v1
+          --dset chexpert:T:V:LABELS  where T + V <= 1 are the percent of training data to use for train and val, and where LABELS is one of {"diagnostic", "leaderboard"} or any comma separated list of class names (replace space with underscore, case sensitive).
+          --dset chexpert_small:T:V:LABELS  the 11gb chexpert dataset.
+          --dset chexpert_small:.1:.1:Cardiomegaly  # for example
+          --dset chexpert_small_ID:I:T:V  # dataset where labels are the image id.
+    """
+
     opt:str = 'SGD:lr=.001:momentum=.9:nesterov=1'
-    lossfn:str = None  # choices:
-        #  'BCEWithLogitsLoss',
-        #  'CrossEntropyLoss', 
-        #  'CE_intelmobileodt',
-        #  'chexpert_uignore', 
-        #  'chexpert_identity:N' for some N=num_identities predicted by model (compared to identities y%N)
-    loss_reg:str = 'none'  # Optionally add a regularizer to the loss.  loss + reg.  Accepted values:  'none', 'deepfixmlp:X' where X is a positive float denoting the lambda in l1 regularizer
+
+    lossfn:str = None
+    """
+     Choose a loss function
+          --lossfn BCEWithLogitsLoss
+          --lossfn CrossEntropyLoss
+          --lossfn CE_intelmobileodt
+          --lossfn chexpert_uignore
+          --lossfn chexpert_identity:N' for some N=num_identities predicted by model (compared to identities y modulo N)
+    """
+
+    loss_reg:str = 'none'  # Optionally add a regularizer to the loss.  loss + reg.  Accepted values:  "none", "deepfixmlp:X" where X is a positive float denoting the lambda in l1 regularizer
     model:str = 'resnet18:imagenet:3:3'  # Model specification adheres to the template "model_name:pretraining:in_ch:out_ch"
-    deepfix:str = 'off'  # DeepFix Re-initialization Method.
-                         #  "off" or "reinit:N:P:R" or "d[f]hist:path_to_histogram.pth"
-                         #  or "beta:A:B" for A,B as (float) parameters of the beta distribution
-                         # 'ghaarconv2d:layer1,layer2' Replaces all spatial convolutions with GHaarConv2d layer except the specified layers
+    deepfix:str = 'off'
+    """
+    DeepFix Re-initialization Method.  Options:
+        "off" or "reinit:N:P:R" or "d[f]hist:path_to_histogram.pth"
+         or "beta:A:B" for A,B as (float) parameters of the beta distribution
+        'ghaarconv2d:layer1,layer2' Replaces all spatial convolutions with GHaarConv2d layer except the specified layers
+    """
     experiment_id:str = os.environ.get('run_id', 'debugging')
     prune:str = 'off'
 
