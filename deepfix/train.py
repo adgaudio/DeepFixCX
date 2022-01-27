@@ -395,13 +395,27 @@ class RegularizedLoss(T.nn.Module):
         return f'RegularizedLoss<{repr(self.lossfn)},{self.regularizer_spec}>'
 
 
+
+class CheXpertIdentityResult(TL.MultiClassClassification):
+    """A MultiClassClassification result class without the confusion matrix.
+    Using this for identity model so we don't make 20gb (uncompressed) csv files.
+    """
+    @property
+    def metrics(self):
+        metrics = ('Loss', 'Num Samples', 'MCC', 'Acc', 'BAcc')  # 'cm'
+        #  if self.num_classes.shape[0] == 2:
+            #  metrics += ('Precision', 'Recall', 'F1', )
+        return metrics
+
 def get_dset_loaders_resultfactory(dset_spec:str) -> dict:
     dct, class_names = match(dset_spec, DSETS)
-    if any(dset_spec.startswith(x) for x in {'intel_mobileodt:',
-                                             'chexpert_small_ID:'}):
+    if any(dset_spec.startswith(x) for x in {'intel_mobileodt:', }):
         #  dct['result_factory'] = lambda: TL.MultiLabelBinaryClassification(
                 #  class_names, binarize_fn=lambda yh: (T.sigmoid(yh)>.5).long())
         dct['result_factory'] = lambda: TL.MultiClassClassification(
+                len(class_names), binarize_fn=lambda yh: yh.softmax(1).argmax(1))
+    elif dset_spec.startswith('chexpert_small_ID:'):
+        dct['result_factory'] = lambda: CheXpertIdentityResult(
                 len(class_names), binarize_fn=lambda yh: yh.softmax(1).argmax(1))
     elif any(dset_spec.startswith(x) for x in {'chexpert:', 'chexpert_small:'}):
         dct['result_factory'] = lambda: CheXpertMultiLabelBinaryClassification(
