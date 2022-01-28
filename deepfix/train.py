@@ -105,7 +105,7 @@ class R2(T.nn.Module):
 class LossCheXpertIdentity(T.nn.Module):
     def __init__(self, N):
         super().__init__()
-        self.bce = T.nn.BCEWithLogitsLoss()
+        self.ce_loss = T.nn.CrossEntropyLoss()
         self.N = N
 
     def forward(self, yhat, y):
@@ -113,9 +113,7 @@ class LossCheXpertIdentity(T.nn.Module):
         # but let's just hash them into a smaller number of bins via modulo N
         assert self.N == yhat.shape[1], \
                 f'note: model must have {self.N} binary predictions per sample'
-        y_onehot = y.new_zeros(y.shape[0], self.N, dtype=T.float
-                               ).scatter_(1, y.long()%self.N, 1)
-        return self.bce(yhat[:, -1], y_onehot[:, -1])
+        return self.ce_loss(yhat, y.view(-1) % self.N)
 
 
 class LossCheXpertUignore(T.nn.Module):

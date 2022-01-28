@@ -228,6 +228,19 @@ C8() {
   ${V}.C8.leaderboard.densenet121.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small:.1:.01:leaderboard --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:untrained:1:5
 EOF
 }
+I8() {
+  local num_identities=1000
+  local train_pct=.1
+  # identity model baselines, 1.0% of training data
+  # ${V}.I8.Cardiomegaly.resnet18.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small_ID:1000:$train_pct:.01 --opt Adam:lr=0.003 --lossfn chexpert_identity:$num_identities --loss_reg none --model resnet18:untrained:1:1
+  # ${V}.I8.leaderboard.resnet18.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small_ID:1000:$train_pct:.01 --opt Adam:lr=0.003 --lossfn chexpert_identity:$num_identities --loss_reg none --model resnet18:untrained:1:5
+  # ${V}.I8.Cardiomegaly.densenet121.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small_ID:1000:$train_pct:.01 --opt Adam:lr=0.003 --lossfn chexpert_identity:$num_identities --loss_reg none --model densenet121:untrained:1:1
+  # ${V}.I8.leaderboard.densenet121.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small_ID:1000:$train_pct:.01 --opt Adam:lr=0.003 --lossfn chexpert_identity:$num_identities --loss_reg none --model densenet121:untrained:1:5
+  cat <<EOF
+  ${V}.I8.diagnostic.resnet18.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small_ID:$num_identities:$train_pct:.01 --opt Adam:lr=0.003 --lossfn chexpert_identity:$num_identities --loss_reg none --model resnet18:untrained:1:$num_identities
+  ${V}.I8.diagnostic.densenet121.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small_ID:$num_identities:$train_pct:.01 --opt Adam:lr=0.003 --lossfn chexpert_identity:$num_identities --loss_reg none --model densenet121:untrained:1:$num_identities
+EOF
+}
 
 
 # I1 | expand 3 | run_gpus echo 5
@@ -249,4 +262,4 @@ EOF
 # C6_vary_patch_size_part2 | run_gpus 1
 # done
 # C7 | run_gpus 4
-C8 | run_gpus 2
+( I8; C8 ) | run_gpus 1
