@@ -12,14 +12,15 @@
 python -m simplepytorch.plot_perf $* --mode 0 <<EOF
 # select the subset of data we want to visualize.
 # WARNING: the query epoch>N  step implies we are averaging over epochs >N  (like an ensemble approach).
+col = "test_BAcc AVG"
 df = cdfs\
         .query('epoch > 40')\
-        .groupby(["run_id", 'filename'])["test_MCC AVG"]\
+        .groupby(["run_id", 'filename'])[col]\
         .mean().reset_index()
 
 # HACK to get my test to work:  REMOVE THIS!
-# df.iloc[0, 0] = "1.waveletmlp:300:1:14:4:3:1:2"
-# df.iloc[1, 0] = "1.waveletmlp:300:1:14:2:32:1:2"
+df.iloc[0, 0] = "1.waveletmlp:300:1:14:4:3:1:2"
+df.iloc[1, 0] = "1.waveletmlp:300:1:14:2:32:1:2"
 
 # extract the model hyper parameters from the experiment id and join to the data we want to visualize.
 # ASSUMPTION: the experiment id contains a string like "waveletmlp:300:1:14:4:3:1:2"
@@ -40,11 +41,12 @@ assert (df.groupby(['wavelet_levels', 'patch_size']).count() <= 1).all().all(), 
 #  note:  pivot table implicitly computes the mean when the sanity check fails
 import seaborn as sns
 import os
-ax = sns.heatmap(data=df.pivot_table("test_MCC AVG", "wavelet_levels", "patch_size"), cmap='RdYlGn')
+ax = sns.heatmap(data=df.pivot_table(col, "wavelet_levels", "patch_size"), cmap='RdYlGn')
 
 # save the plot to file
 savefp = f'./results/plots/heatmap_levels_vs_patchsize__{ns.runid_regex}.png'
-os.remove(savefp)
+if os.path.exists(savefp):
+    os.remove(savefp)
 ax.figure.savefig(savefp, bbox_inches='tight')
 print(f'save to: {savefp}')
 EOF
