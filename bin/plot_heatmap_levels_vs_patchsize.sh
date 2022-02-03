@@ -19,8 +19,8 @@ df = cdfs\
         .mean().reset_index()
 
 # HACK to get my test to work:  REMOVE THIS!
-df.iloc[0, 0] = "1.waveletmlp:300:1:14:4:3:1:2"
-df.iloc[1, 0] = "1.waveletmlp:300:1:14:2:32:1:2"
+#df.iloc[0, 0] = "1.waveletmlp:300:1:14:4:3:1:2"
+#df.iloc[1, 0] = "1.waveletmlp:300:1:14:2:32:1:2"
 
 # extract the model hyper parameters from the experiment id and join to the data we want to visualize.
 # ASSUMPTION: the experiment id contains a string like "waveletmlp:300:1:14:4:3:1:2"
