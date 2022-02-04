@@ -296,7 +296,7 @@ function run() {
     # set +o pipefail
     # set +u
     run_id="$run_id" $cmd
-    rc=$?
+    local rc=$?
     # set -eE
     # set -o pipefail
     local RED='\033[0;31m'
@@ -309,6 +309,10 @@ function run() {
     fi
     echo -e "${color}END: $(date +%Y%m%dT%H%M%S.%N) \t EXIT_CODE: $rc $NC"
   ) 2>&1 | tee "$log_fp" 2>&1
+  # don't clutter the results with a new log_fp if the lockfile program didn't
+  # allow the job to run.  if the job didn't run, it wont have "START: " at the
+  # beginning, and a git log file won't be created.
+  head -n 1 $log_fp | grep '^START: ' || rm $log_fp
 }
 export -f run
 
