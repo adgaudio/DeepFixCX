@@ -207,7 +207,8 @@ def get_dset_chexpert(train_frac=.8, val_frac=.2, small=False,
             class_names = [x.replace('_', ' ') for x in labels.split(',')]
             assert all(x in D.CheXpert.LABELS_ALL for x in class_names), f'unrecognized class names: {labels}'
         for k in class_names:
-            _label_cleanup_dct[k][np.nan] = 0  # remap missing value to negative
+            if k in D.CheXpert.LABELS_DIAGNOSTIC:
+                _label_cleanup_dct[k][np.nan] = 0  # remap missing value to negative
         get_ylabels = lambda dct: \
                 D.CheXpert.format_labels(dct, labels=class_names).float()
     kws = dict(
