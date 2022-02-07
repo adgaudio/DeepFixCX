@@ -86,6 +86,7 @@ if __name__ == "__main__":
         link_to_original_data.append(metadata)
         for idx2 in range(idx+1, N):
             another_deepfixed_img, another_patient_id, _ = get_deepfixed_img_and_labels(idx2)
+            # TODO: is this the best metric?  Earth mover's distance?
             cdist[idx, idx2] = euclidean_dist(
                 deepfixed_img, another_deepfixed_img)
             patient_id_matches[idx, idx2] = T.tensor(
@@ -107,7 +108,8 @@ if __name__ == "__main__":
     assert (len(vec1)>0 and len(vec2)>0), 'error related to number of patient_id matches'
 
     # how different are the distributions?
-    fig, (ax1, ax2) = plt.subplots(1,2)
+    fig, ((ax1, ax2), (ax3, _)) = plt.subplots(2,2, figsize=(12,12))
+    _.axis('off')
     def to_cdf(x):
         # TODO: please check this is right
         vals, edges = np.histogram(x, bins=50)
@@ -130,6 +132,10 @@ if __name__ == "__main__":
     sns.violinplot(data=df.melt(value_name='Distance'), x='variable', y='Distance', ax=ax2)
     ax2.set_title('Distribution of pairwise distances')
     ax2.set_xlabel(None)
+
+    ax3.set_title('Pairwise Distances')
+    ax3.imshow(cdist.numpy(), vmin=0)
+
     save_fp = f'./results/{experiment_id}/anonymity_score_plot.png'
     print(f'save plot to {save_fp}')
     fig.tight_layout()
