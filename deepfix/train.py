@@ -50,6 +50,15 @@ MODELS = {
             mlp_depth=int(mlp_depth), mlp_channels=int(mlp_channels),
             mlp_fix_weights='none', mlp_activation=None)
         ),
+    ('waveletmlpV2', str, str, str, str, str, str, str, str): (
+        lambda mlp_channels, in_ch, out_ch, wavelet_levels, patch_size, in_ch_mul, mlp_depth, patch_features: get_DeepFixEnd2End(
+            int(in_ch), int(out_ch),
+            in_ch_multiplier=int(in_ch_mul), wavelet='db1',
+            wavelet_levels=int(wavelet_levels), wavelet_patch_size=int(patch_size),
+            mlp_depth=int(mlp_depth), mlp_channels=int(mlp_channels),
+            mlp_fix_weights='none', mlp_activation=None,
+            patch_features=patch_features)
+        ),
 
     #  ('waveletres18v2', str, str, str): lambda pretrain, in_ch, out_ch: (
         #  DeepFixCompression(levels=8, wavelet='coif1', patch_size=1),
