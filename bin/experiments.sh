@@ -20,8 +20,8 @@ expand() {
 }
 
 # lockfile_ignore=true  # disable lockfile
-lockfile_maxsuccesses=6
-lockfile_maxconcurrent=6
+lockfile_maxsuccesses=1
+lockfile_maxconcurrent=1
 lockfile_maxfailures=1
 
 V=1  # experiment version number
@@ -219,26 +219,37 @@ done
 
 C8() {
   # baseline, 10% of training data
-  # ${V}.C8.diagnostic.resnet18.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small:.1:.01:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:untrained:1:14
-  # ${V}.C8.Cardiomegaly.resnet18.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small:.1:.01:Cardiomegaly --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:untrained:1:1
+  # ${V}.C8.diagnostic.densenet121.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small:.1:.01:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:untrained:1:14
+  # ${V}.C8.Cardiomegaly.densenet121.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small:.1:.01:Cardiomegaly --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:untrained:1:1
+  # ${V}.C8.leaderboard.densenet121.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small:.1:.01:leaderboard --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:untrained:1:5
   cat <<EOF
+  ${V}.C8.diagnostic.resnet18.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small:.1:.01:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:untrained:1:14
+  ${V}.C8.Cardiomegaly.resnet18.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small:.1:.01:Cardiomegaly --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:untrained:1:1
   ${V}.C8.leaderboard.resnet18.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small:.1:.01:leaderboard --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:untrained:1:5
-  ${V}.C8.diagnostic.densenet121.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small:.1:.01:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:untrained:1:14
-  ${V}.C8.Cardiomegaly.densenet121.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small:.1:.01:Cardiomegaly --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:untrained:1:1
-  ${V}.C8.leaderboard.densenet121.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small:.1:.01:leaderboard --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:untrained:1:5
 EOF
 }
-I8() {
-  local num_identities=1000
-  local train_pct=.1
-  # identity model baselines, 1.0% of training data
-  # ${V}.I8.Cardiomegaly.resnet18.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small_ID:1000:$train_pct:.01 --opt Adam:lr=0.003 --lossfn chexpert_identity:$num_identities --loss_reg none --model resnet18:untrained:1:1
-  # ${V}.I8.leaderboard.resnet18.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small_ID:1000:$train_pct:.01 --opt Adam:lr=0.003 --lossfn chexpert_identity:$num_identities --loss_reg none --model resnet18:untrained:1:5
-  # ${V}.I8.Cardiomegaly.densenet121.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small_ID:1000:$train_pct:.01 --opt Adam:lr=0.003 --lossfn chexpert_identity:$num_identities --loss_reg none --model densenet121:untrained:1:1
-  # ${V}.I8.leaderboard.densenet121.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small_ID:1000:$train_pct:.01 --opt Adam:lr=0.003 --lossfn chexpert_identity:$num_identities --loss_reg none --model densenet121:untrained:1:5
-  cat <<EOF
-  ${V}.I8.diagnostic.resnet18.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small_ID:$num_identities:$train_pct:.01 --opt Adam:lr=0.003 --lossfn chexpert_identity:$num_identities --loss_reg none --model resnet18:untrained:1:$num_identities
-  ${V}.I8.diagnostic.densenet121.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small_ID:$num_identities:$train_pct:.01 --opt Adam:lr=0.003 --lossfn chexpert_identity:$num_identities --loss_reg none --model densenet121:untrained:1:$num_identities
+# I8() {
+#   local num_identities=100
+#   local train_pct=.01
+#   # identity model baselines, 1.0% of training data
+#   # ${V}.I8.Cardiomegaly.densenet121.baseline.fromscratch    python deepfix/train.py --deepfix off --epochs 150 --dset chexpert_small_ID:1000:$train_pct:.01 --opt Adam:lr=0.003 --lossfn chexpert_identity:$num_identities --loss_reg none --model densenet121:untrained:1:1
+#   # ${V}.I8.leaderboard.densenet121.baseline.fromscratch    python deepfix/train.py --deepfix off --epochs 150 --dset chexpert_small_ID:1000:$train_pct:.01 --opt Adam:lr=0.003 --lossfn chexpert_identity:$num_identities --loss_reg none --model densenet121:untrained:1:5
+#   # ${V}.I8.diagnostic.densenet121.baseline.fromscratch    python deepfix/train.py --deepfix off --epochs 150 --dset chexpert_small_ID:$num_identities:$train_pct:.01 --opt Adam:lr=0.003 --lossfn chexpert_identity:$num_identities --loss_reg none --model densenet121:untrained:1:$num_identities
+#   cat <<EOF
+#   # ${V}.I8.Cardiomegaly.resnet18.baseline.fromscratch    python deepfix/train.py --deepfix off --epochs 150 --dset chexpert_small_ID:1000:$train_pct:.01 --opt Adam:lr=0.003 --lossfn chexpert_identity:$num_identities --loss_reg none --model resnet18:untrained:1:1
+#   # ${V}.I8.leaderboard.resnet18.baseline.fromscratch    python deepfix/train.py --deepfix off --epochs 150 --dset chexpert_small_ID:1000:$train_pct:.01 --opt Adam:lr=0.003 --lossfn chexpert_identity:$num_identities --loss_reg none --model resnet18:untrained:1:5
+#   # ${V}.I8.diagnostic.resnet18.baseline.fromscratch    python deepfix/train.py --deepfix off --epochs 150 --dset chexpert_small_ID:$num_identities:$train_pct:.01 --opt Adam:lr=0.003 --lossfn chexpert_identity:$num_identities --loss_reg none --model resnet18:untrained:1:$num_identities
+# EOF
+# }
+C9() {
+  # experiment over varying patch_features
+  python <<EOF
+for levels, patch_size, patch_features in [
+        (8,1,'l1'), (8,1,'l2'), (8,1,'sum_pos,sum_neg'),
+        (1,128,'l1'), (1,128,'l2'), (1,128,'sum_pos,sum_neg'),
+        (5,5,'l1'), (5,5,'l2'), (5,5,'sum_pos,sum_neg'), (8,4,'sum_pos,sum_neg'),]:
+    model = f'waveletmlpV2:300:1:14:{levels}:{patch_size}:1:2:{patch_features}'
+    print(f""" ${V}.C9.{model}     python deepfix/train.py --dset chexpert_small:.01:.01 --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model {model} """)
 EOF
 }
 
@@ -262,4 +273,5 @@ EOF
 # C6_vary_patch_size_part2 | run_gpus 1
 # done
 # C7 | run_gpus 4
-( I8; C8 ) | run_gpus 1
+# ( I8; C8 ) | run_gpus 3
+C9 | run_gpus 5
