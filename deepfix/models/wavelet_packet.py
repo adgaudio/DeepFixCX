@@ -1,8 +1,9 @@
-import pywt
 from typing import Union
-import warnings
+import math
 import numpy as np
+import pywt
 import torch as T
+import warnings
 
 
 class WaveletPacket2d(T.nn.Module):
@@ -43,8 +44,8 @@ class WaveletPacket2d(T.nn.Module):
         H, W = input_shape[2:]
         s_h, s_w = self.conv_params['stride']
         J_max = min(  # solve for J the eqtn:  1 = H / stride**J
-            int(np.log2(H/s_h) / np.log2(s_h)),
-            int(np.log2(W/s_w) / np.log2(s_w)),)
+            math.ceil(np.log2(H) / np.log2(s_h)),
+            math.ceil(np.log2(W) / np.log2(s_w)),)
         return J_max
 
     def forward(self, x:T.Tensor) -> T.Tensor:
@@ -172,9 +173,12 @@ if __name__ == "__main__":
 
     # test max level
     wp = WaveletPacket2d('coif1', 'max')
+    assert wp.get_max_level((None, None, 512, 512)) == 9
     print(wp(im).shape)
-    assert wp.get_max_level((None, None, 512, 512)) == 8
-    assert wp(im).shape == (1, 1, 4**8, 2, 2)  # where coif1 has 6 filters, so h<6 and w<6
+    assert wp(im).shape == (1, 1, 4**9, 1, 1)  # where coif1 has 6 filters, so h<6 and w<6
+    wp = WaveletPacket2d('coif1', 8)
+    print(wp(im).shape)
+    assert wp(im).shape == (1, 1, 4**8, 2, 2)
 
     # test that wavelet packet outputs correct num channels
     J=8
