@@ -247,7 +247,7 @@ C9() {
 for levels, patch_size, patch_features in [
         (8,1,'l1'), (8,1,'l2'), (8,1,'sum_pos,sum_neg'),
         (1,128,'l1'), (1,128,'l2'), (1,128,'sum_pos,sum_neg'),
-        (5,5,'l1'), (5,5,'l2'), (5,5,'sum_pos,sum_neg'), (8,4,'sum_pos,sum_neg'),]:
+        (5,5,'l1'), (5,5,'l2'), (5,5,'sum_pos,sum_neg'), (4,8,'sum_pos,sum_neg'),]:
     model = f'waveletmlpV2:300:1:14:{levels}:{patch_size}:1:2:{patch_features}'
     print(f""" ${V}.C9.{model}     python deepfix/train.py --dset chexpert_small:.01:.01 --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model {model} """)
 EOF
