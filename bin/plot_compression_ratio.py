@@ -61,7 +61,7 @@ fig.suptitle('Compression % for varying Patch Size vs Wavelet Levels')
 sns.heatmap(
     df.pivot_table('Compression Ratio (%)', 'Patch Size', 'Wavelet Levels'),
     norm=plt.cm.colors.LogNorm(), ax=ax1, annot=True, fmt='.03f')
-ax1.set_title('Compression Ratio (%), log scale')
+ax1.set_title('Compression Ratio (%)')
 sns.heatmap(
     df.pivot_table('Output Size', 'Patch Size', 'Wavelet Levels'),
     norm=None, ax=ax2)
