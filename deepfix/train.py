@@ -50,12 +50,12 @@ MODELS = {
             mlp_depth=int(mlp_depth), mlp_channels=int(mlp_channels),
             mlp_fix_weights='none', mlp_activation=None)
         ),
-    ('waveletmlpV2', str, str, str, str, str, str, str, str): (
-        lambda mlp_channels, in_ch, out_ch, wavelet_levels, patch_size, in_ch_mul, mlp_depth, patch_features: get_DeepFixEnd2End(
+    ('waveletmlpV2', str, str, str, str, str, str): (
+        lambda in_ch, out_ch, wavelet, wavelet_levels, patch_size, patch_features: get_DeepFixEnd2End(
             int(in_ch), int(out_ch),
-            in_ch_multiplier=int(in_ch_mul), wavelet='db1',
+            in_ch_multiplier=1, wavelet=wavelet,
             wavelet_levels=int(wavelet_levels), wavelet_patch_size=int(patch_size),
-            mlp_depth=int(mlp_depth), mlp_channels=int(mlp_channels),
+            mlp_depth=2, mlp_channels=300,
             mlp_fix_weights='none', mlp_activation=None,
             patch_features=patch_features)
         ),
@@ -109,20 +109,6 @@ class R2(T.nn.Module):
         B,C,H = x.shape
         x = x.unsqueeze(-1).repeat(1,1,1,H)
         return self.r(x)
-
-
-class LossCheXpertIdentity(T.nn.Module):
-    def __init__(self, N):
-        super().__init__()
-        self.ce_loss = T.nn.CrossEntropyLoss()
-        self.N = N
-
-    def forward(self, yhat, y):
-        # absolute max possible num patients in chexpert is 223414
-        # but let's just hash them into a smaller number of bins via modulo N
-        assert self.N == yhat.shape[1], \
-                f'note: model must have {self.N} binary predictions per sample'
-        return self.ce_loss(yhat, y.view(-1) % self.N)
 
 
 class LossCheXpertUignore(T.nn.Module):
@@ -235,6 +221,7 @@ def get_dset_chexpert(train_frac=.8, val_frac=.2, small=False,
 
     train_dset = kls(use_train_set=True, **kws)
     N = len(train_dset)
+    # todo: could stratify Patients across the splits
     if train_frac + val_frac == 1:
         nsplits = [N - int(N*val_frac), int(N*val_frac), 0]
     else:
@@ -324,7 +311,6 @@ LOSS_FNS = {
     ('CrossEntropyLoss', ): lambda _: T.nn.CrossEntropyLoss(),
     ('CE_intelmobileodt', ): lambda _: loss_intelmobileodt,
     ('chexpert_uignore', ): lambda _: LossCheXpertUignore(),
-    ('chexpert_identity', str): lambda out_ch: LossCheXpertIdentity(N=int(out_ch)),
 }
 
 DSETS = {
@@ -345,11 +331,6 @@ DSETS = {
     # chexpert_small:.1:.1:leaderboard  # only 5 classes
     # chexpert_small:.1:.1:Cardiomegaly,Pneumonia,Pleural_Effusion  # only the defined classes
     #  'Atelectasis', 'Cardiomegaly', 'Consolidation', 'Edema', 'Pleural Effusion', ...
-
-    ('chexpert_small_ID', str, str, str): (
-        lambda num_identities, train_frac, val_frac: get_dset_chexpert(
-            float(train_frac), float(val_frac), small=True,
-            labels='identity', num_identities=int(num_identities))),
 }
 
 
@@ -403,27 +384,12 @@ class RegularizedLoss(T.nn.Module):
         return f'RegularizedLoss<{repr(self.lossfn)},{self.regularizer_spec}>'
 
 
-
-class CheXpertIdentityResult(TL.MultiClassClassification):
-    """A MultiClassClassification result class without the confusion matrix.
-    Using this for identity model so we don't make 20gb (uncompressed) csv files.
-    """
-    @property
-    def metrics(self):
-        metrics = ('Loss', 'Num Samples', 'MCC', 'Acc', 'BAcc')  # 'cm'
-        #  if self.num_classes.shape[0] == 2:
-            #  metrics += ('Precision', 'Recall', 'F1', )
-        return metrics
-
 def get_dset_loaders_resultfactory(dset_spec:str) -> dict:
     dct, class_names = match(dset_spec, DSETS)
     if any(dset_spec.startswith(x) for x in {'intel_mobileodt:', }):
         #  dct['result_factory'] = lambda: TL.MultiLabelBinaryClassification(
                 #  class_names, binarize_fn=lambda yh: (T.sigmoid(yh)>.5).long())
         dct['result_factory'] = lambda: TL.MultiClassClassification(
-                len(class_names), binarize_fn=lambda yh: yh.softmax(1).argmax(1))
-    elif dset_spec.startswith('chexpert_small_ID:'):
-        dct['result_factory'] = lambda: CheXpertIdentityResult(
                 len(class_names), binarize_fn=lambda yh: yh.softmax(1).argmax(1))
     elif any(dset_spec.startswith(x) for x in {'chexpert:', 'chexpert_small:'}):
         dct['result_factory'] = lambda: CheXpertMultiLabelBinaryClassification(
@@ -514,7 +480,6 @@ class TrainOptions:
           --dset chexpert:T:V:LABELS  where T + V <= 1 are the percent of training data to use for train and val, and where LABELS is one of {"diagnostic", "leaderboard"} or any comma separated list of class names (replace space with underscore, case sensitive).
           --dset chexpert_small:T:V:LABELS  the 11gb chexpert dataset.
           --dset chexpert_small:.1:.1:Cardiomegaly  # for example
-          --dset chexpert_small_ID:I:T:V  # dataset where labels are the image id.
     """
 
     opt:str = 'SGD:lr=.001:momentum=.9:nesterov=1'
@@ -526,7 +491,6 @@ class TrainOptions:
           --lossfn CrossEntropyLoss
           --lossfn CE_intelmobileodt
           --lossfn chexpert_uignore
-          --lossfn chexpert_identity:N' for some N=num_identities predicted by model (compared to identities y modulo N)
     """
 
     loss_reg:str = 'none'  # Optionally add a regularizer to the loss.  loss + reg.  Accepted values:  "none", "deepfixmlp:X" where X is a positive float denoting the lambda in l1 regularizer
