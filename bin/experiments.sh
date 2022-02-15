@@ -25,6 +25,7 @@ lockfile_maxconcurrent=1
 lockfile_maxfailures=1
 
 V=2  # experiment version number
+export num_workers=7
 
 
 I1() {
@@ -219,14 +220,13 @@ done
 
 C8() {
   # baseline, 10% of training data
-  # ${V}.C8.diagnostic.densenet121.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small:.1:.01:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:untrained:1:14
-  # ${V}.C8.Cardiomegaly.densenet121.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small:.1:.01:Cardiomegaly --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:untrained:1:1
-  # ${V}.C8.leaderboard.densenet121.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small:.1:.01:leaderboard --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:untrained:1:5
+  # ${V}.C8.diagnostic.densenet121.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:untrained:1:14
+  # ${V}.C8.Cardiomegaly.densenet121.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:Cardiomegaly --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:untrained:1:1
+  # ${V}.C8.leaderboard.densenet121.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:leaderboard --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:untrained:1:5
   cat <<EOF
-  ${V}.C8.diagnostic.resnet18.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small:.1:.01:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:untrained:1:14
-  ${V}.C8.Cardiomegaly.resnet18.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small:.1:.01:Cardiomegaly --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:untrained:1:1
-  ${V}.C8.leaderboard.resnet18.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small:.1:.01:leaderboard --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:untrained:1:5
-  ${V}.C8.15Kdiagnostic.resnet18.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small15k:.99:.01:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:untrained:1:14
+  ${V}.C8.diagnostic.resnet18.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:untrained:1:14
+  ${V}.C8.Cardiomegaly.resnet18.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:Cardiomegaly --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:untrained:1:1
+  ${V}.C8.leaderboard.resnet18.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:leaderboard --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:untrained:1:5
 EOF
 }
 # I8() {
@@ -250,7 +250,7 @@ for levels, patch_size, patch_features in [
         (1,128,'l1'), (1,128,'l2'), (1,128,'sum_pos,sum_neg'),
         (5,5,'l1'), (5,5,'l2'), (5,5,'sum_pos,sum_neg'), (4,8,'sum_pos,sum_neg'),]:
     model = f'waveletmlpV2:1:14:coif1:{levels}:{patch_size}:{patch_features}'
-    print(f""" ${V}.C9.{model}     python deepfix/train.py --dset chexpert_small15k:.99:.01:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model {model} """)
+    print(f""" ${V}.C9.{model}     python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model {model} """)
 EOF
 }
 C10() {
@@ -262,7 +262,7 @@ for wavelet in [
         'db3', 'rbio1.1', 'rbio1.3', 'rbio2.2', 'rbio3.1', 'sym2', 'sym3']:
     for levels, patch_size, patch_features in [(5,5,'l1'),]:
         model = f'waveletmlpV2:1:14:{wavelet}:{levels}:{patch_size}:{patch_features}'
-        print(f""" ${V}.C10.{model}     python deepfix/train.py --dset chexpert_small15k:.99:.01:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model {model} """)
+        print(f""" ${V}.C10.{model}     python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model {model} """)
 EOF
 }
 
@@ -288,4 +288,5 @@ EOF
 # C7 | run_gpus 4
 # ( I8; C8 ) | run_gpus 3
 # C9 | run_gpus 5
+C8 | run_gpus 3
 ( C9 ; C10 ) | run_gpus 5
