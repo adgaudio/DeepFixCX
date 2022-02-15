@@ -15,12 +15,13 @@ from simplepytorch import metrics
 from sklearn.model_selection import StratifiedShuffleSplit
 from torch.utils.data import Dataset, DataLoader
 from typing import Union, Optional
+from sklearn.model_selection import StratifiedKFold
 import dataclasses as dc
 import numpy as np
 import torch as T
 import torchvision.transforms as tvt
 
-from deepfix.models import get_effnetv2, get_resnet, get_efficientnetv1, get_DeepFixEnd2End, DeepFixMLP
+from deepfix.models import get_effnetv2, get_resnet, get_densenet, get_efficientnetv1, get_DeepFixEnd2End, DeepFixMLP
 from deepfix.models.ghaarconv import convert_conv2d_to_gHaarConv2d
 from deepfix.init_from_distribution import init_from_beta, reset_optimizer
 from deepfix import deepfix_strategies as dfs
@@ -34,6 +35,8 @@ MODELS = {
         lambda pretrain, in_ch, out_ch: get_resnet('resnet50', pretrain, int(in_ch), int(out_ch))),
     ('resnet18', str, str, str): (
         lambda pretrain, in_ch, out_ch: get_resnet('resnet18', pretrain, int(in_ch), int(out_ch))),
+    ('densenet121', str, str, str): (
+        lambda pretrain, in_ch, out_ch: get_densenet('densenet121', pretrain, int(in_ch), int(out_ch))),
     ('efficientnet-b0', str, str, str): (
         lambda pretrain, in_ch, out_ch: get_efficientnetv1('efficientnet-b0', pretrain, int(in_ch), int(out_ch))),
     ('efficientnet-b1', str, str, str): (
@@ -47,6 +50,15 @@ MODELS = {
             wavelet_levels=int(wavelet_levels), wavelet_patch_size=int(patch_size),
             mlp_depth=int(mlp_depth), mlp_channels=int(mlp_channels),
             mlp_fix_weights='none', mlp_activation=None)
+        ),
+    ('waveletmlpV2', str, str, str, str, str, str): (
+        lambda in_ch, out_ch, wavelet, wavelet_levels, patch_size, patch_features: get_DeepFixEnd2End(
+            int(in_ch), int(out_ch),
+            in_ch_multiplier=1, wavelet=wavelet,
+            wavelet_levels=int(wavelet_levels), wavelet_patch_size=int(patch_size),
+            mlp_depth=2, mlp_channels=300,
+            mlp_fix_weights='none', mlp_activation=None,
+            patch_features=patch_features)
         ),
 
     #  ('waveletres18v2', str, str, str): lambda pretrain, in_ch, out_ch: (
@@ -98,22 +110,6 @@ class R2(T.nn.Module):
         B,C,H = x.shape
         x = x.unsqueeze(-1).repeat(1,1,1,H)
         return self.r(x)
-
-
-class LossCheXpertIdentity(T.nn.Module):
-    def __init__(self, N):
-        super().__init__()
-        self.bce = T.nn.BCEWithLogitsLoss()
-        self.N = N
-
-    def forward(self, yhat, y):
-        # absolute max possible num patients in chexpert is 223414
-        # but let's just hash them into a smaller number of bins via modulo N
-        assert self.N == yhat.shape[1], \
-                f'note: model must have {self.N} binary predictions per sample'
-        y_onehot = y.new_zeros(y.shape[0], self.N, dtype=T.float
-                               ).scatter_(1, y.long()%self.N, 1)
-        return self.bce(yhat[:, -1], y_onehot[:, -1])
 
 
 class LossCheXpertUignore(T.nn.Module):
@@ -170,9 +166,100 @@ def _upsample_pad_minibatch_imgs_to_same_size(batch, target_is_segmentation_mask
             Y.append(item[1])
     return T.stack(X), T.stack(Y)
 
+class RandomSampler(T.utils.data.Sampler):
+    """Randomly sample without replacement a subset of N samples from a dataset
+    of M>N samples.  After a while, a new subset of N samples is requested but
+    (nearly) all M dataset samples have been used.  When this happens, reset
+    the sampler, but ensure that N samples are returned.
+    (In this case, the same image may appear in the that batch twice).
+
+    This is useful to create smaller epochs, where each epoch represents only N
+    randomly chosen images of a dataset of M>N images, and where random
+    sampling is without replacement.
+
+    """
+    def __init__(self, data_source, num_samples:int=None):
+        """
+        Args:
+            data_source:  pytorch Dataset class or object with __len__
+                          ****Assume len(data_source) does not change.****
+        """
+        super().__init__(data_source)
+        assert num_samples > 0
+        assert num_samples <= len(data_source)
+        self.dset_length = len(data_source)
+        self.num_samples = num_samples
+        self._cur_idx = 0
+        self._ordering = self.new_ordering()
+
+    def new_ordering(self):
+        return T.randperm(self.dset_length, dtype=T.long)
+
+    def next_idxs(self, _how_many=None):
+        if self._cur_idx + self.num_samples >= len(self._ordering):
+            some_idxs = self._ordering[self._cur_idx:self._cur_idx+self.num_samples]
+            self._ordering = self.new_ordering()
+            self._cur_idx = self.num_samples-len(some_idxs)
+            more_idxs = self._ordering[0:self._cur_idx]
+            #  print(some_idxs, more_idxs)
+            idxs = T.cat([some_idxs, more_idxs])
+        else:
+            idxs = self._ordering[self._cur_idx:self._cur_idx+self.num_samples]
+            self._cur_idx += self.num_samples
+        return idxs.tolist()
+
+    def __iter__(self):
+        yield from self.next_idxs()
+
+    def __len__(self):
+        return self.num_samples
+
+
+def group_random_split(
+        desired_split_fracs:list[float], group:np.ndarray, rng=None):
+    # in code below, imagine we have images, each belonging to a patient
+    # and we want to ensure no patient is mixed across splits.
+    assert all(0 <= x <= 1 for x in desired_split_fracs), 'desired_split_fracs must contain values in (0,1)'
+    assert sum(desired_split_fracs) <= 1.5, 'should satisfy sum(desired_split_fracs) <= 1+eps, with some margin for error'
+    # count the patients
+    patients, lookup_patient_idx, counts = np.unique(
+        group, return_inverse=True, return_counts=True)
+    # sanity check: if any desired split is smaller than the size of a single patient,
+    # there may be sampling problems where some splits are empty.
+    assert min([x for x in desired_split_fracs if x != 0]) >= np.max(counts / len(group)), f'minimum allowed split fraction is >= {np.max(counts) / len(group)}'
+    # randomly shuffle the patients to get an ordering over them
+    if rng is None:
+        rng = np.random.default_rng()
+    idxs = rng.permutation(np.arange(len(patients)))
+    # compute what fraction of total images we get by considering the first N
+    # patients for all N.
+    fracs = np.cumsum(counts[idxs]) / len(group)
+    # split the data, ensuring the patients have equal chance of appearing in either set.
+    img_idxs = np.arange(len(group))
+    assert len(img_idxs) == len(lookup_patient_idx), 'code bug'
+    splits = []
+    _n_patients_so_far = 0
+    _frac_so_far = 0
+    for desired_frac in desired_split_fracs:
+        if desired_frac == 0:
+            splits.append(np.array([]))
+        else:
+            # define some "cut point" / threshold at which we reach the desired_frac
+            n_patients = np.digitize(desired_frac+_frac_so_far, fracs, False)
+            #  print(fracs, desired_frac, _frac_so_far, n_patients, n_patients - _n_patients_so_far)
+            # get the indices of the samples that correspond to these patients
+            splits.append(img_idxs[np.isin(lookup_patient_idx, idxs[_n_patients_so_far:n_patients])])
+            # bookkeeping
+            _n_patients_so_far = n_patients
+            _frac_so_far = fracs[n_patients-1]
+            #  _frac_so_far += desired_frac
+    return splits
+
 
 def get_dset_chexpert(train_frac=.8, val_frac=.2, small=False,
-                      labels:str='diagnostic', num_identities=None):
+                      labels:str='diagnostic', num_identities=None,
+                      epoch_size:int=None
+                      ):
     """
     Args:
         labels:  either "diagnostic" (the 14 classes defined as
@@ -183,6 +270,7 @@ def get_dset_chexpert(train_frac=.8, val_frac=.2, small=False,
         num_identities:  used only if labels='identity'.  If
             num_identities=1000, then all patients get identified as coming
             from precisely 1 of 1000 bins.
+        epoch_size:  If defined, randomly sample without replacement N images each epoch.
 
     Returns:
         (
@@ -207,13 +295,15 @@ def get_dset_chexpert(train_frac=.8, val_frac=.2, small=False,
             class_names = [x.replace('_', ' ') for x in labels.split(',')]
             assert all(x in D.CheXpert.LABELS_ALL for x in class_names), f'unrecognized class names: {labels}'
         for k in class_names:
-            _label_cleanup_dct[k][np.nan] = 0  # remap missing value to negative
+            if k in D.CheXpert.LABELS_DIAGNOSTIC:
+                _label_cleanup_dct[k][np.nan] = 0  # remap missing value to negative
         get_ylabels = lambda dct: \
                 D.CheXpert.format_labels(dct, labels=class_names).float()
     kws = dict(
         img_transform=tvt.Compose([
-            #  tvt.RandomCrop((512, 512)),
-            tvt.ToTensor(),  # full res 1024x1024 imgs
+            #  tvt.CenterCrop((512, 512)),
+            #  tvt.CenterCrop((400,400)) if small else (lambda x: x),
+            tvt.ToTensor(),
         ]),
         getitem_transform=lambda dct: (dct['image'], get_ylabels(dct)),
         label_cleanup_dct=_label_cleanup_dct,
@@ -225,19 +315,36 @@ def get_dset_chexpert(train_frac=.8, val_frac=.2, small=False,
 
     train_dset = kls(use_train_set=True, **kws)
     N = len(train_dset)
-    if train_frac + val_frac == 1:
-        nsplits = [N - int(N*val_frac), int(N*val_frac), 0]
-    else:
-        a,b = int(N*train_frac), int(N*val_frac)
-        nsplits = [a,b, N-a-b]
-    train_dset, val_dset, _ = T.utils.data.random_split(train_dset, nsplits)
+    # split the dataset into train and val sets
+    # ensure patient images exist only in one set.  no mixing.
+    train_idxs, val_idxs = group_random_split(
+        [train_frac, val_frac], group=train_dset.labels_csv['Patient'].values)
+    val_dset = T.utils.data.Subset(train_dset, val_idxs)
+    train_dset = T.utils.data.Subset(train_dset, train_idxs)
+    # the 200 sample "test" set
     test_dset = kls(use_train_set=False, **kws)
+    # data loaders
+    batch_size = int(os.environ.get('batch_size', 15))
     batch_dct = dict(
-        batch_size=15, collate_fn=_upsample_pad_minibatch_imgs_to_same_size,
+        collate_fn=_upsample_pad_minibatch_imgs_to_same_size,
         num_workers=int(os.environ.get("num_workers", 4)))  # upsample pad must take time
-    train_loader=DataLoader(train_dset, shuffle=True, **batch_dct)
-    val_loader=DataLoader(val_dset, **batch_dct)
-    test_loader=DataLoader(test_dset, **batch_dct)
+    train_loader=DataLoader(
+        train_dset, batch_size=batch_size,
+        sampler=RandomSampler(train_dset, epoch_size or len(train_dset)), **batch_dct)
+    val_loader=DataLoader(val_dset, batch_size=batch_size, **batch_dct)
+    test_loader=DataLoader(test_dset, batch_size=1, **batch_dct)
+    #
+    # debugging:  vis dataset
+    #  from deepfix.plotting import plot_img_grid
+    #  from matplotlib import pyplot as plt
+    #  plt.ion()
+    #  fig, ax = plt.subplots(1,2)
+    #  print('hello world')
+    #  for mb in train_loader:
+        #  plot_img_grid(mb[0].squeeze(1), num=1, suptitle=f'shape: {mb[0].shape}')
+        #  plt.show(block=False)
+        #  plt.pause(1)
+    #
     return (dict(
         train_dset=train_dset, val_dset=val_dset, test_dset=test_dset,
         train_loader=train_loader, val_loader=val_loader, test_loader=test_loader,
@@ -314,7 +421,6 @@ LOSS_FNS = {
     ('CrossEntropyLoss', ): lambda _: T.nn.CrossEntropyLoss(),
     ('CE_intelmobileodt', ): lambda _: loss_intelmobileodt,
     ('chexpert_uignore', ): lambda _: LossCheXpertUignore(),
-    ('chexpert_identity', str): lambda out_ch: LossCheXpertIdentity(N=int(out_ch)),
 }
 
 DSETS = {
@@ -335,11 +441,9 @@ DSETS = {
     # chexpert_small:.1:.1:leaderboard  # only 5 classes
     # chexpert_small:.1:.1:Cardiomegaly,Pneumonia,Pleural_Effusion  # only the defined classes
     #  'Atelectasis', 'Cardiomegaly', 'Consolidation', 'Edema', 'Pleural Effusion', ...
-
-    ('chexpert_small_ID', str, str, str): (
-        lambda num_identities, train_frac, val_frac: get_dset_chexpert(
-            float(train_frac), float(val_frac), small=True,
-            labels='identity', num_identities=int(num_identities))),
+    ('chexpert_small15k', str, str, str): (
+        lambda train_frac, val_frac, labels: get_dset_chexpert(
+            float(train_frac), float(val_frac), small=True, labels=labels, epoch_size=15000)),
 }
 
 
@@ -395,13 +499,13 @@ class RegularizedLoss(T.nn.Module):
 
 def get_dset_loaders_resultfactory(dset_spec:str) -> dict:
     dct, class_names = match(dset_spec, DSETS)
-    if any(dset_spec.startswith(x) for x in {'intel_mobileodt:',
-                                             'chexpert_small_ID:'}):
+    if any(dset_spec.startswith(x) for x in {'intel_mobileodt:', }):
         #  dct['result_factory'] = lambda: TL.MultiLabelBinaryClassification(
                 #  class_names, binarize_fn=lambda yh: (T.sigmoid(yh)>.5).long())
         dct['result_factory'] = lambda: TL.MultiClassClassification(
                 len(class_names), binarize_fn=lambda yh: yh.softmax(1).argmax(1))
-    elif any(dset_spec.startswith(x) for x in {'chexpert:', 'chexpert_small:'}):
+    elif any(dset_spec.startswith(x) for x in {
+            'chexpert:', 'chexpert_small:', 'chexpert_small15k:'}):
         dct['result_factory'] = lambda: CheXpertMultiLabelBinaryClassification(
             class_names, binarize_fn=lambda yh: (yh.sigmoid()>.5).long(), report_avg=True)
     else:
@@ -490,7 +594,7 @@ class TrainOptions:
           --dset chexpert:T:V:LABELS  where T + V <= 1 are the percent of training data to use for train and val, and where LABELS is one of {"diagnostic", "leaderboard"} or any comma separated list of class names (replace space with underscore, case sensitive).
           --dset chexpert_small:T:V:LABELS  the 11gb chexpert dataset.
           --dset chexpert_small:.1:.1:Cardiomegaly  # for example
-          --dset chexpert_small_ID:I:T:V  # dataset where labels are the image id.
+          --dset chexpert_small15k:.1:.1:Cardiomegaly  # for example
     """
 
     opt:str = 'SGD:lr=.001:momentum=.9:nesterov=1'
@@ -502,7 +606,6 @@ class TrainOptions:
           --lossfn CrossEntropyLoss
           --lossfn CE_intelmobileodt
           --lossfn chexpert_uignore
-          --lossfn chexpert_identity:N' for some N=num_identities predicted by model (compared to identities y modulo N)
     """
 
     loss_reg:str = 'none'  # Optionally add a regularizer to the loss.  loss + reg.  Accepted values:  "none", "deepfixmlp:X" where X is a positive float denoting the lambda in l1 regularizer

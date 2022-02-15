@@ -8,9 +8,12 @@ import pytorch_wavelets as pyw
 from .wavelet_packet import WaveletPacket2d
 
 
+class InvalidWaveletParametersError(Exception): pass
+
+
 class DeepFixCompression(T.nn.Module):
-    """Compress the input data to ~1% of original size via feature extraction
-    from a wavelet transform.  No learning.
+    """Compress the input data via wavelet packet based feature extraction.
+    No learning.
     """
     def __init__(self,
                  in_ch:int,
@@ -19,8 +22,29 @@ class DeepFixCompression(T.nn.Module):
                  levels:int, wavelet:str,
                  # wavelet spatial feature extraction params
                  patch_size:int,
+                 patch_features:list[str]=['sum_pos', 'sum_neg'],
+                 how_to_error_if_input_too_small:str='warn',
                  ):
+        """
+        Args:
+            in_ch:  Number of input channels
+            in_ch_multiplier:  If >1, expand the input to in_ch*in_ch_multiplier
+                channels using a random fixed 1x1 conv.
+            levels:  Number of wavelet levels to use
+            wavelet: The kind of wavelet.  Any discrete wavelet from pywt works.
+            patch_size: The number of patches (in each dimension) for each
+                coefficient matrix.  If patch_size=3, it makes 9 patches.
+            patch_features: any of {'l1', 'l2', 'sum_pos', 'sum_neg'}.  The more
+                choices, the less compressible the representation is.
+                A reasonable choice is ['l1'] or ['l1'] or ['sum_pos', 'sum_neg'].
+            how_to_error_if_input_too_small:  one of {'warn', 'raise'}.  The
+                input image shape, wavelet levels, patch size (and also
+                in_ch_multiplier and patch_features) should be chosen to ensure
+                the model is actually doing compression.
+        """
         super().__init__()
+        self.how_to_error_if_input_too_small = how_to_error_if_input_too_small
+        self.patch_features = patch_features
         #
         # construct the compressed encoder:
         #
@@ -45,7 +69,8 @@ class DeepFixCompression(T.nn.Module):
             x.requires_grad_(False)
         # for convenience:  determine what the output shape should be
         if levels != 'max':
-            D = self.get_n_extracted_features(J=levels, P=patch_size)
+            D = self.get_n_extracted_features(
+                J=levels, P=patch_size, F=len(self.patch_features))
         else:
             D = '?'
         self.out_shape = ("?", in_ch * in_ch_multiplier, D)
@@ -66,6 +91,7 @@ class DeepFixCompression(T.nn.Module):
         # reshape the (H,W) spatial data into a set of patches as needed.
         if h>p or w>p:  # if condition avoids unnecessarily padding the input
             # zero pad rows and cols so can have a pxp grid
+            # this isn't necessary if we have inputs with shape a power of 2 in each dimension.
             py, px = (p-h%p)%p, (p-w%p)%p  # total num cols and rows to pad
             assert py in set(range(p)) and px in set(range(p)), 'sanity check: code bug'
             yl = py//2
@@ -73,6 +99,7 @@ class DeepFixCompression(T.nn.Module):
             xl = px//2
             xr = px-xl
             lvl = T.nn.functional.pad(data_2d, (xl, xr, yl, yr))
+            # unfold into patches, with spatial dimensions of patch last
             _,_,h,w = lvl.shape
             assert h%p == 0, w%p == 0
             lvl = T.nn.functional.unfold(
@@ -84,19 +111,31 @@ class DeepFixCompression(T.nn.Module):
             data_2d = lvl
         else:
             if p > 1:
-                warnings.warn((
+                msg = (
                     'Input data spatial dimensions are too small for choice'
                     ' of wavelet level and patch size.  Decrease the wavelet'
                     ' level or patch size.'
                     f' Patch size = {p}'
                     f', level = {self.wavelet_encoder.levels}'
-                    f', input_shape={data_2d.shape}'))
+                    f', input_shape={data_2d.shape}')
+                if self.how_to_error_if_input_too_small == 'raise':
+                    raise InvalidWaveletParametersError(msg)
+                elif self.how_to_error_if_input_too_small == 'warn':
+                    warnings.warn(msg)
+                else:
+                    raise Exception(
+                        f'unrecognized option, how_to_error_if_input_too_small={self.how_to_error_if_input_too_small}')
         # for each patch, get some numbers
-        _scores.append(T.stack([
-            # pos and neg coefficients
-            data_2d.where(data_2d > 1e-6, _zero).sum((-2, -1)).float(),
-            data_2d.where(data_2d < -1e-6, _zero).sum((-2, -1)).float(),
-        ], -1))
+        features = []
+        if 'l1' in self.patch_features:
+            features.append(data_2d.where(data_2d > 1e-6, _zero).abs().sum((-2, -1)).float())
+        if 'l2' in self.patch_features:
+            features.append(data_2d.where(data_2d > 1e-6, _zero).pow(2).sum((-2, -1)).float())
+        if 'sum_pos' in self.patch_features:
+            features.append(data_2d.where(data_2d > 1e-6, _zero).sum((-2, -1)).float())
+        if 'sum_neg' in self.patch_features:
+            features.append(data_2d.where(data_2d < -1e-6, _zero).sum((-2, -1)).float())
+        _scores.append(T.stack(features, -1))
         out = T.cat([x.reshape(B,C,-1) for x in _scores], -1)
         if out[0].numel() > data_2d.numel():
             warnings.warn(
@@ -107,11 +146,12 @@ class DeepFixCompression(T.nn.Module):
         return out
 
     @staticmethod
-    def get_n_extracted_features(J:int, P:int) -> int:
+    def get_n_extracted_features(J:int, P:int, F:int) -> int:
         """
         Args:
             J: number of wavelet levels
             P: patch size
+            F: num features per patch
         Returns:
             Number of extracted features output by this compression encoder.
             The number is either exactly correct or an upper bound (See note).
@@ -127,7 +167,7 @@ class DeepFixCompression(T.nn.Module):
           # note: num_patches is correct as long as num pixels in each spatial
           # dimension is greater than p.  Otherwise, p**d is an upper bound.
         num_detail_matrices = 4**J
-        num_features_per_patch = 2
+        num_features_per_patch = F
         return (num_detail_matrices * num_patches * num_features_per_patch)
 
 
@@ -472,10 +512,10 @@ def get_DeepFixEnd2End(
         in_channels, out_channels,
         in_ch_multiplier=10, wavelet='coif1', wavelet_levels=4, wavelet_patch_size=1,
         mlp_depth=8 , mlp_channels=None, mlp_activation=None,
-        mlp_fix_weights='none',):
+        mlp_fix_weights='none', patch_features='sum_pos,sum_neg'):
     enc = DeepFixCompression(
         in_ch=in_channels, in_ch_multiplier=in_ch_multiplier, levels=wavelet_levels,
-        wavelet=wavelet, patch_size=wavelet_patch_size)
+        wavelet=wavelet, patch_size=wavelet_patch_size, patch_features=patch_features.split(','))
     C, D = enc.out_shape[-2:]
     mlp = DeepFixMLP(
         C=C, D=D, out_ch=out_channels, depth=mlp_depth, mid_ch=mlp_channels,

@@ -5,7 +5,8 @@ from typing import Tuple, Iterable
 
 
 def plot_img_grid(imgs: Iterable, suptitle:str = '', rows_cols: Tuple = None,
-                  norm=None, vmin=None, vmax=None, cmap=None, convert_tensor:bool=True):
+                  norm=None, vmin=None, vmax=None, cmap=None,
+                  convert_tensor:bool=True, num:int=None):
     """Plot a grid of n images
 
     :imgs: a numpy array of shape (n,h,w) or a list of plottable images
@@ -15,6 +16,8 @@ def plot_img_grid(imgs: Iterable, suptitle:str = '', rows_cols: Tuple = None,
     :vmin: and :vmax: and :norm: are passed to ax.imshow(...).  if vmin or vmax
         equal 'min' or 'max, respectively, find the min or max value across all
         elements in the input `imgs`
+    :cmap: a matplotlib colormap
+    :num: the matplotlib figure number to use
     """
     if rows_cols is None:
         _n = np.sqrt(len(imgs))
@@ -36,7 +39,7 @@ def plot_img_grid(imgs: Iterable, suptitle:str = '', rows_cols: Tuple = None,
         imgs = (x.cpu().numpy() if isinstance(x, T.Tensor) else x for x in imgs)
     fig, axs = plt.subplots(
         *rows_cols, squeeze=False, figsize=np.multiply((rows_cols[1],rows_cols[0]),2),
-        tight_layout=dict(w_pad=0.1, h_pad=0.1))
+        tight_layout=dict(w_pad=0.1, h_pad=0.1), num=num, clear=True)
     #  fig.set_constrained_layout_pads(w_pad=0, h_pad=0, hspace=0., wspace=0.)
     fig.suptitle(suptitle)
     [ax.axis('off') for ax in axs.ravel()]
