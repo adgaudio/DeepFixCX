@@ -15,6 +15,7 @@ from simplepytorch import metrics
 from sklearn.model_selection import StratifiedShuffleSplit
 from torch.utils.data import Dataset, DataLoader
 from typing import Union, Optional
+from sklearn.model_selection import StratifiedKFold
 import dataclasses as dc
 import numpy as np
 import torch as T
@@ -165,9 +166,100 @@ def _upsample_pad_minibatch_imgs_to_same_size(batch, target_is_segmentation_mask
             Y.append(item[1])
     return T.stack(X), T.stack(Y)
 
+class RandomSampler(T.utils.data.Sampler):
+    """Randomly sample without replacement a subset of N samples from a dataset
+    of M>N samples.  After a while, a new subset of N samples is requested but
+    (nearly) all M dataset samples have been used.  When this happens, reset
+    the sampler, but ensure that N samples are returned.
+    (In this case, the same image may appear in the that batch twice).
+
+    This is useful to create smaller epochs, where each epoch represents only N
+    randomly chosen images of a dataset of M>N images, and where random
+    sampling is without replacement.
+
+    """
+    def __init__(self, data_source, num_samples:int=None):
+        """
+        Args:
+            data_source:  pytorch Dataset class or object with __len__
+                          ****Assume len(data_source) does not change.****
+        """
+        super().__init__(data_source)
+        assert num_samples > 0
+        assert num_samples <= len(data_source)
+        self.dset_length = len(data_source)
+        self.num_samples = num_samples
+        self._cur_idx = 0
+        self._ordering = self.new_ordering()
+
+    def new_ordering(self):
+        return T.randperm(self.dset_length, dtype=T.long)
+
+    def next_idxs(self, _how_many=None):
+        if self._cur_idx + self.num_samples >= len(self._ordering):
+            some_idxs = self._ordering[self._cur_idx:self._cur_idx+self.num_samples]
+            self._ordering = self.new_ordering()
+            self._cur_idx = self.num_samples-len(some_idxs)
+            more_idxs = self._ordering[0:self._cur_idx]
+            #  print(some_idxs, more_idxs)
+            idxs = T.cat([some_idxs, more_idxs])
+        else:
+            idxs = self._ordering[self._cur_idx:self._cur_idx+self.num_samples]
+            self._cur_idx += self.num_samples
+        return idxs.tolist()
+
+    def __iter__(self):
+        yield from self.next_idxs()
+
+    def __len__(self):
+        return self.num_samples
+
+
+def group_random_split(
+        desired_split_fracs:list[float], group:np.ndarray, rng=None):
+    # in code below, imagine we have images, each belonging to a patient
+    # and we want to ensure no patient is mixed across splits.
+    assert all(0 <= x <= 1 for x in desired_split_fracs), 'desired_split_fracs must contain values in (0,1)'
+    assert sum(desired_split_fracs) <= 1.5, 'should satisfy sum(desired_split_fracs) <= 1+eps, with some margin for error'
+    # count the patients
+    patients, lookup_patient_idx, counts = np.unique(
+        group, return_inverse=True, return_counts=True)
+    # sanity check: if any desired split is smaller than the size of a single patient,
+    # there may be sampling problems where some splits are empty.
+    assert min([x for x in desired_split_fracs if x != 0]) >= np.max(counts / len(group)), f'minimum allowed split fraction is >= {np.max(counts) / len(group)}'
+    # randomly shuffle the patients to get an ordering over them
+    if rng is None:
+        rng = np.random.default_rng()
+    idxs = rng.permutation(np.arange(len(patients)))
+    # compute what fraction of total images we get by considering the first N
+    # patients for all N.
+    fracs = np.cumsum(counts[idxs]) / len(group)
+    # split the data, ensuring the patients have equal chance of appearing in either set.
+    img_idxs = np.arange(len(group))
+    assert len(img_idxs) == len(lookup_patient_idx), 'code bug'
+    splits = []
+    _n_patients_so_far = 0
+    _frac_so_far = 0
+    for desired_frac in desired_split_fracs:
+        if desired_frac == 0:
+            splits.append(np.array([]))
+        else:
+            # define some "cut point" / threshold at which we reach the desired_frac
+            n_patients = np.digitize(desired_frac+_frac_so_far, fracs, False)
+            #  print(fracs, desired_frac, _frac_so_far, n_patients, n_patients - _n_patients_so_far)
+            # get the indices of the samples that correspond to these patients
+            splits.append(img_idxs[np.isin(lookup_patient_idx, idxs[_n_patients_so_far:n_patients])])
+            # bookkeeping
+            _n_patients_so_far = n_patients
+            _frac_so_far = fracs[n_patients-1]
+            #  _frac_so_far += desired_frac
+    return splits
+
 
 def get_dset_chexpert(train_frac=.8, val_frac=.2, small=False,
-                      labels:str='diagnostic', num_identities=None):
+                      labels:str='diagnostic', num_identities=None,
+                      epoch_size:int=None
+                      ):
     """
     Args:
         labels:  either "diagnostic" (the 14 classes defined as
@@ -178,6 +270,7 @@ def get_dset_chexpert(train_frac=.8, val_frac=.2, small=False,
         num_identities:  used only if labels='identity'.  If
             num_identities=1000, then all patients get identified as coming
             from precisely 1 of 1000 bins.
+        epoch_size:  If defined, randomly sample without replacement N images each epoch.
 
     Returns:
         (
@@ -221,20 +314,24 @@ def get_dset_chexpert(train_frac=.8, val_frac=.2, small=False,
 
     train_dset = kls(use_train_set=True, **kws)
     N = len(train_dset)
-    # todo: could stratify Patients across the splits
-    if train_frac + val_frac == 1:
-        nsplits = [N - int(N*val_frac), int(N*val_frac), 0]
-    else:
-        a,b = int(N*train_frac), int(N*val_frac)
-        nsplits = [a,b, N-a-b]
-    train_dset, val_dset, _ = T.utils.data.random_split(train_dset, nsplits)
+    # split the dataset into train and val sets
+    # ensure patient images exist only in one set.  no mixing.
+    train_idxs, val_idxs = group_random_split(
+        [train_frac, val_frac], group=train_dset.labels_csv['Patient'].values)
+    val_dset = T.utils.data.Subset(train_dset, val_idxs)
+    train_dset = T.utils.data.Subset(train_dset, train_idxs)
+    # the 200 sample "test" set
     test_dset = kls(use_train_set=False, **kws)
+    # data loaders
+    batch_size = int(os.environ.get('batch_size', 15))
     batch_dct = dict(
-        batch_size=15, collate_fn=_upsample_pad_minibatch_imgs_to_same_size,
+        collate_fn=_upsample_pad_minibatch_imgs_to_same_size,
         num_workers=int(os.environ.get("num_workers", 4)))  # upsample pad must take time
-    train_loader=DataLoader(train_dset, shuffle=True, **batch_dct)
-    val_loader=DataLoader(val_dset, **batch_dct)
-    test_loader=DataLoader(test_dset, **batch_dct)
+    train_loader=DataLoader(
+        train_dset, batch_size=batch_size,
+        sampler=RandomSampler(train_dset, epoch_size or len(train_dset)), **batch_dct)
+    val_loader=DataLoader(val_dset, batch_size=batch_size, **batch_dct)
+    test_loader=DataLoader(test_dset, batch_size=1, **batch_dct)
     return (dict(
         train_dset=train_dset, val_dset=val_dset, test_dset=test_dset,
         train_loader=train_loader, val_loader=val_loader, test_loader=test_loader,
@@ -331,6 +428,9 @@ DSETS = {
     # chexpert_small:.1:.1:leaderboard  # only 5 classes
     # chexpert_small:.1:.1:Cardiomegaly,Pneumonia,Pleural_Effusion  # only the defined classes
     #  'Atelectasis', 'Cardiomegaly', 'Consolidation', 'Edema', 'Pleural Effusion', ...
+    ('chexpert_small15k', str, str, str): (
+        lambda train_frac, val_frac, labels: get_dset_chexpert(
+            float(train_frac), float(val_frac), small=True, labels=labels, epoch_size=15000)),
 }
 
 
@@ -391,7 +491,8 @@ def get_dset_loaders_resultfactory(dset_spec:str) -> dict:
                 #  class_names, binarize_fn=lambda yh: (T.sigmoid(yh)>.5).long())
         dct['result_factory'] = lambda: TL.MultiClassClassification(
                 len(class_names), binarize_fn=lambda yh: yh.softmax(1).argmax(1))
-    elif any(dset_spec.startswith(x) for x in {'chexpert:', 'chexpert_small:'}):
+    elif any(dset_spec.startswith(x) for x in {
+            'chexpert:', 'chexpert_small:', 'chexpert_small15k:'}):
         dct['result_factory'] = lambda: CheXpertMultiLabelBinaryClassification(
             class_names, binarize_fn=lambda yh: (yh.sigmoid()>.5).long(), report_avg=True)
     else:
@@ -480,6 +581,7 @@ class TrainOptions:
           --dset chexpert:T:V:LABELS  where T + V <= 1 are the percent of training data to use for train and val, and where LABELS is one of {"diagnostic", "leaderboard"} or any comma separated list of class names (replace space with underscore, case sensitive).
           --dset chexpert_small:T:V:LABELS  the 11gb chexpert dataset.
           --dset chexpert_small:.1:.1:Cardiomegaly  # for example
+          --dset chexpert_small15k:.1:.1:Cardiomegaly  # for example
     """
 
     opt:str = 'SGD:lr=.001:momentum=.9:nesterov=1'
