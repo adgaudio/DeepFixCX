@@ -62,7 +62,7 @@ def get_deepfixed_img_and_labels(idx):
 
 
 if __name__ == "__main__":
-    n_patients = 5  # 200  # TODO: make this large enough after done debugging until the results are stable across multiple runs
+    n_patients = 50  # 200  # TODO: make this large enough after done debugging until the results are stable across multiple runs
     deepfix_mdl, dset, experiment_id, device = get_model_and_dset(n_patients)
 
     # compute pairwise distance matrix
@@ -122,9 +122,16 @@ if __name__ == "__main__":
     ks_result = scipy.stats.ks_2samp(vec1, vec2)
     #  print('KS TEST RESULT', ks_result)
     ax1.legend()
-    ax1.set_title(f'2-sample KS Test, p={ks_result.pvalue:.05f}')
+    ax1.set_title(f'2-sample KS Test, p={ks_result.pvalue:.05e}')
     # TODO: consider adding KS test vertical line (like on wikipedia)
     # TODO: consider saying "Statistically Different?  yes|not enough evidence" with ax.text, (only yes if p-value < 1e-4)
+    """
+    """
+    if (ks_result.pvalue < 1e-4):
+        ax1.text(20, 0.4, s=f'Very Strong Evidence.')
+    else:
+        ax1.text(20, 0.4, s=f'Not Enough Evidence.')
+
 
     # plot the difference (and show the ks test result somewhere)
     df = pd.DataFrame({'Same Patient': pd.Series(vec1),
