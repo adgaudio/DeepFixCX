@@ -301,8 +301,9 @@ def get_dset_chexpert(train_frac=.8, val_frac=.2, small=False,
                 D.CheXpert.format_labels(dct, labels=class_names).float()
     kws = dict(
         img_transform=tvt.Compose([
-            #  tvt.RandomCrop((512, 512)),
-            tvt.ToTensor(),  # full res 1024x1024 imgs
+            #  tvt.CenterCrop((512, 512)),
+            #  tvt.CenterCrop((400,400)) if small else (lambda x: x),
+            tvt.ToTensor(),
         ]),
         getitem_transform=lambda dct: (dct['image'], get_ylabels(dct)),
         label_cleanup_dct=_label_cleanup_dct,
@@ -332,6 +333,18 @@ def get_dset_chexpert(train_frac=.8, val_frac=.2, small=False,
         sampler=RandomSampler(train_dset, epoch_size or len(train_dset)), **batch_dct)
     val_loader=DataLoader(val_dset, batch_size=batch_size, **batch_dct)
     test_loader=DataLoader(test_dset, batch_size=1, **batch_dct)
+    #
+    # debugging:  vis dataset
+    #  from deepfix.plotting import plot_img_grid
+    #  from matplotlib import pyplot as plt
+    #  plt.ion()
+    #  fig, ax = plt.subplots(1,2)
+    #  print('hello world')
+    #  for mb in train_loader:
+        #  plot_img_grid(mb[0].squeeze(1), num=1, suptitle=f'shape: {mb[0].shape}')
+        #  plt.show(block=False)
+        #  plt.pause(1)
+    #
     return (dict(
         train_dset=train_dset, val_dset=val_dset, test_dset=test_dset,
         train_loader=train_loader, val_loader=val_loader, test_loader=test_loader,
