@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # a script to reproduce our experiments.
 
+. ./bin/activate
 set -e
 set -u
 # set -o pipefail
 
 cd "$(dirname "$(dirname "$(realpath "$0")")")"
 
-. ./bin/activate
 . ./bin/bash_lib.sh
 
 expand() {
@@ -246,9 +246,12 @@ C9() {
   # experiment over varying patch_features
   python <<EOF
 for levels, patch_size, patch_features in [
-        (8,1,'l1'), (8,1,'l2'), (8,1,'sum_pos,sum_neg'),
-        (1,128,'l1'), (1,128,'l2'), (1,128,'sum_pos,sum_neg'),
-        (5,5,'l1'), (5,5,'l2'), (5,5,'sum_pos,sum_neg'), (4,8,'sum_pos,sum_neg'),]:
+        (5,5,'l1V2'), (5,5,'sum'), (5,5,'l1'),
+        (5,5,'max'), (5,5,'min'), (5,5,'median'),
+        # (8,1,'l1'), (8,1,'l2'), (8,1,'sum_pos,sum_neg'),
+        # (1,128,'l1'), (1,128,'l2'), (1,128,'sum_pos,sum_neg'),
+        # (5,5,'l1'), (5,5,'l2'), (5,5,'sum_pos,sum_neg'), (4,8,'sum_pos,sum_neg'),
+        ]:
     model = f'waveletmlpV2:1:14:coif1:{levels}:{patch_size}:{patch_features}'
     print(f""" ${V}.C9.{model}     python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model {model} """)
 EOF
@@ -264,6 +267,12 @@ for wavelet in [
         model = f'waveletmlpV2:1:14:{wavelet}:{levels}:{patch_size}:{patch_features}'
         print(f""" ${V}.C10.{model}     python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model {model} """)
 EOF
+}
+C11() {
+  # experiment with deepfix_v2
+  local model="deepfix_v2:1:14:coif1:5:5:l1:resnet18:imagenet"
+        # lambda in_ch, out_ch, wavelet, wavelet_levels, patch_size, patch_features, backbone, pretraining: get_DeepFixEnd2End_v2(
+  echo "${V}.C11.$model" python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model "$model"
 }
 
 
@@ -287,6 +296,7 @@ EOF
 # done
 # C7 | run_gpus 4
 # ( I8; C8 ) | run_gpus 3
-# C9 | run_gpus 5
-C8 | run_gpus 3
+# C9 #| run_gpus 3
+# C8 | run_gpus 3
+( C11 ; C8 ) | run_gpus 3
 ( C9 ; C10 ) | run_gpus 5

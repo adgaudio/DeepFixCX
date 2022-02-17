@@ -21,7 +21,7 @@ import numpy as np
 import torch as T
 import torchvision.transforms as tvt
 
-from deepfix.models import get_effnetv2, get_resnet, get_densenet, get_efficientnetv1, get_DeepFixEnd2End, DeepFixMLP
+from deepfix.models import get_effnetv2, get_resnet, get_densenet, get_efficientnetv1, get_DeepFixEnd2End, get_DeepFixEnd2End_v2, DeepFixMLP
 from deepfix.models.ghaarconv import convert_conv2d_to_gHaarConv2d
 from deepfix.init_from_distribution import init_from_beta, reset_optimizer
 from deepfix import deepfix_strategies as dfs
@@ -59,6 +59,14 @@ MODELS = {
             mlp_depth=2, mlp_channels=300,
             mlp_fix_weights='none', mlp_activation=None,
             patch_features=patch_features)
+        ),
+    ('deepfix_v2', str, str, str, str, str, str, str, str): (
+        lambda in_ch, out_ch, wavelet, wavelet_levels, patch_size, patch_features, backbone, pretraining: get_DeepFixEnd2End_v2(
+            int(in_ch), int(out_ch),
+            in_ch_multiplier=1, wavelet=wavelet,
+            wavelet_levels=int(wavelet_levels), wavelet_patch_size=int(patch_size),
+            patch_features=patch_features,
+            backbone=backbone, backbone_pretraining=pretraining,)
         ),
 
     #  ('waveletres18v2', str, str, str): lambda pretrain, in_ch, out_ch: (
@@ -302,7 +310,7 @@ def get_dset_chexpert(train_frac=.8, val_frac=.2, small=False,
     kws = dict(
         img_transform=tvt.Compose([
             #  tvt.CenterCrop((512, 512)),
-            #  tvt.CenterCrop((400,400)) if small else (lambda x: x),
+            tvt.CenterCrop((320,320)) if small else (lambda x: x),
             tvt.ToTensor(),
         ]),
         getitem_transform=lambda dct: (dct['image'], get_ylabels(dct)),

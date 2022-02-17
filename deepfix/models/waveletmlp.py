@@ -6,6 +6,7 @@ from itertools import chain
 #  import pywt
 import pytorch_wavelets as pyw
 from .wavelet_packet import WaveletPacket2d
+from deepfix.models.api import get_resnet
 
 
 class InvalidWaveletParametersError(Exception): pass
@@ -78,6 +79,12 @@ class DeepFixCompression(T.nn.Module):
     def forward(self, x: T.Tensor):
         """Fixed weight dataset agnostic compression"""
         x = self.expand_input_channels(x)
+        #
+        # normalize the input so the output is more balanced.
+        # not sure if this normalize step is helpful on color images.
+        # it makes the extracted features have less extreme differences in value
+        x = x - x.mean((-1, -2), keepdims=True)
+        #
         x = self.spatial_feature_extractor(self.wavelet_encoder(x))
         return x
 
@@ -85,52 +92,66 @@ class DeepFixCompression(T.nn.Module):
         # extract features from each spatial matrix
         B, C, D, h, w = data_2d.shape
         data_2d = data_2d.reshape(B, C*D, h, w)
+        # normalize each coefficient matrix
+        # TODO: decide whether to use
+        #  data_2d /= data_2d.pow(2).sum((-1,-2), keepdims=True).sqrt()  # l2
+        #  data_2d /= data_2d.abs().sum((-1,-2), keepdims=True)  # l1
+        #
         _scores = []
         _zero = data_2d.new_tensor(0)
         p = self.patch_size
+        if h<p or w<p:
+            msg = (
+                'Input data spatial dimensions are too small for choice'
+                ' of wavelet level and patch size.  This is inefficient.'
+                f' Patch size = {p}'
+                f', level = {self.wavelet_encoder.levels}'
+                f', shape_after_wavelet_transform={data_2d.shape}')
+            if self.how_to_error_if_input_too_small == 'raise':
+                raise InvalidWaveletParametersError(msg)
+            elif self.how_to_error_if_input_too_small == 'warn':
+                warnings.warn(msg)
+            else:
+                raise Exception(
+                    f'unrecognized option, how_to_error_if_input_too_small={self.how_to_error_if_input_too_small}')
+        #
         # reshape the (H,W) spatial data into a set of patches as needed.
-        if h>p or w>p:  # if condition avoids unnecessarily padding the input
-            # zero pad rows and cols so can have a pxp grid
-            # this isn't necessary if we have inputs with shape a power of 2 in each dimension.
-            py, px = (p-h%p)%p, (p-w%p)%p  # total num cols and rows to pad
-            assert py in set(range(p)) and px in set(range(p)), 'sanity check: code bug'
-            yl = py//2
-            yr = py-yl
-            xl = px//2
-            xr = px-xl
-            lvl = T.nn.functional.pad(data_2d, (xl, xr, yl, yr))
-            # unfold into patches, with spatial dimensions of patch last
-            _,_,h,w = lvl.shape
-            assert h%p == 0, w%p == 0
-            lvl = T.nn.functional.unfold(
-                lvl,
-                kernel_size=(max(1,h//p), max(1,w//p)),
-                stride=(max(1,h//p),max(1,w//p)))
-            lvl = lvl.reshape(B,C*D,max(1,h//p),max(1,w//p),p*p)
-            lvl = lvl.permute(0,1,4,2,3)  # put the spatial dimensions last.
-            data_2d = lvl
-        else:
-            if p > 1:
-                msg = (
-                    'Input data spatial dimensions are too small for choice'
-                    ' of wavelet level and patch size.  Decrease the wavelet'
-                    ' level or patch size.'
-                    f' Patch size = {p}'
-                    f', level = {self.wavelet_encoder.levels}'
-                    f', input_shape={data_2d.shape}')
-                if self.how_to_error_if_input_too_small == 'raise':
-                    raise InvalidWaveletParametersError(msg)
-                elif self.how_to_error_if_input_too_small == 'warn':
-                    warnings.warn(msg)
-                else:
-                    raise Exception(
-                        f'unrecognized option, how_to_error_if_input_too_small={self.how_to_error_if_input_too_small}')
+        # zero pad rows and cols so can have a pxp grid
+        # this isn't necessary if we have inputs with shape a power of 2 in each dimension.
+        py, px = (p-h%p)%p, (p-w%p)%p  # total num cols and rows to pad
+        assert py in set(range(p)) and px in set(range(p)), 'sanity check: code bug'
+        yl = py//2
+        yr = py-yl
+        xl = px//2
+        xr = px-xl
+        lvl = T.nn.functional.pad(data_2d, (xl, xr, yl, yr))
+        # ... unfold into patches, with spatial dimensions of patch last
+        _,_,h,w = lvl.shape
+        assert h%p == 0, w%p == 0
+        lvl = T.nn.functional.unfold(
+            lvl,
+            kernel_size=(max(1,h//p), max(1,w//p)),
+            stride=(max(1,h//p),max(1,w//p)))
+        lvl = lvl.reshape(B,C*D,max(1,h//p),max(1,w//p),p*p)
+        lvl = lvl.permute(0,1,4,2,3)  # put the spatial dimensions last.
+        data_2d = lvl
+        #
         # for each patch, get some numbers
         features = []
         if 'l1' in self.patch_features:
-            features.append(data_2d.where(data_2d > 1e-6, _zero).abs().sum((-2, -1)).float())
+            #  features.append(data_2d.where(data_2d > 1e-6, _zero).abs().sum((-2, -1)).float())
+            features.append(data_2d.abs().sum((-2, -1)).float())
+        if 'sum' in self.patch_features:
+            features.append(data_2d.sum((-2, -1)).float())
+        if 'max' in self.patch_features:
+            features.append(data_2d.max(-1).values.max(-1).values.float())
+        if 'min' in self.patch_features:
+            features.append(data_2d.min(-1).values.min(-1).values.float())
+        if 'median' in self.patch_features:
+            features.append(data_2d.view(*data_2d.shape[:-2], -1).median(-1).values.float())
         if 'l2' in self.patch_features:
-            features.append(data_2d.where(data_2d > 1e-6, _zero).pow(2).sum((-2, -1)).float())
+            #  features.append(data_2d.where(data_2d > 1e-6, _zero).pow(2).sum((-2, -1)).float())
+            features.append(data_2d.pow(2).sum((-2, -1)).float())
         if 'sum_pos' in self.patch_features:
             features.append(data_2d.where(data_2d > 1e-6, _zero).sum((-2, -1)).float())
         if 'sum_neg' in self.patch_features:
@@ -510,9 +531,9 @@ class MLP(T.nn.Module):
 
 def get_DeepFixEnd2End(
         in_channels, out_channels,
-        in_ch_multiplier=10, wavelet='coif1', wavelet_levels=4, wavelet_patch_size=1,
-        mlp_depth=8 , mlp_channels=None, mlp_activation=None,
-        mlp_fix_weights='none', patch_features='sum_pos,sum_neg'):
+        in_ch_multiplier=1, wavelet='coif1', wavelet_levels=4, wavelet_patch_size=1,
+        mlp_depth=2 , mlp_channels=None, mlp_activation=None,
+        mlp_fix_weights='none', patch_features='l1'):
     enc = DeepFixCompression(
         in_ch=in_channels, in_ch_multiplier=in_ch_multiplier, levels=wavelet_levels,
         wavelet=wavelet, patch_size=wavelet_patch_size, patch_features=patch_features.split(','))
@@ -521,6 +542,61 @@ def get_DeepFixEnd2End(
         C=C, D=D, out_ch=out_channels, depth=mlp_depth, mid_ch=mlp_channels,
         final_layer=mlp_activation, fix_weights=mlp_fix_weights)
     m = DeepFixEnd2End(enc, mlp)
+    return m
+
+
+class DeepFixClassifier(T.nn.Module):
+    def __init__(self, backbone:str, backbone_pretraining:str, in_channels:int, out_channels:int, patch_size:int):
+        super().__init__()
+
+        # figure out how many layers gets us to a 64x64 img via upsampling
+        #  by adding 2 rows and 2 cols each time.
+        # also ensure the total number of elements is about the same so the ram
+        # usage stays small
+        num_layers = math.ceil(max((64 - patch_size) / 2, 0))
+        lst, _out_chan = [], in_channels
+        for l in range(1, 1+num_layers):
+            num_pixels = (patch_size + 2*l)**2
+            _in_chan, _out_chan = _out_chan, math.ceil(in_channels*patch_size**2 / num_pixels)
+            lst.append(T.nn.Sequential(
+                T.nn.ConvTranspose2d(_in_chan, _out_chan, 3), T.nn.SELU()))
+        self.upsampler = T.nn.Sequential(*lst)
+        mid_channels = _out_chan
+
+        if backbone.startswith('resnet'):
+            self.backbone = get_resnet(
+                backbone, backbone_pretraining, mid_channels, out_channels)
+        else:
+            raise NotImplementedError(f'backbone={backbone}')
+        #      *[T.nn.Sequential(
+        #          T.nn.ConvTranspose2d(in_channels, in_channels, 3), T.nn.SELU())
+        #      for _ in range(num_layers)])
+        self.in_channels = in_channels
+        self.patch_size = patch_size
+
+    def forward(self, x):
+        B = x.shape[0]
+        x = x.reshape(B, self.in_channels, self.patch_size, self.patch_size)
+        x = self.upsampler(x)
+        x = self.backbone(x)
+        return x
+
+
+def get_DeepFixEnd2End_v2(
+        in_channels, out_channels,
+        in_ch_multiplier=1, wavelet='coif1', wavelet_levels=4, wavelet_patch_size=1,
+        patch_features='l1', backbone='resnet18', backbone_pretraining='imagenet'):
+    enc = DeepFixCompression(
+        in_ch=in_channels, in_ch_multiplier=in_ch_multiplier, levels=wavelet_levels,
+        wavelet=wavelet, patch_size=wavelet_patch_size, patch_features=patch_features.split(','))
+    enc_channels = 4**wavelet_levels*in_channels*in_ch_multiplier*len(patch_features.split(','))
+
+    classifier = DeepFixClassifier(
+        backbone=backbone, backbone_pretraining=backbone_pretraining,
+        in_channels=enc_channels, out_channels=out_channels,
+        patch_size=wavelet_patch_size)
+
+    m = DeepFixEnd2End(enc, classifier)
     return m
 
 
