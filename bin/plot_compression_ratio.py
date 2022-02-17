@@ -28,9 +28,11 @@ args = p.parse_args()
 #  dset = dct['train_dset']
 
 data = []
+_P_max = min(args.input_shape)//2
+_P_inc = _P_max//30 + (_P_max//30)%2
 gen = ((J,P,M)
        for J in range(1, 9+1)
-       for P in list(range(1,32)) + [64, 128, 256] #[1, 2, 3, 8, 16, 32, 128]
+       for P in list(range(1, 31, 2))+list(range(31, _P_max, _P_inc)) + [_P_max,2,4]
        for M in [1])
 for J,P,M in gen:
     enc1 = DeepFixCompression(
