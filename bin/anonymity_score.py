@@ -36,7 +36,7 @@ class Options:
     level:int = 5
     patchsize:int = 64
     wavelet:str = 'coif1'
-    patch_features:List[str] = 'l1'
+    patch_features:List[str] = ('l1', )
     device:str = 'cuda'
     save_fp:str = './results/anonymity_scores/{experiment_id}.pth'
     save_img_fp:str = './results/anonymity_scores/plots/{experiment_id}.png'
@@ -44,6 +44,7 @@ class Options:
 
     def __post_init__(self):
         self.experiment_id = f'{self.n_patients}_{self.wavelet}:{self.level}:{self.patchsize}:{",".join(self.patch_features)}'
+        self.experiment_id = self.experiment_id.replace(':', '-')
         self.save_fp = self.save_fp.format(**self.__dict__)
         self.save_img_fp = self.save_img_fp.format(**self.__dict__)
         self.cache_dir = self.cache_dir.format(**self.__dict__)
@@ -122,7 +123,9 @@ class CacheToDiskPyTorch:
 
 
 def main():
+
     args = parse_args()
+    print(args)
     deepfix_mdl, dset = get_model_and_dset(args)
     # compute pairwise distance matrix
     # Note: use euclidean distance for now.
@@ -240,6 +243,7 @@ def main():
 
     #  plt.show(block=False)
     #  plt.pause(10)
+    return ks_result
 
 
 if __name__ == "__main__":
