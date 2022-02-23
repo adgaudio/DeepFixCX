@@ -28,6 +28,19 @@ from deepfix import deepfix_strategies as dfs
 import pytorch_wavelets as pyw
 
 
+def parse_normalization(normalization, wavelet, wavelet_levels, wavelet_patch_size, patch_features, zero_mean):
+    if normalization.endswith(',chexpert_small'):
+        fp = f'norms/chexpert_small:{wavelet}:{wavelet_levels}:{wavelet_patch_size}:{patch_features}:{zero_mean}.pth'
+        if normalization == 'whiten,chexpert_small':
+            return ('whiten', fp)
+        elif normalization == '0mean,chexpert_small':
+            return ('0mean', fp)
+        else:
+            raise NotImplementedError(normalization)
+    else:
+        return (normalization, )
+
+
 MODELS = {
     ('effnetv2', str, str, str): (
         lambda pretrain, in_ch, out_ch: get_effnetv2(pretrain, int(in_ch), int(out_ch))),
@@ -59,6 +72,17 @@ MODELS = {
             mlp_depth=2, mlp_channels=300,
             mlp_fix_weights='none', mlp_activation=None,
             patch_features=patch_features)
+        ),
+    ('waveletmlp_bn', str, str, str, str, str, str, str, str): (
+        lambda in_ch, out_ch, wavelet, wavelet_levels, patch_size, patch_features, zero_mean, normalization: get_DeepFixEnd2End(
+            int(in_ch), int(out_ch),
+            in_ch_multiplier=1, wavelet=wavelet,
+            wavelet_levels=int(wavelet_levels), wavelet_patch_size=int(patch_size),
+            mlp_depth=1, mlp_channels=300,
+            mlp_fix_weights='none', mlp_activation=None,
+            patch_features=patch_features,
+            zero_mean=bool(int(zero_mean)),
+            normalization=parse_normalization(normalization, wavelet, wavelet_levels, patch_size, patch_features, zero_mean))
         ),
     ('deepfix_v2', str, str, str, str, str, str, str, str): (
         lambda in_ch, out_ch, wavelet, wavelet_levels, patch_size, patch_features, backbone, pretraining: get_DeepFixEnd2End_v2(

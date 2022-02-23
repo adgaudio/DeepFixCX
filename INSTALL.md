@@ -14,6 +14,7 @@ Code used to setup the environment:
     pip install adabound
     pip install pampy
     pip install efficientnet_pytorch
+    pip install welford
 
     mkdir -p third_party
     git clone https://github.com/fbcotter/pytorch_wavelets third_party/pytorch_wavelets

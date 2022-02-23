@@ -261,7 +261,7 @@ C10() {
   python <<EOF
 for wavelet in [
         # <= 6 filter size
-        'bior1.1', 'bior1.3', 'bior2.2', 'bior3.1', 'coif1', 'coif2', 'db1', 'db2',
+        'bior1.1', 'bior1.3', 'bior2.2', 'bior3.1', 'coif1', 'coif2', 'coif3', 'db1', 'db2',
         'db3', 'rbio1.1', 'rbio1.3', 'rbio2.2', 'rbio3.1', 'sym2', 'sym3']:
     for levels, patch_size, patch_features in [(5,5,'l1'),]:
         model = f'waveletmlpV2:1:14:{wavelet}:{levels}:{patch_size}:{patch_features}'
@@ -273,6 +273,56 @@ C11() {
   local model="deepfix_v2:1:14:coif1:5:5:l1:resnet18:imagenet"
         # lambda in_ch, out_ch, wavelet, wavelet_levels, patch_size, patch_features, backbone, pretraining: get_DeepFixEnd2End_v2(
   echo "${V}.C11.$model" python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model "$model"
+  echo "${V}.C11.$model.lr001" python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model "$model"
+  # python deepfix/train.py --dset chexpert_small:.01:.01:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model "$model"
+}
+C12() {
+  # varying MLP depth and width
+  # all have same num parameters
+  python <<EOF
+d = [2, 6, 10, 14, 18]
+ws = [300, 174, 135, 114, 100]  # 180,000 parameter models
+wm = [600, 347, 268, 226, 200]  # 4*180k parameter models
+for depth, width in zip(d, ws):
+    model = f'waveletmlp:{width}:1:14:5:5:1:{depth}'
+    print(f""" ${V}.C12.s.{model}     python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model {model} """)
+for depth, width in zip(d, wm):
+    model = f'waveletmlp:{width}:1:14:5:5:1:{depth}'
+    print(f""" ${V}.C12.m.{model}     python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model {model} """)
+for depth, width in [(1, 600), (1, 300), (1, 1000), (0, 300)]:
+    model = f'waveletmlp:{width}:1:14:5:5:1:{depth}'
+    print(f""" ${V}.C12.1.{model}     python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model {model} """)
+EOF
+}
+
+C13() {
+  # normalization tests:  show that batchnorm improves perf (partially replicate elvin result).  does a global norm do the same?
+  # mlp has depth 1 (+ vecattn layer) and width 300.
+
+  # note: this runs CPU intensive tasks.
+  python <<EOF
+wavelet = "coif2"
+level = 5
+patchsize = 5
+for zero_mean in '0', '1':
+    for patch_features in ["l1", "min"]:
+        print(f" python bin/compute_deepfix_normalization.py --wavelet {wavelet} --level {level} --patchsize {patchsize} --patch_features {patch_features} --zero_mean {zero_mean}")
+
+        for normalization in ["none", "batchnorm", "whiten,chexpert_small", "0mean,chexpert_small"]:
+            model = f"waveletmlp_bn:1:14:{wavelet}:{level}:{patchsize}:{patch_features}:{zero_mean}:{normalization}"
+            print(f"""${V}.C13.{model} python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model {model} """)
+EOF
+}
+
+compute_normalization() {
+  python <<EOF
+wavelet = 'coif2'
+patch_features = 'min'
+for zero_mean in '0', '1':
+    for level in range(1, 9):
+        for patchsize in 1,3,5,9,19,37,79,115,160:
+            print(f"norm:{level}:{patchsize}:{patch_features}:{zero_mean} python bin/compute_deepfix_normalization.py --level {level} --patchsize {patchsize} --patch_features {patch_features} --zero_mean {zero_mean}")
+EOF
 }
 
 
@@ -298,5 +348,10 @@ C11() {
 # ( I8; C8 ) | run_gpus 3
 # C9 #| run_gpus 3
 # C8 | run_gpus 3
-( C11 ; C8 ) | run_gpus 3
-( C9 ; C10 ) | run_gpus 5
+# ( C11 ; C8 ) | run_gpus 3
+# ( C9 ; C10 ) | run_gpus 5
+# ( C8 ; C9 ; C10 ; C11 ; C12 ) | run_gpus 3
+# C12
+# C13 | grep compute_deepfix | parallel -j 10
+# C13 | grep -v compute_deepfix | run_gpus 5
+compute_normalization | run_gpus 1

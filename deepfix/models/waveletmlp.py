@@ -1,4 +1,5 @@
 import torch as T
+from typing import List
 import math
 import warnings
 from itertools import chain
@@ -25,6 +26,7 @@ class DeepFixCompression(T.nn.Module):
                  patch_size:int,
                  patch_features:list[str]=['sum_pos', 'sum_neg'],
                  how_to_error_if_input_too_small:str='warn',
+                 zero_mean:bool=False,
                  ):
         """
         Args:
@@ -42,10 +44,14 @@ class DeepFixCompression(T.nn.Module):
                 input image shape, wavelet levels, patch size (and also
                 in_ch_multiplier and patch_features) should be chosen to ensure
                 the model is actually doing compression.
+            zero_mean:  If True, ensure each input channel has zero mean before
+                wavelet transform
         """
         super().__init__()
         self.how_to_error_if_input_too_small = how_to_error_if_input_too_small
+        assert isinstance(patch_features, (list, tuple))
         self.patch_features = patch_features
+        self.zero_mean = zero_mean
         #
         # construct the compressed encoder:
         #
@@ -83,7 +89,8 @@ class DeepFixCompression(T.nn.Module):
         # normalize the input so the output is more balanced.
         # not sure if this normalize step is helpful on color images.
         # it makes the extracted features have less extreme differences in value
-        x = x - x.mean((-1, -2), keepdims=True)
+        if self.zero_mean:
+            x = x - x.mean((-1, -2), keepdims=True)
         #
         x = self.spatial_feature_extractor(self.wavelet_encoder(x))
         return x
@@ -93,6 +100,8 @@ class DeepFixCompression(T.nn.Module):
         B, C, D, h, w = data_2d.shape
         data_2d = data_2d.reshape(B, C*D, h, w)
         # normalize each coefficient matrix
+        #  data_2d = data_2d.log2() / T.log2(data_2d.new_tensor(4))  # log base 4
+        #  data_2d = data_2d.log2() # log base 2
         # TODO: decide whether to use
         #  data_2d /= data_2d.pow(2).sum((-1,-2), keepdims=True).sqrt()  # l2
         #  data_2d /= data_2d.abs().sum((-1,-2), keepdims=True)  # l1
@@ -330,6 +339,44 @@ class DeepFixCompression__OLD(T.nn.Module):
         return int(rv)
 
 
+class Normalization(T.nn.Module):
+    """Expect input of shape  (B,C,D) and normalize each of the D features"""
+    def __init__(self, D:int, normalization:str, filepath:str=None):
+        super().__init__()
+        if normalization == 'batchnorm':
+            self.normfn = T.nn.BatchNorm1d(D)
+        elif normalization == 'none':
+            self.normfn = T.nn.Identity()
+        elif normalization in {'whiten', '0mean'}:
+            dct = T.load(filepath)
+            mu, var = dct['means'], dct['vars']
+            std = var.sqrt()
+            self.register_buffer('mu', mu)
+            self.register_buffer('std', std)
+            assert mu.shape == (1,1,D)
+            assert std.shape == (1,1,D)
+            if normalization == 'whiten':
+                self.normfn = self.whiten
+            elif normalization == '0mean':
+                self.normfn = self.zero_mean
+            else:
+                raise NotImplementedError('code bug')
+        else:
+            raise NotImplementedError(f'Unrecognized normalization: {normalization}')
+
+    def whiten(self, x):
+        return (x - self.mu) / self.std
+
+    def zero_mean(self, x):
+        return (x - self.mu)
+
+    def forward(self, x):
+        """Expect input of shape  (B,C,D) and normalize the features on dimension D"""
+        #  print(1, x.mean(0).mean().item())
+        x = self.normfn(x.reshape(-1, x.shape[-1])).reshape(x.shape)
+        #  print(2, x.mean(0).mean().item())
+        return x
+
 class DeepFixMLP(T.nn.Module):
     """Apply a multi-layer perceptron to the compressed DeepFix embedding space.
     The input to this module is the output of a DeepFixCompression(...) model.
@@ -339,7 +386,7 @@ class DeepFixMLP(T.nn.Module):
     """
     def __init__(self, C:int, D:int,
                  out_ch:int, depth:int, mid_ch:int, final_layer:T.nn.Module,
-                 fix_weights='none'):
+                 fix_weights:str='none', input_normalization:List='none'):
         """
         Args:
             C and D: Channels and dimension output by the DeepFixCompression model
@@ -351,11 +398,15 @@ class DeepFixMLP(T.nn.Module):
                 the weights so they are not part of backprop.  Used during
                 testing to experiment with fixed weight networks, like extreme
                 learning machines.
+            input_normalization:  a list of args that tells Normalization class how
+            to normalize each of the D features. Any of these:  {
+            ['none'], ['batchnorm'], ['file', filepath]}
         """
         super().__init__()
         #  self.compression_encoder = compression_encoder
         self.spatial_attn = T.nn.Sequential(
             T.nn.Flatten(2),  # (B,C,D)
+            Normalization(D, *input_normalization),
             VecAttn(D),  # (B,C,D)
             T.nn.Flatten(1)  # (B,C*D)
         )
@@ -533,14 +584,17 @@ def get_DeepFixEnd2End(
         in_channels, out_channels,
         in_ch_multiplier=1, wavelet='coif1', wavelet_levels=4, wavelet_patch_size=1,
         mlp_depth=2 , mlp_channels=None, mlp_activation=None,
-        mlp_fix_weights='none', patch_features='l1'):
+        mlp_fix_weights='none', patch_features='l1',
+        zero_mean:bool=False, normalization=('none', )):
     enc = DeepFixCompression(
         in_ch=in_channels, in_ch_multiplier=in_ch_multiplier, levels=wavelet_levels,
-        wavelet=wavelet, patch_size=wavelet_patch_size, patch_features=patch_features.split(','))
+        wavelet=wavelet,
+        patch_size=wavelet_patch_size, patch_features=patch_features.split(','),
+        zero_mean=zero_mean)
     C, D = enc.out_shape[-2:]
     mlp = DeepFixMLP(
         C=C, D=D, out_ch=out_channels, depth=mlp_depth, mid_ch=mlp_channels,
-        final_layer=mlp_activation, fix_weights=mlp_fix_weights)
+        final_layer=mlp_activation, fix_weights=mlp_fix_weights, input_normalization=normalization)
     m = DeepFixEnd2End(enc, mlp)
     return m
 

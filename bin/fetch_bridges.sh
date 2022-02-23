@@ -10,3 +10,4 @@ set -u
 
 experiment_id=$1  # or a glob expression
 rsync -ave ssh --exclude "*.pth" bridgesdata:store/deepfix/results/$experiment_id ./results_bridges/
+rsync -ave ssh bridgesdata:store/deepfix/results/$experiment_id ./results_bridges/
