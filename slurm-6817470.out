@@ -1,0 +1,202 @@
+Unloaded dependency: anaconda3/2020.11
+Unloading the anaconda2 module (if loaded)...
+Loaded dependency: anaconda3/2020.11
+AI/Version: anaconda3.2020.11
+-----------------------------
+
+Description
+-----------
+The modulefile AI/anaconda3.2020.11 provides a unified, rich, anaconda3 based
+environment for Artificial Intelligence(AI)/Machine Learning(ML)/Big Data(BD)
+on top of based on Python 3.
+
+Module contents
+---------------
+Several popular AI/ML/BD packages are included in this environment, such as:
+    tensorflow-gpu, theano, keras-gpu, pytorch, opencv, pandas, scikit-learn,
+scikit-image etc.
+
+To check the full list of available packages in this environment, first
+activate it and then run the command
+    conda list
+
+Main packages included in this module:
+* astropy 4.2
+* blas 1.0
+* bokeh 2.2.3
+* cudatoolkit 10.0.130
+* cudnn 7.6.5
+* h5py 2.8.0
+* hdf5 1.10.2
+* ipython 7.19.0
+* jupyter 1.0.0
+* jupyterlab 2.2.6
+* keras-gpu 2.3.1
+* matplotlib 3.3.2
+* mkl 2019.4
+* nccl 1.3.5
+* networkx 2.5
+* ninja 1.10.2
+* nltk 3.5
+* notebook 6.1.6
+* numba 0.51.2
+* numpy 1.17.0
+* opencv 3.4.2
+* pandas 1.2.0
+* pillow 8.1.0
+* pip 20.3.3
+* python 3.7.9
+* pytorch 1.5.0
+* scikit-learn 0.23.2
+* scipy 1.5.2
+* seaborn 0.11.1
+* tensorboard 2.0.0
+* tensorflow-gpu 2.0.0
+* theano 1.0.4
+
+If you need to further customize this environment (e.g., install additional
+packages, or upgrade a particular package),
+you should first clone this environment as follows:
+    conda create --prefix <path to a dir in which you can write> --clone
+$AI_ENV
+Then activate the newly spawned environment and proceed with your
+customization.
+
+To get further help with conda usage, you can try one of the following:
+    conda -h
+    conda <command> -h
+
+Activate the module
+-------------------
+[1;32mNew!:[0m You are NOT required to manually activate this module anymore.
+
+It should get activated automatically after running the module load command
+since the following commands are being run on your behalf:
+    # module load AI/anaconda3.2020.11
+    # source /opt/packages/anaconda3/2020.11/etc/profile.d/conda.sh # conda
+init
+    # conda activate $AI_ENV
+    # (/opt/packages/AI/anaconda3-tf2.2020.11) USERNAME@BRIDGES-2:~ $ # << Your
+prompt should have changed to something similar.
+
+
+
+CommandNotFoundError: Your shell has not been properly configured to use 'conda deactivate'.
+To initialize your shell, run
+
+    $ conda init <SHELL_NAME>
+
+Currently supported shells are:
+  - bash
+  - fish
+  - tcsh
+  - xonsh
+  - zsh
+  - powershell
+
+See 'conda init --help' for more information and options.
+
+IMPORTANT: You may need to close and restart your shell after running 'conda init'.
+
+
+
+CommandNotFoundError: Your shell has not been properly configured to use 'conda deactivate'.
+To initialize your shell, run
+
+    $ conda init <SHELL_NAME>
+
+Currently supported shells are:
+  - bash
+  - fish
+  - tcsh
+  - xonsh
+  - zsh
+  - powershell
+
+See 'conda init --help' for more information and options.
+
+IMPORTANT: You may need to close and restart your shell after running 'conda init'.
+
+
+/var/spool/slurm/d/job6817470/slurm_script: line 22: /opt/packages/anaconda3/2020.11/etc/profile.d/conda.sh: No such file or directory
+For running on bridges
+Wed Feb 23 19:19:40 EST 2022
+./bin/activate: line 1: /opt/anaconda/bin/activate: No such file or directory
+
+CommandNotFoundError: Your shell has not been properly configured to use 'conda activate'.
+To initialize your shell, run
+
+    $ conda init <SHELL_NAME>
+
+Currently supported shells are:
+  - bash
+  - fish
+  - tcsh
+  - xonsh
+  - zsh
+  - powershell
+
+See 'conda init --help' for more information and options.
+
+IMPORTANT: You may need to close and restart your shell after running 'conda init'.
+
+
+Conda environment activated: deepfix
+/jet/home/elvinj/.conda/envs/deepfix/bin/python
+START: 20220223T191941.194138980
+run_id=8.E10.waveletmlpV2:1:14:coif1:2:115:l1 python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model waveletmlpV2:1:14:coif1:2:115:l1
+WARNING:root:QualDR dataset labels unavailable because pyjq not installed
+TrainOptions(epochs=200, start_epoch=0, device='cuda', dset='chexpert_small15k:.9:.1:diagnostic', opt='Adam:lr=0.001', lossfn='chexpert_uignore', loss_reg='none', model='waveletmlpV2:1:14:coif1:2:115:l1', deepfix='off', experiment_id='8.E10.waveletmlpV2:1:14:coif1:2:115:l1', prune='off')
+Checkpoint ./results/8.E10.waveletmlpV2:1:14:coif1:2:115:l1/checkpoints/epoch_0.pth
+  0%|          | 0/1000 [00:00<?, ?it/s]  0%|          | 0/1000 [00:11<?, ?it/s]
+Traceback (most recent call last):
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 663, in <module>
+    main()
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 648, in main
+    cfg.train(cfg)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/simplepytorch/trainlib.py", line 118, in train
+    cfg.evaluate_perf(cfg, cfg.train_loader))
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/simplepytorch/trainlib.py", line 161, in evaluate_perf
+    yhat = cfg.model(X)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 1102, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/jet/home/elvinj/store/DeepFix/deepfix/models/waveletmlp.py", line 434, in forward
+    x = self.compression_mdl(x)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 1102, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/jet/home/elvinj/store/DeepFix/deepfix/models/waveletmlp.py", line 81, in forward
+    x = self.spatial_feature_extractor(self.wavelet_encoder(x))
+  File "/jet/home/elvinj/store/DeepFix/deepfix/models/waveletmlp.py", line 122, in spatial_feature_extractor
+    raise InvalidWaveletParametersError(msg)
+deepfix.models.waveletmlp.InvalidWaveletParametersError: Input data spatial dimensions are too small for choice of wavelet level and patch size.  Decrease the wavelet level or patch size. Patch size = 115, level = 2, input_shape=torch.Size([15, 16, 98, 98])
+[0;31m FAILURE  [0m lockfile_fp= /ocean/projects/cie160013p/elvinj/DeepFix/results/8.E10.waveletmlpV2:1:14:coif1:2:115:l1/lock
+START: 20220223T191941.194138980
+START: 20220223T191941.204446428
+run_id=8.E10.waveletmlpV2:1:14:coif1:2:160:l1 python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model waveletmlpV2:1:14:coif1:2:160:l1
+WARNING:root:QualDR dataset labels unavailable because pyjq not installed
+TrainOptions(epochs=200, start_epoch=0, device='cuda', dset='chexpert_small15k:.9:.1:diagnostic', opt='Adam:lr=0.001', lossfn='chexpert_uignore', loss_reg='none', model='waveletmlpV2:1:14:coif1:2:160:l1', deepfix='off', experiment_id='8.E10.waveletmlpV2:1:14:coif1:2:160:l1', prune='off')
+Checkpoint ./results/8.E10.waveletmlpV2:1:14:coif1:2:160:l1/checkpoints/epoch_0.pth
+  0%|          | 0/1000 [00:00<?, ?it/s]  0%|          | 0/1000 [00:15<?, ?it/s]
+Traceback (most recent call last):
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 663, in <module>
+    main()
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 648, in main
+    cfg.train(cfg)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/simplepytorch/trainlib.py", line 118, in train
+    cfg.evaluate_perf(cfg, cfg.train_loader))
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/simplepytorch/trainlib.py", line 161, in evaluate_perf
+    yhat = cfg.model(X)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 1102, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/jet/home/elvinj/store/DeepFix/deepfix/models/waveletmlp.py", line 434, in forward
+    x = self.compression_mdl(x)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 1102, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/jet/home/elvinj/store/DeepFix/deepfix/models/waveletmlp.py", line 81, in forward
+    x = self.spatial_feature_extractor(self.wavelet_encoder(x))
+  File "/jet/home/elvinj/store/DeepFix/deepfix/models/waveletmlp.py", line 122, in spatial_feature_extractor
+    raise InvalidWaveletParametersError(msg)
+deepfix.models.waveletmlp.InvalidWaveletParametersError: Input data spatial dimensions are too small for choice of wavelet level and patch size.  Decrease the wavelet level or patch size. Patch size = 160, level = 2, input_shape=torch.Size([15, 16, 98, 98])
+[0;31m FAILURE  [0m lockfile_fp= /ocean/projects/cie160013p/elvinj/DeepFix/results/8.E10.waveletmlpV2:1:14:coif1:2:160:l1/lock
+START: 20220223T191941.204446428
+slurmstepd: error: *** JOB 6817470 ON v003 CANCELLED AT 2022-02-23T19:27:47 ***

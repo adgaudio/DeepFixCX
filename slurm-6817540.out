@@ -1,0 +1,874 @@
+Unloaded dependency: anaconda3/2020.11
+Unloading the anaconda2 module (if loaded)...
+Loaded dependency: anaconda3/2020.11
+AI/Version: anaconda3.2020.11
+-----------------------------
+
+Description
+-----------
+The modulefile AI/anaconda3.2020.11 provides a unified, rich, anaconda3 based
+environment for Artificial Intelligence(AI)/Machine Learning(ML)/Big Data(BD)
+on top of based on Python 3.
+
+Module contents
+---------------
+Several popular AI/ML/BD packages are included in this environment, such as:
+    tensorflow-gpu, theano, keras-gpu, pytorch, opencv, pandas, scikit-learn,
+scikit-image etc.
+
+To check the full list of available packages in this environment, first
+activate it and then run the command
+    conda list
+
+Main packages included in this module:
+* astropy 4.2
+* blas 1.0
+* bokeh 2.2.3
+* cudatoolkit 10.0.130
+* cudnn 7.6.5
+* h5py 2.8.0
+* hdf5 1.10.2
+* ipython 7.19.0
+* jupyter 1.0.0
+* jupyterlab 2.2.6
+* keras-gpu 2.3.1
+* matplotlib 3.3.2
+* mkl 2019.4
+* nccl 1.3.5
+* networkx 2.5
+* ninja 1.10.2
+* nltk 3.5
+* notebook 6.1.6
+* numba 0.51.2
+* numpy 1.17.0
+* opencv 3.4.2
+* pandas 1.2.0
+* pillow 8.1.0
+* pip 20.3.3
+* python 3.7.9
+* pytorch 1.5.0
+* scikit-learn 0.23.2
+* scipy 1.5.2
+* seaborn 0.11.1
+* tensorboard 2.0.0
+* tensorflow-gpu 2.0.0
+* theano 1.0.4
+
+If you need to further customize this environment (e.g., install additional
+packages, or upgrade a particular package),
+you should first clone this environment as follows:
+    conda create --prefix <path to a dir in which you can write> --clone
+$AI_ENV
+Then activate the newly spawned environment and proceed with your
+customization.
+
+To get further help with conda usage, you can try one of the following:
+    conda -h
+    conda <command> -h
+
+Activate the module
+-------------------
+[1;32mNew!:[0m You are NOT required to manually activate this module anymore.
+
+It should get activated automatically after running the module load command
+since the following commands are being run on your behalf:
+    # module load AI/anaconda3.2020.11
+    # source /opt/packages/anaconda3/2020.11/etc/profile.d/conda.sh # conda
+init
+    # conda activate $AI_ENV
+    # (/opt/packages/AI/anaconda3-tf2.2020.11) USERNAME@BRIDGES-2:~ $ # << Your
+prompt should have changed to something similar.
+
+
+
+CommandNotFoundError: Your shell has not been properly configured to use 'conda deactivate'.
+To initialize your shell, run
+
+    $ conda init <SHELL_NAME>
+
+Currently supported shells are:
+  - bash
+  - fish
+  - tcsh
+  - xonsh
+  - zsh
+  - powershell
+
+See 'conda init --help' for more information and options.
+
+IMPORTANT: You may need to close and restart your shell after running 'conda init'.
+
+
+
+CommandNotFoundError: Your shell has not been properly configured to use 'conda deactivate'.
+To initialize your shell, run
+
+    $ conda init <SHELL_NAME>
+
+Currently supported shells are:
+  - bash
+  - fish
+  - tcsh
+  - xonsh
+  - zsh
+  - powershell
+
+See 'conda init --help' for more information and options.
+
+IMPORTANT: You may need to close and restart your shell after running 'conda init'.
+
+
+/var/spool/slurm/d/job6817540/slurm_script: line 22: /opt/packages/anaconda3/2020.11/etc/profile.d/conda.sh: No such file or directory
+For running on bridges
+Wed Feb 23 19:31:32 EST 2022
+./bin/activate: line 1: /opt/anaconda/bin/activate: No such file or directory
+
+CommandNotFoundError: Your shell has not been properly configured to use 'conda activate'.
+To initialize your shell, run
+
+    $ conda init <SHELL_NAME>
+
+Currently supported shells are:
+  - bash
+  - fish
+  - tcsh
+  - xonsh
+  - zsh
+  - powershell
+
+See 'conda init --help' for more information and options.
+
+IMPORTANT: You may need to close and restart your shell after running 'conda init'.
+
+
+Conda environment activated: deepfix
+/jet/home/elvinj/.conda/envs/deepfix/bin/python
+START: 20220223T193133.041457894
+run_id=8.E10.waveletmlpV2:1:14:coif1:2:160:l1 python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model waveletmlpV2:1:14:coif1:2:160:l1
+WARNING:root:QualDR dataset labels unavailable because pyjq not installed
+TrainOptions(epochs=200, start_epoch=0, device='cuda', dset='chexpert_small15k:.9:.1:diagnostic', opt='Adam:lr=0.001', lossfn='chexpert_uignore', loss_reg='none', model='waveletmlpV2:1:14:coif1:2:160:l1', deepfix='off', experiment_id='8.E10.waveletmlpV2:1:14:coif1:2:160:l1', prune='off')
+Traceback (most recent call last):
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 663, in <module>
+    main()
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 633, in main
+    cfg = train_config(args)
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 568, in train_config
+    **get_model_opt_loss(
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 471, in get_model_opt_loss
+    mdl = mdl.to(device, non_blocking=True)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 899, in to
+    return self._apply(convert)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 570, in _apply
+    module._apply(fn)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 570, in _apply
+    module._apply(fn)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 616, in _apply
+    self._buffers[key] = fn(buf)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 897, in convert
+    return t.to(device, dtype if t.is_floating_point() or t.is_complex() else None, non_blocking)
+RuntimeError: CUDA error: out of memory
+CUDA kernel errors might be asynchronously reported at some other API call,so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1.
+[0;31m FAILURE  [0m lockfile_fp= /ocean/projects/cie160013p/elvinj/DeepFix/results/8.E10.waveletmlpV2:1:14:coif1:2:160:l1/lock
+START: 20220223T193133.041457894
+START: 20220223T193133.020969955
+run_id=8.E10.waveletmlpV2:1:14:coif1:2:37:l1 python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model waveletmlpV2:1:14:coif1:2:37:l1
+WARNING:root:QualDR dataset labels unavailable because pyjq not installed
+TrainOptions(epochs=200, start_epoch=0, device='cuda', dset='chexpert_small15k:.9:.1:diagnostic', opt='Adam:lr=0.001', lossfn='chexpert_uignore', loss_reg='none', model='waveletmlpV2:1:14:coif1:2:37:l1', deepfix='off', experiment_id='8.E10.waveletmlpV2:1:14:coif1:2:37:l1', prune='off')
+Traceback (most recent call last):
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 663, in <module>
+    main()
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 633, in main
+    cfg = train_config(args)
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 568, in train_config
+    **get_model_opt_loss(
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 471, in get_model_opt_loss
+    mdl = mdl.to(device, non_blocking=True)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 899, in to
+    return self._apply(convert)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 570, in _apply
+    module._apply(fn)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 570, in _apply
+    module._apply(fn)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 616, in _apply
+    self._buffers[key] = fn(buf)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 897, in convert
+    return t.to(device, dtype if t.is_floating_point() or t.is_complex() else None, non_blocking)
+RuntimeError: CUDA error: out of memory
+CUDA kernel errors might be asynchronously reported at some other API call,so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1.
+[0;31m FAILURE  [0m lockfile_fp= /ocean/projects/cie160013p/elvinj/DeepFix/results/8.E10.waveletmlpV2:1:14:coif1:2:37:l1/lock
+START: 20220223T193133.020969955
+START: 20220223T193132.998971287
+run_id=8.E10.waveletmlpV2:1:14:coif1:2:9:l1 python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model waveletmlpV2:1:14:coif1:2:9:l1
+WARNING:root:QualDR dataset labels unavailable because pyjq not installed
+TrainOptions(epochs=200, start_epoch=0, device='cuda', dset='chexpert_small15k:.9:.1:diagnostic', opt='Adam:lr=0.001', lossfn='chexpert_uignore', loss_reg='none', model='waveletmlpV2:1:14:coif1:2:9:l1', deepfix='off', experiment_id='8.E10.waveletmlpV2:1:14:coif1:2:9:l1', prune='off')
+Traceback (most recent call last):
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 663, in <module>
+    main()
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 633, in main
+    cfg = train_config(args)
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 568, in train_config
+    **get_model_opt_loss(
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 471, in get_model_opt_loss
+    mdl = mdl.to(device, non_blocking=True)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 899, in to
+    return self._apply(convert)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 570, in _apply
+    module._apply(fn)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 570, in _apply
+    module._apply(fn)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 616, in _apply
+    self._buffers[key] = fn(buf)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 897, in convert
+    return t.to(device, dtype if t.is_floating_point() or t.is_complex() else None, non_blocking)
+RuntimeError: CUDA error: out of memory
+CUDA kernel errors might be asynchronously reported at some other API call,so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1.
+[0;31m FAILURE  [0m lockfile_fp= /ocean/projects/cie160013p/elvinj/DeepFix/results/8.E10.waveletmlpV2:1:14:coif1:2:9:l1/lock
+START: 20220223T193132.998971287
+START: 20220223T193132.953858842
+run_id=8.E10.waveletmlpV2:1:14:coif1:1:19:l1 python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model waveletmlpV2:1:14:coif1:1:19:l1
+WARNING:root:QualDR dataset labels unavailable because pyjq not installed
+TrainOptions(epochs=200, start_epoch=0, device='cuda', dset='chexpert_small15k:.9:.1:diagnostic', opt='Adam:lr=0.001', lossfn='chexpert_uignore', loss_reg='none', model='waveletmlpV2:1:14:coif1:1:19:l1', deepfix='off', experiment_id='8.E10.waveletmlpV2:1:14:coif1:1:19:l1', prune='off')
+Traceback (most recent call last):
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 663, in <module>
+    main()
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 633, in main
+    cfg = train_config(args)
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 568, in train_config
+    **get_model_opt_loss(
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 471, in get_model_opt_loss
+    mdl = mdl.to(device, non_blocking=True)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 899, in to
+    return self._apply(convert)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 570, in _apply
+    module._apply(fn)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 570, in _apply
+    module._apply(fn)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 616, in _apply
+    self._buffers[key] = fn(buf)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 897, in convert
+    return t.to(device, dtype if t.is_floating_point() or t.is_complex() else None, non_blocking)
+RuntimeError: CUDA error: out of memory
+CUDA kernel errors might be asynchronously reported at some other API call,so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1.
+[0;31m FAILURE  [0m lockfile_fp= /ocean/projects/cie160013p/elvinj/DeepFix/results/8.E10.waveletmlpV2:1:14:coif1:1:19:l1/lock
+START: 20220223T193132.953858842
+START: 20220223T193132.944374375
+run_id=8.E10.waveletmlpV2:1:14:coif1:1:5:l1 python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model waveletmlpV2:1:14:coif1:1:5:l1
+WARNING:root:QualDR dataset labels unavailable because pyjq not installed
+TrainOptions(epochs=200, start_epoch=0, device='cuda', dset='chexpert_small15k:.9:.1:diagnostic', opt='Adam:lr=0.001', lossfn='chexpert_uignore', loss_reg='none', model='waveletmlpV2:1:14:coif1:1:5:l1', deepfix='off', experiment_id='8.E10.waveletmlpV2:1:14:coif1:1:5:l1', prune='off')
+Traceback (most recent call last):
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 663, in <module>
+    main()
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 633, in main
+    cfg = train_config(args)
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 568, in train_config
+    **get_model_opt_loss(
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 471, in get_model_opt_loss
+    mdl = mdl.to(device, non_blocking=True)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 899, in to
+    return self._apply(convert)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 570, in _apply
+    module._apply(fn)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 570, in _apply
+    module._apply(fn)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 616, in _apply
+    self._buffers[key] = fn(buf)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 897, in convert
+    return t.to(device, dtype if t.is_floating_point() or t.is_complex() else None, non_blocking)
+RuntimeError: CUDA error: out of memory
+CUDA kernel errors might be asynchronously reported at some other API call,so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1.
+[0;31m FAILURE  [0m lockfile_fp= /ocean/projects/cie160013p/elvinj/DeepFix/results/8.E10.waveletmlpV2:1:14:coif1:1:5:l1/lock
+START: 20220223T193132.944374375
+START: 20220223T193132.979456177
+run_id=8.E10.waveletmlpV2:1:14:coif1:2:1:l1 python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model waveletmlpV2:1:14:coif1:2:1:l1
+WARNING:root:QualDR dataset labels unavailable because pyjq not installed
+TrainOptions(epochs=200, start_epoch=0, device='cuda', dset='chexpert_small15k:.9:.1:diagnostic', opt='Adam:lr=0.001', lossfn='chexpert_uignore', loss_reg='none', model='waveletmlpV2:1:14:coif1:2:1:l1', deepfix='off', experiment_id='8.E10.waveletmlpV2:1:14:coif1:2:1:l1', prune='off')
+Traceback (most recent call last):
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 663, in <module>
+    main()
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 633, in main
+    cfg = train_config(args)
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 568, in train_config
+    **get_model_opt_loss(
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 471, in get_model_opt_loss
+    mdl = mdl.to(device, non_blocking=True)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 899, in to
+    return self._apply(convert)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 570, in _apply
+    module._apply(fn)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 570, in _apply
+    module._apply(fn)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 616, in _apply
+    self._buffers[key] = fn(buf)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 897, in convert
+    return t.to(device, dtype if t.is_floating_point() or t.is_complex() else None, non_blocking)
+RuntimeError: CUDA error: out of memory
+CUDA kernel errors might be asynchronously reported at some other API call,so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1.
+[0;31m FAILURE  [0m lockfile_fp= /ocean/projects/cie160013p/elvinj/DeepFix/results/8.E10.waveletmlpV2:1:14:coif1:2:1:l1/lock
+START: 20220223T193132.979456177
+START: 20220223T193132.940100300
+run_id=8.E10.waveletmlpV2:1:14:coif1:1:1:l1 python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model waveletmlpV2:1:14:coif1:1:1:l1
+WARNING:root:QualDR dataset labels unavailable because pyjq not installed
+TrainOptions(epochs=200, start_epoch=0, device='cuda', dset='chexpert_small15k:.9:.1:diagnostic', opt='Adam:lr=0.001', lossfn='chexpert_uignore', loss_reg='none', model='waveletmlpV2:1:14:coif1:1:1:l1', deepfix='off', experiment_id='8.E10.waveletmlpV2:1:14:coif1:1:1:l1', prune='off')
+Traceback (most recent call last):
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 663, in <module>
+    main()
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 633, in main
+    cfg = train_config(args)
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 568, in train_config
+    **get_model_opt_loss(
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 471, in get_model_opt_loss
+    mdl = mdl.to(device, non_blocking=True)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 899, in to
+    return self._apply(convert)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 570, in _apply
+    module._apply(fn)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 570, in _apply
+    module._apply(fn)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 616, in _apply
+    self._buffers[key] = fn(buf)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 897, in convert
+    return t.to(device, dtype if t.is_floating_point() or t.is_complex() else None, non_blocking)
+RuntimeError: CUDA error: out of memory
+CUDA kernel errors might be asynchronously reported at some other API call,so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1.
+[0;31m FAILURE  [0m lockfile_fp= /ocean/projects/cie160013p/elvinj/DeepFix/results/8.E10.waveletmlpV2:1:14:coif1:1:1:l1/lock
+START: 20220223T193132.940100300
+START: 20220223T193133.005085755
+run_id=8.E10.waveletmlpV2:1:14:coif1:2:19:l1 python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model waveletmlpV2:1:14:coif1:2:19:l1
+WARNING:root:QualDR dataset labels unavailable because pyjq not installed
+TrainOptions(epochs=200, start_epoch=0, device='cuda', dset='chexpert_small15k:.9:.1:diagnostic', opt='Adam:lr=0.001', lossfn='chexpert_uignore', loss_reg='none', model='waveletmlpV2:1:14:coif1:2:19:l1', deepfix='off', experiment_id='8.E10.waveletmlpV2:1:14:coif1:2:19:l1', prune='off')
+Traceback (most recent call last):
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 663, in <module>
+    main()
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 633, in main
+    cfg = train_config(args)
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 568, in train_config
+    **get_model_opt_loss(
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 471, in get_model_opt_loss
+    mdl = mdl.to(device, non_blocking=True)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 899, in to
+    return self._apply(convert)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 570, in _apply
+    module._apply(fn)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 570, in _apply
+    module._apply(fn)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 616, in _apply
+    self._buffers[key] = fn(buf)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 897, in convert
+    return t.to(device, dtype if t.is_floating_point() or t.is_complex() else None, non_blocking)
+RuntimeError: CUDA error: out of memory
+CUDA kernel errors might be asynchronously reported at some other API call,so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1.
+[0;31m FAILURE  [0m lockfile_fp= /ocean/projects/cie160013p/elvinj/DeepFix/results/8.E10.waveletmlpV2:1:14:coif1:2:19:l1/lock
+START: 20220223T193133.005085755
+START: 20220223T193133.029120983
+run_id=8.E10.waveletmlpV2:1:14:coif1:2:115:l1 python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model waveletmlpV2:1:14:coif1:2:115:l1
+WARNING:root:QualDR dataset labels unavailable because pyjq not installed
+TrainOptions(epochs=200, start_epoch=0, device='cuda', dset='chexpert_small15k:.9:.1:diagnostic', opt='Adam:lr=0.001', lossfn='chexpert_uignore', loss_reg='none', model='waveletmlpV2:1:14:coif1:2:115:l1', deepfix='off', experiment_id='8.E10.waveletmlpV2:1:14:coif1:2:115:l1', prune='off')
+Traceback (most recent call last):
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 663, in <module>
+    main()
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 633, in main
+    cfg = train_config(args)
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 568, in train_config
+    **get_model_opt_loss(
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 471, in get_model_opt_loss
+    mdl = mdl.to(device, non_blocking=True)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 899, in to
+    return self._apply(convert)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 570, in _apply
+    module._apply(fn)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 570, in _apply
+    module._apply(fn)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 616, in _apply
+    self._buffers[key] = fn(buf)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 897, in convert
+    return t.to(device, dtype if t.is_floating_point() or t.is_complex() else None, non_blocking)
+RuntimeError: CUDA error: out of memory
+CUDA kernel errors might be asynchronously reported at some other API call,so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1.
+[0;31m FAILURE  [0m lockfile_fp= /ocean/projects/cie160013p/elvinj/DeepFix/results/8.E10.waveletmlpV2:1:14:coif1:2:115:l1/lock
+START: 20220223T193133.029120983
+START: 20220223T193133.051127608
+run_id=8.E10.waveletmlpV2:1:14:coif1:3:1:l1 python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model waveletmlpV2:1:14:coif1:3:1:l1
+WARNING:root:QualDR dataset labels unavailable because pyjq not installed
+TrainOptions(epochs=200, start_epoch=0, device='cuda', dset='chexpert_small15k:.9:.1:diagnostic', opt='Adam:lr=0.001', lossfn='chexpert_uignore', loss_reg='none', model='waveletmlpV2:1:14:coif1:3:1:l1', deepfix='off', experiment_id='8.E10.waveletmlpV2:1:14:coif1:3:1:l1', prune='off')
+Traceback (most recent call last):
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 663, in <module>
+    main()
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 633, in main
+    cfg = train_config(args)
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 568, in train_config
+    **get_model_opt_loss(
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 471, in get_model_opt_loss
+    mdl = mdl.to(device, non_blocking=True)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 899, in to
+    return self._apply(convert)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 570, in _apply
+    module._apply(fn)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 570, in _apply
+    module._apply(fn)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 616, in _apply
+    self._buffers[key] = fn(buf)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 897, in convert
+    return t.to(device, dtype if t.is_floating_point() or t.is_complex() else None, non_blocking)
+RuntimeError: CUDA error: out of memory
+CUDA kernel errors might be asynchronously reported at some other API call,so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1.
+[0;31m FAILURE  [0m lockfile_fp= /ocean/projects/cie160013p/elvinj/DeepFix/results/8.E10.waveletmlpV2:1:14:coif1:3:1:l1/lock
+START: 20220223T193133.051127608
+START: 20220223T193133.031399462
+run_id=8.E10.waveletmlpV2:1:14:coif1:2:79:l1 python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model waveletmlpV2:1:14:coif1:2:79:l1
+WARNING:root:QualDR dataset labels unavailable because pyjq not installed
+TrainOptions(epochs=200, start_epoch=0, device='cuda', dset='chexpert_small15k:.9:.1:diagnostic', opt='Adam:lr=0.001', lossfn='chexpert_uignore', loss_reg='none', model='waveletmlpV2:1:14:coif1:2:79:l1', deepfix='off', experiment_id='8.E10.waveletmlpV2:1:14:coif1:2:79:l1', prune='off')
+Traceback (most recent call last):
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 663, in <module>
+    main()
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 633, in main
+    cfg = train_config(args)
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 568, in train_config
+    **get_model_opt_loss(
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 471, in get_model_opt_loss
+    mdl = mdl.to(device, non_blocking=True)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 899, in to
+    return self._apply(convert)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 570, in _apply
+    module._apply(fn)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 570, in _apply
+    module._apply(fn)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 616, in _apply
+    self._buffers[key] = fn(buf)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 897, in convert
+    return t.to(device, dtype if t.is_floating_point() or t.is_complex() else None, non_blocking)
+RuntimeError: CUDA error: out of memory
+CUDA kernel errors might be asynchronously reported at some other API call,so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1.
+[0;31m FAILURE  [0m lockfile_fp= /ocean/projects/cie160013p/elvinj/DeepFix/results/8.E10.waveletmlpV2:1:14:coif1:2:79:l1/lock
+START: 20220223T193133.031399462
+START: 20220223T193132.954937478
+run_id=8.E10.waveletmlpV2:1:14:coif1:1:9:l1 python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model waveletmlpV2:1:14:coif1:1:9:l1
+WARNING:root:QualDR dataset labels unavailable because pyjq not installed
+TrainOptions(epochs=200, start_epoch=0, device='cuda', dset='chexpert_small15k:.9:.1:diagnostic', opt='Adam:lr=0.001', lossfn='chexpert_uignore', loss_reg='none', model='waveletmlpV2:1:14:coif1:1:9:l1', deepfix='off', experiment_id='8.E10.waveletmlpV2:1:14:coif1:1:9:l1', prune='off')
+Traceback (most recent call last):
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 663, in <module>
+    main()
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 633, in main
+    cfg = train_config(args)
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 568, in train_config
+    **get_model_opt_loss(
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 471, in get_model_opt_loss
+    mdl = mdl.to(device, non_blocking=True)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 899, in to
+    return self._apply(convert)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 570, in _apply
+    module._apply(fn)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 570, in _apply
+    module._apply(fn)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 616, in _apply
+    self._buffers[key] = fn(buf)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 897, in convert
+    return t.to(device, dtype if t.is_floating_point() or t.is_complex() else None, non_blocking)
+RuntimeError: CUDA error: out of memory
+CUDA kernel errors might be asynchronously reported at some other API call,so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1.
+[0;31m FAILURE  [0m lockfile_fp= /ocean/projects/cie160013p/elvinj/DeepFix/results/8.E10.waveletmlpV2:1:14:coif1:1:9:l1/lock
+START: 20220223T193132.954937478
+START: 20220223T193132.968788477
+run_id=8.E10.waveletmlpV2:1:14:coif1:1:160:l1 python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model waveletmlpV2:1:14:coif1:1:160:l1
+WARNING:root:QualDR dataset labels unavailable because pyjq not installed
+TrainOptions(epochs=200, start_epoch=0, device='cuda', dset='chexpert_small15k:.9:.1:diagnostic', opt='Adam:lr=0.001', lossfn='chexpert_uignore', loss_reg='none', model='waveletmlpV2:1:14:coif1:1:160:l1', deepfix='off', experiment_id='8.E10.waveletmlpV2:1:14:coif1:1:160:l1', prune='off')
+Traceback (most recent call last):
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 663, in <module>
+    main()
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 633, in main
+    cfg = train_config(args)
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 568, in train_config
+    **get_model_opt_loss(
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 471, in get_model_opt_loss
+    mdl = mdl.to(device, non_blocking=True)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 899, in to
+    return self._apply(convert)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 570, in _apply
+    module._apply(fn)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 570, in _apply
+    module._apply(fn)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 616, in _apply
+    self._buffers[key] = fn(buf)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 897, in convert
+    return t.to(device, dtype if t.is_floating_point() or t.is_complex() else None, non_blocking)
+RuntimeError: CUDA error: out of memory
+CUDA kernel errors might be asynchronously reported at some other API call,so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1.
+[0;31m FAILURE  [0m lockfile_fp= /ocean/projects/cie160013p/elvinj/DeepFix/results/8.E10.waveletmlpV2:1:14:coif1:1:160:l1/lock
+START: 20220223T193132.968788477
+START: 20220223T193132.995160971
+run_id=8.E10.waveletmlpV2:1:14:coif1:2:3:l1 python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model waveletmlpV2:1:14:coif1:2:3:l1
+WARNING:root:QualDR dataset labels unavailable because pyjq not installed
+TrainOptions(epochs=200, start_epoch=0, device='cuda', dset='chexpert_small15k:.9:.1:diagnostic', opt='Adam:lr=0.001', lossfn='chexpert_uignore', loss_reg='none', model='waveletmlpV2:1:14:coif1:2:3:l1', deepfix='off', experiment_id='8.E10.waveletmlpV2:1:14:coif1:2:3:l1', prune='off')
+Traceback (most recent call last):
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 663, in <module>
+    main()
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 633, in main
+    cfg = train_config(args)
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 568, in train_config
+    **get_model_opt_loss(
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 471, in get_model_opt_loss
+    mdl = mdl.to(device, non_blocking=True)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 899, in to
+    return self._apply(convert)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 570, in _apply
+    module._apply(fn)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 570, in _apply
+    module._apply(fn)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 616, in _apply
+    self._buffers[key] = fn(buf)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 897, in convert
+    return t.to(device, dtype if t.is_floating_point() or t.is_complex() else None, non_blocking)
+RuntimeError: CUDA error: out of memory
+CUDA kernel errors might be asynchronously reported at some other API call,so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1.
+[0;31m FAILURE  [0m lockfile_fp= /ocean/projects/cie160013p/elvinj/DeepFix/results/8.E10.waveletmlpV2:1:14:coif1:2:3:l1/lock
+START: 20220223T193132.995160971
+START: 20220223T193132.966031267
+run_id=8.E10.waveletmlpV2:1:14:coif1:1:115:l1 python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model waveletmlpV2:1:14:coif1:1:115:l1
+WARNING:root:QualDR dataset labels unavailable because pyjq not installed
+TrainOptions(epochs=200, start_epoch=0, device='cuda', dset='chexpert_small15k:.9:.1:diagnostic', opt='Adam:lr=0.001', lossfn='chexpert_uignore', loss_reg='none', model='waveletmlpV2:1:14:coif1:1:115:l1', deepfix='off', experiment_id='8.E10.waveletmlpV2:1:14:coif1:1:115:l1', prune='off')
+Traceback (most recent call last):
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 663, in <module>
+    main()
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 633, in main
+    cfg = train_config(args)
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 568, in train_config
+    **get_model_opt_loss(
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 471, in get_model_opt_loss
+    mdl = mdl.to(device, non_blocking=True)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 899, in to
+    return self._apply(convert)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 570, in _apply
+    module._apply(fn)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 570, in _apply
+    module._apply(fn)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 616, in _apply
+    self._buffers[key] = fn(buf)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 897, in convert
+    return t.to(device, dtype if t.is_floating_point() or t.is_complex() else None, non_blocking)
+RuntimeError: CUDA error: out of memory
+CUDA kernel errors might be asynchronously reported at some other API call,so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1.
+[0;31m FAILURE  [0m lockfile_fp= /ocean/projects/cie160013p/elvinj/DeepFix/results/8.E10.waveletmlpV2:1:14:coif1:1:115:l1/lock
+START: 20220223T193132.966031267
+START: 20220223T193132.954396242
+run_id=8.E10.waveletmlpV2:1:14:coif1:1:37:l1 python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model waveletmlpV2:1:14:coif1:1:37:l1
+WARNING:root:QualDR dataset labels unavailable because pyjq not installed
+TrainOptions(epochs=200, start_epoch=0, device='cuda', dset='chexpert_small15k:.9:.1:diagnostic', opt='Adam:lr=0.001', lossfn='chexpert_uignore', loss_reg='none', model='waveletmlpV2:1:14:coif1:1:37:l1', deepfix='off', experiment_id='8.E10.waveletmlpV2:1:14:coif1:1:37:l1', prune='off')
+Traceback (most recent call last):
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 663, in <module>
+    main()
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 633, in main
+    cfg = train_config(args)
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 568, in train_config
+    **get_model_opt_loss(
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 471, in get_model_opt_loss
+    mdl = mdl.to(device, non_blocking=True)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 899, in to
+    return self._apply(convert)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 570, in _apply
+    module._apply(fn)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 570, in _apply
+    module._apply(fn)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 616, in _apply
+    self._buffers[key] = fn(buf)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 897, in convert
+    return t.to(device, dtype if t.is_floating_point() or t.is_complex() else None, non_blocking)
+RuntimeError: CUDA error: out of memory
+CUDA kernel errors might be asynchronously reported at some other API call,so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1.
+[0;31m FAILURE  [0m lockfile_fp= /ocean/projects/cie160013p/elvinj/DeepFix/results/8.E10.waveletmlpV2:1:14:coif1:1:37:l1/lock
+START: 20220223T193132.954396242
+START: 20220223T193132.993628997
+run_id=8.E10.waveletmlpV2:1:14:coif1:2:5:l1 python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model waveletmlpV2:1:14:coif1:2:5:l1
+WARNING:root:QualDR dataset labels unavailable because pyjq not installed
+TrainOptions(epochs=200, start_epoch=0, device='cuda', dset='chexpert_small15k:.9:.1:diagnostic', opt='Adam:lr=0.001', lossfn='chexpert_uignore', loss_reg='none', model='waveletmlpV2:1:14:coif1:2:5:l1', deepfix='off', experiment_id='8.E10.waveletmlpV2:1:14:coif1:2:5:l1', prune='off')
+Traceback (most recent call last):
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 663, in <module>
+    main()
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 633, in main
+    cfg = train_config(args)
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 568, in train_config
+    **get_model_opt_loss(
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 471, in get_model_opt_loss
+    mdl = mdl.to(device, non_blocking=True)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 899, in to
+    return self._apply(convert)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 570, in _apply
+    module._apply(fn)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 570, in _apply
+    module._apply(fn)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 616, in _apply
+    self._buffers[key] = fn(buf)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 897, in convert
+    return t.to(device, dtype if t.is_floating_point() or t.is_complex() else None, non_blocking)
+RuntimeError: CUDA error: out of memory
+CUDA kernel errors might be asynchronously reported at some other API call,so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1.
+[0;31m FAILURE  [0m lockfile_fp= /ocean/projects/cie160013p/elvinj/DeepFix/results/8.E10.waveletmlpV2:1:14:coif1:2:5:l1/lock
+START: 20220223T193132.993628997
+START: 20220223T193132.961275285
+run_id=8.E10.waveletmlpV2:1:14:coif1:1:79:l1 python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model waveletmlpV2:1:14:coif1:1:79:l1
+WARNING:root:QualDR dataset labels unavailable because pyjq not installed
+TrainOptions(epochs=200, start_epoch=0, device='cuda', dset='chexpert_small15k:.9:.1:diagnostic', opt='Adam:lr=0.001', lossfn='chexpert_uignore', loss_reg='none', model='waveletmlpV2:1:14:coif1:1:79:l1', deepfix='off', experiment_id='8.E10.waveletmlpV2:1:14:coif1:1:79:l1', prune='off')
+Traceback (most recent call last):
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 663, in <module>
+    main()
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 633, in main
+    cfg = train_config(args)
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 568, in train_config
+    **get_model_opt_loss(
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 471, in get_model_opt_loss
+    mdl = mdl.to(device, non_blocking=True)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 899, in to
+    return self._apply(convert)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 570, in _apply
+    module._apply(fn)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 570, in _apply
+    module._apply(fn)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 616, in _apply
+    self._buffers[key] = fn(buf)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 897, in convert
+    return t.to(device, dtype if t.is_floating_point() or t.is_complex() else None, non_blocking)
+RuntimeError: CUDA error: out of memory
+CUDA kernel errors might be asynchronously reported at some other API call,so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1.
+[0;31m FAILURE  [0m lockfile_fp= /ocean/projects/cie160013p/elvinj/DeepFix/results/8.E10.waveletmlpV2:1:14:coif1:1:79:l1/lock
+START: 20220223T193132.961275285
+START: 20220223T193132.941536975
+run_id=8.E10.waveletmlpV2:1:14:coif1:1:3:l1 python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model waveletmlpV2:1:14:coif1:1:3:l1
+WARNING:root:QualDR dataset labels unavailable because pyjq not installed
+TrainOptions(epochs=200, start_epoch=0, device='cuda', dset='chexpert_small15k:.9:.1:diagnostic', opt='Adam:lr=0.001', lossfn='chexpert_uignore', loss_reg='none', model='waveletmlpV2:1:14:coif1:1:3:l1', deepfix='off', experiment_id='8.E10.waveletmlpV2:1:14:coif1:1:3:l1', prune='off')
+Traceback (most recent call last):
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 663, in <module>
+    main()
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 633, in main
+    cfg = train_config(args)
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 568, in train_config
+    **get_model_opt_loss(
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 471, in get_model_opt_loss
+    mdl = mdl.to(device, non_blocking=True)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 899, in to
+    return self._apply(convert)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 570, in _apply
+    module._apply(fn)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 570, in _apply
+    module._apply(fn)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 616, in _apply
+    self._buffers[key] = fn(buf)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 897, in convert
+    return t.to(device, dtype if t.is_floating_point() or t.is_complex() else None, non_blocking)
+RuntimeError: CUDA error: out of memory
+CUDA kernel errors might be asynchronously reported at some other API call,so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1.
+[0;31m FAILURE  [0m lockfile_fp= /ocean/projects/cie160013p/elvinj/DeepFix/results/8.E10.waveletmlpV2:1:14:coif1:1:3:l1/lock
+START: 20220223T193132.941536975
+START: 20220223T193203.311173995
+run_id=8.E10.waveletmlpV2:1:14:coif1:4:79:l1 python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model waveletmlpV2:1:14:coif1:4:79:l1
+WARNING:root:QualDR dataset labels unavailable because pyjq not installed
+TrainOptions(epochs=200, start_epoch=0, device='cuda', dset='chexpert_small15k:.9:.1:diagnostic', opt='Adam:lr=0.001', lossfn='chexpert_uignore', loss_reg='none', model='waveletmlpV2:1:14:coif1:4:79:l1', deepfix='off', experiment_id='8.E10.waveletmlpV2:1:14:coif1:4:79:l1', prune='off')
+Traceback (most recent call last):
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 663, in <module>
+    main()
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 633, in main
+    cfg = train_config(args)
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 568, in train_config
+    **get_model_opt_loss(
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 471, in get_model_opt_loss
+    mdl = mdl.to(device, non_blocking=True)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 899, in to
+    return self._apply(convert)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 570, in _apply
+    module._apply(fn)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 570, in _apply
+    module._apply(fn)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 616, in _apply
+    self._buffers[key] = fn(buf)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 897, in convert
+    return t.to(device, dtype if t.is_floating_point() or t.is_complex() else None, non_blocking)
+RuntimeError: CUDA error: out of memory
+CUDA kernel errors might be asynchronously reported at some other API call,so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1.
+[0;31m FAILURE  [0m lockfile_fp= /ocean/projects/cie160013p/elvinj/DeepFix/results/8.E10.waveletmlpV2:1:14:coif1:4:79:l1/lock
+START: 20220223T193203.311173995
+START: 20220223T193203.391148106
+run_id=8.E10.waveletmlpV2:1:14:coif1:4:115:l1 python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model waveletmlpV2:1:14:coif1:4:115:l1
+WARNING:root:QualDR dataset labels unavailable because pyjq not installed
+TrainOptions(epochs=200, start_epoch=0, device='cuda', dset='chexpert_small15k:.9:.1:diagnostic', opt='Adam:lr=0.001', lossfn='chexpert_uignore', loss_reg='none', model='waveletmlpV2:1:14:coif1:4:115:l1', deepfix='off', experiment_id='8.E10.waveletmlpV2:1:14:coif1:4:115:l1', prune='off')
+Traceback (most recent call last):
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 663, in <module>
+    main()
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 633, in main
+    cfg = train_config(args)
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 568, in train_config
+    **get_model_opt_loss(
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 471, in get_model_opt_loss
+    mdl = mdl.to(device, non_blocking=True)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 899, in to
+    return self._apply(convert)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 570, in _apply
+    module._apply(fn)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 570, in _apply
+    module._apply(fn)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 616, in _apply
+    self._buffers[key] = fn(buf)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 897, in convert
+    return t.to(device, dtype if t.is_floating_point() or t.is_complex() else None, non_blocking)
+RuntimeError: CUDA error: all CUDA-capable devices are busy or unavailable
+CUDA kernel errors might be asynchronously reported at some other API call,so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1.
+[0;31m FAILURE  [0m lockfile_fp= /ocean/projects/cie160013p/elvinj/DeepFix/results/8.E10.waveletmlpV2:1:14:coif1:4:115:l1/lock
+START: 20220223T193203.391148106
+START: 20220223T193203.212442112
+run_id=8.E10.waveletmlpV2:1:14:coif1:4:37:l1 python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model waveletmlpV2:1:14:coif1:4:37:l1
+WARNING:root:QualDR dataset labels unavailable because pyjq not installed
+TrainOptions(epochs=200, start_epoch=0, device='cuda', dset='chexpert_small15k:.9:.1:diagnostic', opt='Adam:lr=0.001', lossfn='chexpert_uignore', loss_reg='none', model='waveletmlpV2:1:14:coif1:4:37:l1', deepfix='off', experiment_id='8.E10.waveletmlpV2:1:14:coif1:4:37:l1', prune='off')
+Traceback (most recent call last):
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 663, in <module>
+    main()
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 633, in main
+    cfg = train_config(args)
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 568, in train_config
+    **get_model_opt_loss(
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 471, in get_model_opt_loss
+    mdl = mdl.to(device, non_blocking=True)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 899, in to
+    return self._apply(convert)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 570, in _apply
+    module._apply(fn)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 570, in _apply
+    module._apply(fn)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 616, in _apply
+    self._buffers[key] = fn(buf)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 897, in convert
+    return t.to(device, dtype if t.is_floating_point() or t.is_complex() else None, non_blocking)
+RuntimeError: CUDA error: out of memory
+CUDA kernel errors might be asynchronously reported at some other API call,so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1.
+[0;31m FAILURE  [0m lockfile_fp= /ocean/projects/cie160013p/elvinj/DeepFix/results/8.E10.waveletmlpV2:1:14:coif1:4:37:l1/lock
+START: 20220223T193203.212442112
+START: 20220223T193202.396461512
+run_id=8.E10.waveletmlpV2:1:14:coif1:3:115:l1 python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model waveletmlpV2:1:14:coif1:3:115:l1
+WARNING:root:QualDR dataset labels unavailable because pyjq not installed
+TrainOptions(epochs=200, start_epoch=0, device='cuda', dset='chexpert_small15k:.9:.1:diagnostic', opt='Adam:lr=0.001', lossfn='chexpert_uignore', loss_reg='none', model='waveletmlpV2:1:14:coif1:3:115:l1', deepfix='off', experiment_id='8.E10.waveletmlpV2:1:14:coif1:3:115:l1', prune='off')
+Traceback (most recent call last):
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 663, in <module>
+    main()
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 633, in main
+    cfg = train_config(args)
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 568, in train_config
+    **get_model_opt_loss(
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 471, in get_model_opt_loss
+    mdl = mdl.to(device, non_blocking=True)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 899, in to
+    return self._apply(convert)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 570, in _apply
+    module._apply(fn)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 570, in _apply
+    module._apply(fn)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 616, in _apply
+    self._buffers[key] = fn(buf)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 897, in convert
+    return t.to(device, dtype if t.is_floating_point() or t.is_complex() else None, non_blocking)
+RuntimeError: CUDA error: out of memory
+CUDA kernel errors might be asynchronously reported at some other API call,so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1.
+[0;31m FAILURE  [0m lockfile_fp= /ocean/projects/cie160013p/elvinj/DeepFix/results/8.E10.waveletmlpV2:1:14:coif1:3:115:l1/lock
+START: 20220223T193202.396461512
+START: 20220223T193202.664187693
+run_id=8.E10.waveletmlpV2:1:14:coif1:4:3:l1 python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model waveletmlpV2:1:14:coif1:4:3:l1
+WARNING:root:QualDR dataset labels unavailable because pyjq not installed
+TrainOptions(epochs=200, start_epoch=0, device='cuda', dset='chexpert_small15k:.9:.1:diagnostic', opt='Adam:lr=0.001', lossfn='chexpert_uignore', loss_reg='none', model='waveletmlpV2:1:14:coif1:4:3:l1', deepfix='off', experiment_id='8.E10.waveletmlpV2:1:14:coif1:4:3:l1', prune='off')
+Traceback (most recent call last):
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 663, in <module>
+    main()
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 633, in main
+    cfg = train_config(args)
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 568, in train_config
+    **get_model_opt_loss(
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 471, in get_model_opt_loss
+    mdl = mdl.to(device, non_blocking=True)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 899, in to
+    return self._apply(convert)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 570, in _apply
+    module._apply(fn)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 570, in _apply
+    module._apply(fn)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 616, in _apply
+    self._buffers[key] = fn(buf)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 897, in convert
+    return t.to(device, dtype if t.is_floating_point() or t.is_complex() else None, non_blocking)
+RuntimeError: CUDA error: out of memory
+CUDA kernel errors might be asynchronously reported at some other API call,so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1.
+[0;31m FAILURE  [0m lockfile_fp= /ocean/projects/cie160013p/elvinj/DeepFix/results/8.E10.waveletmlpV2:1:14:coif1:4:3:l1/lock
+START: 20220223T193202.664187693
+START: 20220223T193202.518734276
+run_id=8.E10.waveletmlpV2:1:14:coif1:3:160:l1 python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model waveletmlpV2:1:14:coif1:3:160:l1
+WARNING:root:QualDR dataset labels unavailable because pyjq not installed
+TrainOptions(epochs=200, start_epoch=0, device='cuda', dset='chexpert_small15k:.9:.1:diagnostic', opt='Adam:lr=0.001', lossfn='chexpert_uignore', loss_reg='none', model='waveletmlpV2:1:14:coif1:3:160:l1', deepfix='off', experiment_id='8.E10.waveletmlpV2:1:14:coif1:3:160:l1', prune='off')
+Traceback (most recent call last):
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 663, in <module>
+    main()
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 633, in main
+    cfg = train_config(args)
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 568, in train_config
+    **get_model_opt_loss(
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 471, in get_model_opt_loss
+    mdl = mdl.to(device, non_blocking=True)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 899, in to
+    return self._apply(convert)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 570, in _apply
+    module._apply(fn)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 570, in _apply
+    module._apply(fn)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 616, in _apply
+    self._buffers[key] = fn(buf)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 897, in convert
+    return t.to(device, dtype if t.is_floating_point() or t.is_complex() else None, non_blocking)
+RuntimeError: CUDA error: out of memory
+CUDA kernel errors might be asynchronously reported at some other API call,so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1.
+[0;31m FAILURE  [0m lockfile_fp= /ocean/projects/cie160013p/elvinj/DeepFix/results/8.E10.waveletmlpV2:1:14:coif1:3:160:l1/lock
+START: 20220223T193202.518734276
+START: 20220223T193202.954274418
+run_id=8.E10.waveletmlpV2:1:14:coif1:4:9:l1 python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model waveletmlpV2:1:14:coif1:4:9:l1
+WARNING:root:QualDR dataset labels unavailable because pyjq not installed
+TrainOptions(epochs=200, start_epoch=0, device='cuda', dset='chexpert_small15k:.9:.1:diagnostic', opt='Adam:lr=0.001', lossfn='chexpert_uignore', loss_reg='none', model='waveletmlpV2:1:14:coif1:4:9:l1', deepfix='off', experiment_id='8.E10.waveletmlpV2:1:14:coif1:4:9:l1', prune='off')
+Traceback (most recent call last):
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 663, in <module>
+    main()
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 633, in main
+    cfg = train_config(args)
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 568, in train_config
+    **get_model_opt_loss(
+  File "/ocean/projects/cie160013p/elvinj/DeepFix/deepfix/train.py", line 471, in get_model_opt_loss
+    mdl = mdl.to(device, non_blocking=True)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 899, in to
+    return self._apply(convert)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 570, in _apply
+    module._apply(fn)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 570, in _apply
+    module._apply(fn)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 616, in _apply
+    self._buffers[key] = fn(buf)
+  File "/jet/home/elvinj/.conda/envs/deepfix/lib/python3.9/site-packages/torch/nn/modules/module.py", line 897, in convert
+    return t.to(device, dtype if t.is_floating_point() or t.is_complex() else None, non_blocking)
+RuntimeError: CUDA error: out of memory
+CUDA kernel errors might be asynchronously reported at some other API call,so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1.
+[0;31m FAILURE  [0m lockfile_fp= /ocean/projects/cie160013p/elvinj/DeepFix/results/8.E10.waveletmlpV2:1:14:coif1:4:9:l1/lock
+START: 20220223T193202.954274418
+slurmstepd: error: *** JOB 6817540 ON v033 CANCELLED AT 2022-02-23T19:32:35 ***

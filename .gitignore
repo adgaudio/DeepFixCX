@@ -8,4 +8,6 @@ results/
 .tags
 paper/
 
+CheXpert-v1.0-small
+deepfix/feature_csv/
 deepfix.egg-info

@@ -589,7 +589,7 @@ class TrainOptions:
     """High-level configuration for training PyTorch models
     on the CheXpert or IntelMobileODTCervical datasets.
     """
-    epochs:int = 50
+    epochs:int = 200
     start_epoch:int = 0  # if "--start_epoch 1", then don't evaluate perf before training.
     device:str = 'cuda' if T.cuda.is_available() else 'cpu'
 

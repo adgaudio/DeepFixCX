@@ -41,10 +41,25 @@ assert (df.groupby(['wavelet_levels', 'patch_size']).count() <= 1).all().all(), 
 #  note:  pivot table implicitly computes the mean when the sanity check fails
 import seaborn as sns
 import os
-ax = sns.heatmap(data=df.pivot_table(col, "wavelet_levels", "patch_size"), cmap='RdYlGn')
-
+temp = df.pivot_table(col, "wavelet_levels", "patch_size")
+# temp = df.applymap(lambda x: re.sub(np.nan,'-', x))
+temp = temp.replace(np.nan,.45)
+temp.sort_index(level=0, ascending=True, inplace=True)
+cols_unsorted = [int(i) for i in list(temp.columns)]
+cols_unsorted.sort()
+cols_sorted = [str(i) for i in cols_unsorted]
+temp = temp[cols_sorted]
+# print(sorted(temp.columns))
+ax = sns.heatmap(data=temp, annot=True, cmap='GnBu')
+for text in ax.texts:
+    text.set_size(7)
+    if text.get_text() == "0.45":
+        text.set_text("-")
+        text.set_size(10)
+    text.set_weight('bold')
+#         text.set_style('italic')
 # save the plot to file
-savefp = f'./results/plots/heatmap_levels_vs_patchsize__{ns.runid_regex}.png'
+savefp = f'results/plots/heatmap_levels_vs_patchsize__{ns.runid_regex}.png'
 if os.path.exists(savefp):
     os.remove(savefp)
 ax.figure.savefig(savefp, bbox_inches='tight')

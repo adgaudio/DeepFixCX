@@ -84,16 +84,25 @@ EOF
 
 
 ### Elvin's code here:
-V1() {
-  # in theory we want this.  practically, some patch sizes and wavelet levels
-  # are redundant (they print warnings) or impossible (out of ram)
-  for patch_size in 1 32 64 128 256 ; do
-    for wavelet_level in 1 2 3 4 5 6 7 8 9 ; do
-      echo "${V}.V1.$patch_size.$wavelet_level python deepfix/train.py ... TODO"
-    done
-  done
+# V1() {
+#   # in theory we want this.  practically, some patch sizes and wavelet levels
+#   # are redundant (they print warnings) or impossible (out of ram)
+#   for patch_size in 1 32 64 128 256 ; do
+#     for wavelet_level in 1 2 3 4 5 6 7 8 9 ; do
+#       echo "${V}.V1.$patch_size.$wavelet_level python deepfix/train.py ... TODO"
+#     done
+#   done
+# }
+C10() {
+  # experiment over varying wavelet types
+  python <<EOF
+for wavelet_level in 1,2,3,4,5,6,7,8,9;
+    for patch_size in 1,3,5,9,19,37,79,115,160;
+#         waveletmlpV2:1:14:coif1:5:5:l1
+        model = f'waveletmlpV2:1:14:coif1:{wavelet_level}:{patch_size}:l1'
+        print(f""" ${V}.C10.{model}     python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model {model} """)
+EOF
 }
-
 
 # Run the code
 # C3 | run_gpus 3
@@ -103,8 +112,8 @@ V1() {
 # done
 # C7 | run_gpus 4
 # C8 | run_gpus 1
-
-V1 | run_gpus 1  # if this fails, "conda install redis" and then start redis-server.  You can increase to run_gpus 2 to run 2 just in parallel (or just run this script a couple times)
+C10 | run_gpus 4
+# V1 | run_gpus 1  # if this fails, "conda install redis" and then start redis-server.  You can increase to run_gpus 2 to run 2 just in parallel (or just run this script a couple times)
 # ON BRIDGES in "batch" mode, you would need to start redis before running this script.  I can share a batch script template if you need.   Then you could do:
 #     export num_workers=1  # on bridges, you only have 4 cpus by default, so set the pytorch dataloader to use 1 "child" cpu (and 1 parent cpu).
 #     V1 | run_gpus 4  # run 4 jobs at once
