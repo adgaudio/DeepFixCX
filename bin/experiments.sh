@@ -243,7 +243,7 @@ EOF
 # EOF
 # }
 C9() {
-  # experiment over varying patch_features
+  # experiment over varying patch_features. conc: l1 and min and max look good.
   python <<EOF
 for levels, patch_size, patch_features in [
         (5,5,'l1V2'), (5,5,'sum'), (5,5,'l1'),
@@ -258,6 +258,7 @@ EOF
 }
 C10() {
   # experiment over varying wavelet types
+  # conc: coif2, db1 and db2 look good, but not much difference in general
   python <<EOF
 for wavelet in [
         # <= 6 filter size
@@ -270,6 +271,7 @@ EOF
 }
 C11() {
   # experiment with deepfix_v2
+  # conc: not working needs work.
   local model="deepfix_v2:1:14:coif1:5:5:l1:resnet18:imagenet"
         # lambda in_ch, out_ch, wavelet, wavelet_levels, patch_size, patch_features, backbone, pretraining: get_DeepFixEnd2End_v2(
   echo "${V}.C11.$model" python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model "$model"
@@ -277,8 +279,8 @@ C11() {
   # python deepfix/train.py --dset chexpert_small:.01:.01:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model "$model"
 }
 C12() {
-  # varying MLP depth and width
-  # all have same num parameters
+  # varying MLP depth and width,    all "s" and "m" have same num parameters, respectively
+  # conc:  width=300, depth=1 hidden layer (+ vecattn layer) is just fine!
   python <<EOF
 d = [2, 6, 10, 14, 18]
 ws = [300, 174, 135, 114, 100]  # 180,000 parameter models
@@ -298,8 +300,8 @@ EOF
 C13() {
   # normalization tests:  show that batchnorm improves perf (partially replicate elvin result).  does a global norm do the same?
   # mlp has depth 1 (+ vecattn layer) and width 300.
-
-  # note: this runs CPU intensive tasks.
+  # note: this includes CPU intensive tasks.
+  # conc: the 0:0mean,chexpert_small normalization is best with l1.  with min, 0:whiten or 0:none or 0:0mean are all fine.
   python <<EOF
 wavelet = "coif2"
 level = 5
@@ -317,13 +319,48 @@ EOF
 compute_normalization() {
   python <<EOF
 wavelet = 'coif2'
-patch_features = 'min'
-for zero_mean in '0', '1':
+patch_features = 'l1'
+for zero_mean in '0': #, '1':
     for level in range(1, 9):
         for patchsize in 1,3,5,9,19,37,79,115,160:
-            print(f"norm:{level}:{patchsize}:{patch_features}:{zero_mean} python bin/compute_deepfix_normalization.py --level {level} --patchsize {patchsize} --patch_features {patch_features} --zero_mean {zero_mean}")
+            if patchsize <= 320 / 2**level:
+                print(f"norm:{level}:{patchsize}:{patch_features}:{zero_mean} python bin/compute_deepfix_normalization.py --level {level} --patchsize {patchsize} --patch_features {patch_features} --zero_mean {zero_mean}")
+            # else skip this unnecessary norm because the (level, patchsize) isn't doing compression.  This assumes images are 320x320, our default from chexpert dataset
 EOF
 }
+
+
+C14() {
+  # varying attention / regularization 
+  python <<EOF
+level = 5
+patch_size = 5
+for attn in 'SoftmaxVecAttn', 'LogSoftmaxVecAttn':
+    model = f'attn_test:{attn}:14:{level}:{patch_size}'
+    print(f"""${V}.C14.{attn} python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model {model}""")
+model = f'attn_test:VecAttn:14:{level}:{patch_size}'
+for reg in 0, .1, 1:
+    print(f"""${V}.C14.VecAttn.{reg} python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg deepfixmlp:{reg} --model {model}""")
+EOF
+}
+# before running this, let's do the 
+# regularization tests
+# optimizer tests
+
+# future_for_elvin() {
+  # get predictive performance on all patch sizes.
+  # in theory we want this.  practically, some patch sizes and wavelet levels
+  # are redundant (they print warnings) or impossible (out of ram)
+#   python <<EOF
+# for level in range(1, 9):
+#     for patchsize in 1,3,5,9,19,37,79,115,160:
+#         if patchsize <= 320 / 2**level:
+#             print(f"norm:{level}:{patchsize}:{patch_features}:{zero_mean} python bin/compute_deepfix_normalization.py --level {level} --patchsize {patchsize} --patch_features {patch_features} --zero_mean {zero_mean}")
+#         # else skip this unnecessary norm because the (level, patchsize) isn't doing compression.  This assumes images are 320x320, our default from chexpert dataset
+#         model = f"waveletmlpV2:1:14:coif2:{level}:{patchsize}:l1:0:0mean,chexpert"
+#         echo "${V}.SOMETHING_TODO.{level}.{patchsize} python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model {model}
+# EOF
+# }
 
 
 # I1 | expand 3 | run_gpus echo 5
@@ -354,4 +391,6 @@ EOF
 # C12
 # C13 | grep compute_deepfix | parallel -j 10
 # C13 | grep -v compute_deepfix | run_gpus 5
-compute_normalization | run_gpus 1
+# compute_normalization | run_gpus 20
+compute_normalization | run_gpus 2
+# C14 | run_gpus 6

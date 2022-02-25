@@ -62,7 +62,8 @@ MODELS = {
             in_ch_multiplier=int(in_ch_mul), wavelet='db1',
             wavelet_levels=int(wavelet_levels), wavelet_patch_size=int(patch_size),
             mlp_depth=int(mlp_depth), mlp_channels=int(mlp_channels),
-            mlp_fix_weights='none', mlp_activation=None)
+            mlp_fix_weights='none', mlp_activation=None,
+            normalization=('none', ), mlp_attn='VecAttn')
         ),
     ('waveletmlpV2', str, str, str, str, str, str): (
         lambda in_ch, out_ch, wavelet, wavelet_levels, patch_size, patch_features: get_DeepFixEnd2End(
@@ -71,7 +72,8 @@ MODELS = {
             wavelet_levels=int(wavelet_levels), wavelet_patch_size=int(patch_size),
             mlp_depth=2, mlp_channels=300,
             mlp_fix_weights='none', mlp_activation=None,
-            patch_features=patch_features)
+            patch_features=patch_features,
+            normalization=('none', ), mlp_attn='VecAttn')
         ),
     ('waveletmlp_bn', str, str, str, str, str, str, str, str): (
         lambda in_ch, out_ch, wavelet, wavelet_levels, patch_size, patch_features, zero_mean, normalization: get_DeepFixEnd2End(
@@ -82,8 +84,27 @@ MODELS = {
             mlp_fix_weights='none', mlp_activation=None,
             patch_features=patch_features,
             zero_mean=bool(int(zero_mean)),
-            normalization=parse_normalization(normalization, wavelet, wavelet_levels, patch_size, patch_features, zero_mean))
+            normalization=parse_normalization(normalization, wavelet, wavelet_levels, patch_size, patch_features, zero_mean),
+            mlp_attn='VecAttn', )
         ),
+    ('attn_test', str, str, str, str): (
+        lambda attn, out_ch, wavelet_levels, patch_size: get_DeepFixEnd2End(
+            1, int(out_ch), in_ch_multiplier=1, wavelet='coif2',
+            wavelet_levels=int(wavelet_levels), wavelet_patch_size=int(patch_size),
+            patch_features='l1',
+            mlp_depth=1, mlp_channels=300, mlp_fix_weights='none', mlp_activation=None,
+            zero_mean=False, normalization=parse_normalization('0mean,chexpert_small', 'coif2', wavelet_levels, patch_size, 'l1', '0'),
+            mlp_attn=attn,)
+    ),
+    ('deepfix_v1', str, str, str): (
+        lambda out_ch, wavelet_levels, patch_size: get_DeepFixEnd2End(
+            1, int(out_ch), in_ch_multiplier=1, wavelet='coif2',
+            wavelet_levels=int(wavelet_levels), wavelet_patch_size=int(patch_size),
+            patch_features='l1',
+            mlp_depth=1, mlp_channels=300, mlp_fix_weights='none', mlp_activation=None,
+            mlp_attn='LogSoftmaxVecAttn',
+            zero_mean=False, normalization=parse_normalization('0mean,chexpert_small', 'coif2', wavelet_levels, patch_size, 'l1', '0'))
+    ),
     ('deepfix_v2', str, str, str, str, str, str, str, str): (
         lambda in_ch, out_ch, wavelet, wavelet_levels, patch_size, patch_features, backbone, pretraining: get_DeepFixEnd2End_v2(
             int(in_ch), int(out_ch),
@@ -523,7 +544,9 @@ class RegularizedLoss(T.nn.Module):
             raise NotImplementedError(regularizer_spec)
 
     def forward(self, yhat, y):
-        return self.lossfn(yhat, y) + self.regularizer(yhat, y)
+        a, b = self.lossfn(yhat, y), self.regularizer(yhat, y)
+        #  print(a.item(),b.item())
+        return a + b
 
     def __repr__(self):
         return f'RegularizedLoss<{repr(self.lossfn)},{self.regularizer_spec}>'
