@@ -39,7 +39,9 @@ def visualize_activation(model:T.nn.Module,wi:T.nn.Module,device,img_num:int,x:T
     from matplotlib import pyplot as plt
     from matplotlib import cm
     from matplotlib import colors
-
+    
+    os.makedirs('visualization_results',exist_ok=True)
+    os.chdir('visualization_results')
     os.makedirs('Sample_'+str(img_num)+'/activations',exist_ok=True)
     os.makedirs('Sample_'+str(img_num)+'/saliency',exist_ok=True)
 
@@ -215,5 +217,5 @@ def visualize_activation(model:T.nn.Module,wi:T.nn.Module,device,img_num:int,x:T
     pl.suptitle('Activation before vector attention')
     plt.savefig('./Sample_'+str(img_num)+'/activations/act_before.jpg')
     plt.close()
-
+    os.chdir("..")
 
