@@ -329,7 +329,7 @@ def get_dset_chexpert(train_frac=.8, val_frac=.2, small=False,
     Args:
         labels:  either "diagnostic" (the 14 classes defined as
             D.CheXpert.LABELS_DIAGNOSTIC) or "identity" ("patient", "study",
-            "view", "index")
+            "view", "index").
         small:  whether to use CheXpert_Small dataset (previously downsampled
             images) or the fully size dataset.
         num_identities:  used only if labels='identity'.  If

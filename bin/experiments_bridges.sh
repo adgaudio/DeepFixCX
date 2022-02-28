@@ -8,9 +8,9 @@ date
 source <(cat ./bin/experiments.sh|head -n-1 |tail -n+2)
 
 export num_workers=0
-export batch_size=40
+export batch_size=300
 # run a job
-C16 | parallel "echo  run {}" | parallel -j 10
+C18 | parallel "echo  run {}" | parallel -j 10
 
 echo done
 date
