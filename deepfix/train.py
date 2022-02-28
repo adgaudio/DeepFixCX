@@ -105,6 +105,18 @@ MODELS = {
             mlp_attn='LogSoftmaxVecAttn',
             zero_mean=False, normalization=parse_normalization('0mean,chexpert_small', 'coif2', wavelet_levels, patch_size, 'l1', '0'))
     ),
+    # adaptive version:
+    ('deepfix_v1', str, str, str, str): (
+        lambda out_ch, wavelet_levels, patch_size, adaptive: get_DeepFixEnd2End(
+            1, int(out_ch), in_ch_multiplier=1, wavelet='coif2',
+            wavelet_levels=int(wavelet_levels), wavelet_patch_size=int(patch_size),
+            patch_features='l1',
+            mlp_depth=1, mlp_channels=300, mlp_fix_weights='none', mlp_activation=None,
+            mlp_attn='VecAttn',
+            zero_mean=False, normalization=parse_normalization('0mean,chexpert_small', 'coif2', wavelet_levels, patch_size, 'l1', '0'),
+            adaptive=bool(int(adaptive))
+        )
+    ),
     ('deepfix_v2', str, str, str, str, str, str, str, str): (
         lambda in_ch, out_ch, wavelet, wavelet_levels, patch_size, patch_features, backbone, pretraining: get_DeepFixEnd2End_v2(
             int(in_ch), int(out_ch),
