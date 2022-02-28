@@ -82,6 +82,8 @@ if __name__ == "__main__":
         img = dset[i]['image'].unsqueeze(0).to(args.device)
         enc = deepfix_mdl(img)
         streaming_stats.add(enc.cpu().double().numpy())
+        if i % 10000 == 0:
+            print(i)
         #  tst.append(enc)
 
         #  enc = enc.reshape(

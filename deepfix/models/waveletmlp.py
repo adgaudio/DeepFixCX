@@ -27,6 +27,7 @@ class DeepFixCompression(T.nn.Module):
                  patch_features:list[str]=['l1'],
                  how_to_error_if_input_too_small:str='warn',
                  zero_mean:bool=False,
+                 adaptive:bool=False
                  ):
         """
         Args:
@@ -68,12 +69,10 @@ class DeepFixCompression(T.nn.Module):
         else:
             self.expand_input_channels = T.nn.Identity()
         # wavelet transform
-        self.wavelet_encoder = WaveletPacket2d(wavelet=wavelet, levels=levels)
+        self.wavelet_encoder = WaveletPacket2d(
+            wavelet=wavelet, levels=levels, adaptive=adaptive)
         # wavelet feature extractor
         self.patch_size = patch_size
-        # fix the model (no learning)
-        for x in self.parameters():
-            x.requires_grad_(False)
         # for convenience:  determine what the output shape should be
         if levels != 'max':
             D = self.get_n_extracted_features(
@@ -572,8 +571,7 @@ class DeepFixEnd2End(T.nn.Module):
         self.mlp = mlp
 
     def forward(self, x):
-        with T.no_grad():
-            x = self.compression_mdl(x)
+        x = self.compression_mdl(x)
         x = self.mlp(x)
         return x
 
@@ -622,18 +620,20 @@ def get_DeepFixEnd2End(
         in_ch_multiplier=1, wavelet='coif2', wavelet_levels=4, wavelet_patch_size=1,
         mlp_depth=2 , mlp_channels=None, mlp_activation=None,
         mlp_fix_weights='none', patch_features='l1',
-        zero_mean:bool=False, normalization=('none', ), mlp_attn=LogSoftmaxVecAttn):
+        zero_mean:bool=False, normalization=('none', ), mlp_attn='LogSoftmaxVecAttn',
+        adaptive:bool=False):
     enc = DeepFixCompression(
         in_ch=in_channels, in_ch_multiplier=in_ch_multiplier, levels=wavelet_levels,
         wavelet=wavelet,
         patch_size=wavelet_patch_size, patch_features=patch_features.split(','),
-        zero_mean=zero_mean)
+        zero_mean=zero_mean, adaptive=adaptive)
     C, D = enc.out_shape[-2:]
     mlp = DeepFixMLP(
         C=C, D=D, out_ch=out_channels, depth=mlp_depth, mid_ch=mlp_channels,
         final_layer=mlp_activation, fix_weights=mlp_fix_weights,
         input_normalization=normalization,
-        attn_class={'VecAttn': VecAttn,
+        attn_class={'Identity': T.nn.Identity,
+                    'VecAttn': VecAttn,
                     'SoftmaxVecAttn': SoftmaxVecAttn,
                     'LogSoftmaxVecAttn': LogSoftmaxVecAttn,
                     }[mlp_attn],

@@ -68,23 +68,28 @@ if __name__ == "__main__":
     results = []
     for fp in fps:
         print(fp)
-        # get the model
-        model_dct = T.load(fp, map_location=args.device)
-        # get the dataset loader that was used
-        log_fp = list(sorted(glob.glob(f'{dirname(dirname(abspath(fp)))}/*console.log')))[-1]
-        with open(log_fp, 'r') as fin:
-            fin.readline()
-            cmdline = fin.readline()
-            dset_spec = re.search('--dset (chexpert_small:.*?|chexpert_small15k:.*?) ', cmdline).group(1)
-        dset_dct, class_names = match(dset_spec, DSETS)
-        # compute performance
-        res_dct = evaluate_perf(model_dct['model'], dset_dct['test_loader'], args.device, class_names)
-        # get the experiment id
-        experiment_id = basename(dirname(dirname(fp)))
-        # save the results to experiments directory
-        df = pd.DataFrame(
-            res_dct, index=pd.Index([(experiment_id, N_epochs)], name=('run_id', 'epoch')))
-        df.to_csv(f'{dirname(dirname(fp))}/roc_auc.csv')
+        csv_fp = f'{dirname(dirname(fp))}/roc_auc.csv'
+        if os.path.exists(csv_fp):
+            print('loading from file: {csv_fp}')
+            df = pd.read_csv(csv_fp)
+        else:
+            # get the model
+            model_dct = T.load(fp, map_location=args.device)
+            # get the dataset loader that was used
+            log_fp = list(sorted(glob.glob(f'{dirname(dirname(abspath(fp)))}/*console.log')))[-1]
+            with open(log_fp, 'r') as fin:
+                fin.readline()
+                cmdline = fin.readline()
+                dset_spec = re.search('--dset (chexpert_small:.*?|chexpert_small15k:.*?) ', cmdline).group(1)
+            dset_dct, class_names = match(dset_spec, DSETS)
+            # compute performance
+            res_dct = evaluate_perf(model_dct['model'], dset_dct['test_loader'], args.device, class_names)
+            # get the experiment id
+            experiment_id = basename(dirname(dirname(fp)))
+            # save the results to experiments directory
+            df = pd.DataFrame(
+                res_dct, index=pd.Index([(experiment_id, N_epochs)], name=('run_id', 'epoch')))
+        df.to_csv(csv_fp)
         # aggregated results
         results.append(df)
     df = pd.concat(results)

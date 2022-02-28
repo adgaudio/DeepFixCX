@@ -25,7 +25,7 @@ lockfile_maxconcurrent=1
 lockfile_maxfailures=1
 
 V=2  # experiment version number
-export num_workers=7
+export num_workers=4
 
 
 I1() {
@@ -302,6 +302,23 @@ C13() {
   # mlp has depth 1 (+ vecattn layer) and width 300.
   # note: this includes CPU intensive tasks.
   # conc: the 0:0mean,chexpert_small normalization is best with l1.  with min, 0:whiten or 0:none or 0:0mean are all fine.
+  # details:
+  #   test 1: normalization after encoder
+  #         l1:  none < batchnorm < whiten < 0mean
+  #         min: batchnorm < (none == whiten == 0mean)  or on val set, 0mean is best
+  #   test 2: normalization before encoder.
+  #       l1:
+  #         none:        0 =  1
+  #         batchnorm:   0 ~> 1
+  #         0mean:       0 = 1
+  #         whiten:      0 ~>  1
+  #       min:
+  #         none:        0 = 1
+  #         batchnorm:   0 = 1
+  #         0mean:       0 ? 1
+  #         whiten:      0 > 1
+  #   test overall:
+  #         l1 > min  (when using 0:0mean)
   python <<EOF
 wavelet = "coif2"
 level = 5
@@ -324,7 +341,8 @@ for zero_mean in '0': #, '1':
     for level in range(1, 9):
         for patchsize in 1,3,5,9,19,37,79,115,160:
             if patchsize <= 320 / 2**level:
-                print(f"norm:{level}:{patchsize}:{patch_features}:{zero_mean} python bin/compute_deepfix_normalization.py --level {level} --patchsize {patchsize} --patch_features {patch_features} --zero_mean {zero_mean}")
+                # run_id:   norm:{wavelet}:{level}:{patchsize}:{patch_features}:{zero_mean} 
+                print(f"python bin/compute_deepfix_normalization.py --wavelet {wavelet} --level {level} --patchsize {patchsize} --patch_features {patch_features} --zero_mean {zero_mean}")
             # else skip this unnecessary norm because the (level, patchsize) isn't doing compression.  This assumes images are 320x320, our default from chexpert dataset
 EOF
 }
@@ -332,10 +350,14 @@ EOF
 
 C14() {
   # varying attention / regularization 
+  # conc: perf-wise: VecAttn with 0 regualrization seems best, .1 reg 2nd best, LogSoftmaxVecAttn third
+  # conc: but the result that vecattn:0 works better than comparable model in C13 is weird enough that might have optimizer noise here.
+  # conc: visually for attn, TODO
+
   python <<EOF
 level = 5
 patch_size = 5
-for attn in 'SoftmaxVecAttn', 'LogSoftmaxVecAttn':
+for attn in 'Identity', 'SoftmaxVecAttn', 'LogSoftmaxVecAttn':
     model = f'attn_test:{attn}:14:{level}:{patch_size}'
     print(f"""${V}.C14.{attn} python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model {model}""")
 model = f'attn_test:VecAttn:14:{level}:{patch_size}'
@@ -343,24 +365,52 @@ for reg in 0, .1, 1:
     print(f"""${V}.C14.VecAttn.{reg} python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg deepfixmlp:{reg} --model {model}""")
 EOF
 }
+
+C15() {
+  # optimizer tests for two attn models
+  python <<EOF
+level = 5
+patch_size = 5
+reg = .1
+for opt in 'SGD:lr=0.002:momentum=.9', 'SGD:lr=0.003:momentum=.9', 'SGD:lr=0.001:momentum=.9', 'SGD:lr=0.001', 'SGD:lr=0.0005', 'Adam:lr=0.001', 'Adam:lr=0.002', 'Adam:lr=0.005':
+    print(f"""${V}.C15.VecAttn-{reg}.{opt}   python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt {opt} --lossfn chexpert_uignore --loss_reg deepfixmlp:{reg} --model attn_test:VecAttn:14:{level}:{patch_size}""")
+    print(f"""${V}.C15.LogSoftmax.{opt}      python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt {opt} --lossfn chexpert_uignore --loss_reg none             --model attn_test:LogSoftmaxVecAttn:14:{level}:{patch_size}""")
+EOF
+}
 # before running this, let's do the 
 # regularization tests
 # optimizer tests
 
-# future_for_elvin() {
-  # get predictive performance on all patch sizes.
-  # in theory we want this.  practically, some patch sizes and wavelet levels
-  # are redundant (they print warnings) or impossible (out of ram)
-#   python <<EOF
-# for level in range(1, 9):
-#     for patchsize in 1,3,5,9,19,37,79,115,160:
-#         if patchsize <= 320 / 2**level:
-#             print(f"norm:{level}:{patchsize}:{patch_features}:{zero_mean} python bin/compute_deepfix_normalization.py --level {level} --patchsize {patchsize} --patch_features {patch_features} --zero_mean {zero_mean}")
-#         # else skip this unnecessary norm because the (level, patchsize) isn't doing compression.  This assumes images are 320x320, our default from chexpert dataset
-#         model = f"waveletmlpV2:1:14:coif2:{level}:{patchsize}:l1:0:0mean,chexpert"
-#         echo "${V}.SOMETHING_TODO.{level}.{patchsize} python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model {model}
-# EOF
-# }
+C16() {
+  # Main predictive experiment, all patch sizes and wavelet levels
+  python <<EOF
+for level in range(1, 9):
+    for patchsize in 1,3,5,9,19,37,79,115,160:
+        if patchsize <= 320 / 2**level:
+        #     print(f"norm:{level}:{patchsize}:{patch_features}:{zero_mean} python bin/compute_deepfix_normalization.py --level {level} --patchsize {patchsize} --patch_features {patch_features} --zero_mean {zero_mean}")
+            model = f"deepfix_v1:14:{level}:{patchsize}"
+            print( f"${V}.C16.J={level}.P={patchsize} python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg deepfixmlp:.1 --model {model} --epochs 80")
+        # # else skip this unnecessary task because the (level, patchsize) isn't doing compression.  This assumes images are 320x320, our default from chexpert dataset
+EOF
+}
+C17() {
+  # Per-class model, to get hierarchy over classes
+  python <<EOF
+class_names = [
+    'No Finding',
+    'Enlarged Cardiomediastinum', 'Cardiomegaly', 'Lung Opacity',
+    'Lung Lesion', 'Edema', 'Consolidation', 'Pneumonia',
+    'Atelectasis', 'Pneumothorax', 'Pleural Effusion',
+    'Pleural Other', 'Fracture', 'Support Devices']
+class_names = [x.replace(' ', '\ ') for x in class_names]
+level = 5
+patchsize = 5
+for class_name in class_names:
+    model = f"deepfix_v1:1:{level}:{patchsize}"
+    print( f"${V}.C17.{class_name} python deepfix/train.py --dset chexpert_small15k:.9:.1:{class_name} --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg deepfixmlp:.1 --model {model} --epochs 80")
+EOF
+}
+
 
 
 # I1 | expand 3 | run_gpus echo 5
@@ -391,6 +441,8 @@ EOF
 # C12
 # C13 | grep compute_deepfix | parallel -j 10
 # C13 | grep -v compute_deepfix | run_gpus 5
-# compute_normalization | run_gpus 20
-compute_normalization | run_gpus 2
-# C14 | run_gpus 6
+# C15 | run_gpus 1
+# compute_normalization | parallel -j 8
+export num_workers=4
+export batch_size=500
+( C16 ; C17 ) | run_gpus 1
