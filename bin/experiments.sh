@@ -445,4 +445,4 @@ EOF
 # compute_normalization | parallel -j 8
 export num_workers=4
 export batch_size=500
-( C16 ; C17 ) | run_gpus 1
+( C16 ; C17 ) | run_gpus 2
