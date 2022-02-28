@@ -102,7 +102,7 @@ MODELS = {
             wavelet_levels=int(wavelet_levels), wavelet_patch_size=int(patch_size),
             patch_features='l1',
             mlp_depth=1, mlp_channels=300, mlp_fix_weights='none', mlp_activation=None,
-            mlp_attn='LogSoftmaxVecAttn',
+            mlp_attn='VecAttn',
             zero_mean=False, normalization=parse_normalization('0mean,chexpert_small', 'coif2', wavelet_levels, patch_size, 'l1', '0'))
     ),
     # adaptive version:
@@ -390,9 +390,11 @@ def get_dset_chexpert(train_frac=.8, val_frac=.2, small=False,
     test_dset = kls(use_train_set=False, **kws)
     # data loaders
     batch_size = int(os.environ.get('batch_size', 15))
+    print('batch size', batch_size)
     batch_dct = dict(
         collate_fn=_upsample_pad_minibatch_imgs_to_same_size,
         num_workers=int(os.environ.get("num_workers", 4)))  # upsample pad must take time
+    print('num workers', batch_dct['num_workers'])
     train_loader=DataLoader(
         train_dset, batch_size=batch_size,
         sampler=RandomSampler(train_dset, epoch_size or len(train_dset)), **batch_dct)
