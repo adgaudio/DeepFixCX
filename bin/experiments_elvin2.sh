@@ -28,7 +28,7 @@ lockfile_maxsuccesses=1
 lockfile_maxconcurrent=1
 lockfile_maxfailures=1
 
-E=10 # experiment version number
+E=2 # experiment version number
 export num_workers=0
 
 # load the experiments.sh file (but ignore the last two lines so nothing runs)
@@ -45,7 +45,7 @@ EOF
 
 # run a job
 # E10 | run_gpus 4
-E1 | parallel "echo  run {}" | parallel -j 5
+E1 | parallel "echo  run {}" | parallel -j 4
 
 echo done
 date

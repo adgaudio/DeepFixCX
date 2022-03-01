@@ -504,10 +504,10 @@ class MLP(T.nn.Module):
             mid_ch = out_ch
         lst = []
         lst.append(T.nn.Sequential(
-            T.nn.Flatten(), T.nn.Linear(in_ch, mid_ch, bias=True),T.nn.Batchnorm1d(mid_ch),T.nn.CELU()))
+            T.nn.Flatten(), T.nn.Linear(in_ch, mid_ch, bias=True),T.nn.BatchNorm1d(mid_ch),T.nn.CELU()))
         # add linear -> celu layers
         for _ in range(depth-1):
-            lst.extend(T.nn.Sequential(T.nn.Linear(mid_ch, mid_ch, bias=True),T.nn.Batchnorm1d(mid_ch),T.nn.CELU()))
+            lst.extend(T.nn.Sequential(T.nn.Linear(mid_ch, mid_ch, bias=True),T.nn.BatchNorm1d(mid_ch),T.nn.CELU()))
         self.features = T.nn.Sequential(*lst)
         if final_activation_layer is None:
             self.fc = T.nn.Sequential(T.nn.Linear(mid_ch, out_ch, bias=True))
