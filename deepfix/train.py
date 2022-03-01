@@ -399,7 +399,7 @@ def get_dset_chexpert(train_frac=.8, val_frac=.2, small=False,
         train_dset, batch_size=batch_size,
         sampler=RandomSampler(train_dset, epoch_size or len(train_dset)), **batch_dct)
     val_loader=DataLoader(val_dset, batch_size=batch_size, **batch_dct)
-    test_loader=DataLoader(test_dset, batch_size=1, **batch_dct)
+    test_loader=DataLoader(test_dset, batch_size=batch_size, **batch_dct)
     #
     # debugging:  vis dataset
     #  from deepfix.plotting import plot_img_grid

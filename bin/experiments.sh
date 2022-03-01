@@ -480,7 +480,7 @@ export batch_size=400
 # ( C16 ; C17 ) | run_gpus 1
 # export batch_size=200
 # C18 | run_gpus 1
-# export num_workers=4
-# export batch_size=15
-# C8 | run_gpus 1
-C19 #| run_gpus 1
+# C19 #| run_gpus 1
+export num_workers=4
+export batch_size=15
+C8 | run_gpus 1
