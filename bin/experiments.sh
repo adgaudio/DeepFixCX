@@ -441,6 +441,20 @@ for level in [1,5,8]:  #range(1, 9):
         # # else skip this unnecessary task because the (level, patchsize) isn't doing compression.  This assumes images are 320x320, our default from chexpert dataset
 EOF
 }
+C20() {
+  # Full size images
+  python <<EOF
+# for level in range(1, 9):
+#     for patchsize in 1,3,5,9,19,37,79,115,160:
+for level in [1,5,8]:  #range(1, 9):
+    for patchsize in 1,5,160:
+        if patchsize <= 320 / 2**level:
+        #     print(f"norm:{level}:{patchsize}:{patch_features}:{zero_mean} python bin/compute_deepfix_normalization.py --level {level} --patchsize {patchsize} --patch_features {patch_features} --zero_mean {zero_mean}")
+            model = f"deepfix_v1:14:{level}:{patchsize}"
+            print( f"${V}.C16.J={level}.P={patchsize} python deepfix/train.py --dset chexpert15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg deepfixmlp:.1 --model {model} --epochs 80")
+        # # else skip this unnecessary task because the (level, patchsize) isn't doing compression.  This assumes images are 320x320, our default from chexpert dataset
+EOF
+}
 
 
 
@@ -474,13 +488,13 @@ EOF
 # C13 | grep -v compute_deepfix | run_gpus 5
 # C15 | run_gpus 1
 # compute_normalization | parallel -j 8
-export num_workers=4
-export batch_size=400
-# ( C17 ) #| run_gpus 1
-# ( C16 ; C17 ) | run_gpus 1
-# export batch_size=200
-# C18 | run_gpus 1
-# C19 #| run_gpus 1
-export num_workers=4
-export batch_size=15
-C8 | run_gpus 1
+# export num_workers=4
+# export batch_size=400
+# # ( C17 ) #| run_gpus 1
+# ( C16 ; C17 ; C18 ) | run_gpus 1
+# # export batch_size=200
+# # C18 | run_gpus 1
+# # C19 #| run_gpus 1
+# export num_workers=4
+# export batch_size=15
+# C8 | run_gpus 1

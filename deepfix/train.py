@@ -1,21 +1,20 @@
 """
-Boilerplate to implement training different networks on different datasets
+Training different networks on different datasets
 with varying config.
 
-I wish a machine could automate setting up decent baseline models and datasets
+I wish a machine could automate setting up decent baseline models and datasets.
 """
 #  import json
 import os
 from os.path import exists
 import pampy
-from simple_parsing import ArgumentParser, choice
+from simple_parsing import ArgumentParser
 from simplepytorch import datasets as D
 from simplepytorch import trainlib as TL
 from simplepytorch import metrics
 from sklearn.model_selection import StratifiedShuffleSplit
 from torch.utils.data import Dataset, DataLoader
-from typing import Union, Optional
-from sklearn.model_selection import StratifiedKFold
+from typing import Union, Optional, Tuple
 import dataclasses as dc
 import numpy as np
 import torch as T
@@ -321,6 +320,47 @@ def group_random_split(
     return splits
 
 
+class ResizeCenterCropTo(T.nn.Module):
+    """Resize tensor image to desired shape yx=(y, x) by enlarging the image
+    without changing its aspect ratio, then center cropping.
+
+    This can cut out the boundaries of images.
+    """
+    def __init__(self, yx:Tuple[int]):
+        super().__init__()
+        self.yx = yx
+        self.center_crop = tvt.CenterCrop(yx)
+
+    def resize_preserve_aspect(self, x:T.Tensor):
+        """
+        Args:
+            x: Tensor image of shape (?, H, W) or other shape accepted by
+                tvt.functional.resize"""
+        given_shape = x.shape[-2:]
+        sufficiently_large = np.array(given_shape) >= self.yx
+        if np.all(sufficiently_large):
+            return x
+        desired_aspect = self.yx[0] / self.yx[1]
+        given_aspect = given_shape[0] / given_shape[1]
+        if given_aspect < desired_aspect:
+            # resize the y dim based on x
+            resize_to = (self.yx[1], round(self.yx[0] / given_shape[0] * given_shape[1]))
+        elif given_aspect > desired_aspect:
+            # resize the x dim based on y
+            resize_to = (round(self.yx[1] / given_shape[1] * given_shape[0]), self.yx[0])
+        else:
+            # same aspect ratio. just resize the image to yx
+            resize_to = self.yx
+        x = tvt.functional.resize(x, resize_to)
+        #  print(x.shape)
+        return x
+
+    def forward(self, x):
+        x = self.resize_preserve_aspect(x)
+        x = self.center_crop(x)
+        return x
+
+
 def get_dset_chexpert(train_frac=.8, val_frac=.2, small=False,
                       labels:str='diagnostic', num_identities=None,
                       epoch_size:int=None
@@ -350,7 +390,7 @@ def get_dset_chexpert(train_frac=.8, val_frac=.2, small=False,
     if labels == 'identity':
         class_names = list(range(num_identities))
         get_ylabels = lambda dct: \
-                (D.CheXpert.format_labels(dct, labels=['index']) % num_identities).long()
+            (D.CheXpert.format_labels(dct, labels=['index']) % num_identities).long()
     else:
         if labels == 'diagnostic':
             class_names = D.CheXpert.LABELS_DIAGNOSTIC
@@ -363,23 +403,26 @@ def get_dset_chexpert(train_frac=.8, val_frac=.2, small=False,
             if k in D.CheXpert.LABELS_DIAGNOSTIC:
                 _label_cleanup_dct[k][np.nan] = 0  # remap missing value to negative
         get_ylabels = lambda dct: \
-                D.CheXpert.format_labels(dct, labels=class_names).float()
+            D.CheXpert.format_labels(dct, labels=class_names).float()
     kws = dict(
-        img_transform=tvt.Compose([
-            #  tvt.CenterCrop((512, 512)),
-            tvt.CenterCrop((320,320)) if small else (lambda x: x),
-            tvt.ToTensor(),
-        ]),
         getitem_transform=lambda dct: (dct['image'], get_ylabels(dct)),
         label_cleanup_dct=_label_cleanup_dct,
     )
     if small:
         kls = D.CheXpert_Small
+        kws['img_transform'] = tvt.Compose([
+            #  tvt.CenterCrop((512, 512)),
+            tvt.CenterCrop((320,320)) if small else (lambda x: x),
+            tvt.ToTensor(),
+        ])
     else:
         kls = D.CheXpert
+        kws['img_transform'] = tvt.Compose([
+            tvt.ToTensor(),
+            ResizeCenterCropTo((2320, 2320))  # preserving aspect ratio and center crop
+        ])
 
     train_dset = kls(use_train_set=True, **kws)
-    N = len(train_dset)
     # split the dataset into train and val sets
     # ensure patient images exist only in one set.  no mixing.
     train_idxs, val_idxs = group_random_split(
@@ -408,10 +451,11 @@ def get_dset_chexpert(train_frac=.8, val_frac=.2, small=False,
     #  fig, ax = plt.subplots(1,2)
     #  print('hello world')
     #  for mb in train_loader:
-        #  plot_img_grid(mb[0].squeeze(1), num=1, suptitle=f'shape: {mb[0].shape}')
-        #  plt.show(block=False)
-        #  plt.pause(1)
-    #
+    #      plot_img_grid(mb[0].squeeze(1), num=1, suptitle=f'shape: {mb[0].shape}')
+    #      plt.show(block=False)
+    #      plt.pause(1)
+    #  #
+    #  import sys ; sys.exit()
     return (dict(
         train_dset=train_dset, val_dset=val_dset, test_dset=test_dset,
         train_loader=train_loader, val_loader=val_loader, test_loader=test_loader,
@@ -495,9 +539,9 @@ DSETS = {
         lambda train, val, test, aug: get_dset_intel_mobileodt(train, val, test, aug)),
     #  ('origa', ... todo): ( lambda ...: get_dset_origa(...)
     #  ('riga', ... todo): ( lambda ...: get_dset_riga(...)
-    ('chexpert', str, str): (
-        lambda train_frac, val_frac: get_dset_chexpert(
-            float(train_frac), float(val_frac), small=False, labels='diagnostic')),
+    ('chexpert', str, str, str): (
+        lambda train_frac, val_frac, labels: get_dset_chexpert(
+            float(train_frac), float(val_frac), small=False, labels=labels)),
     ('chexpert_small', str, str): (
         lambda train_frac, val_frac: get_dset_chexpert(
             float(train_frac), float(val_frac), small=True, labels='diagnostic')),
@@ -511,6 +555,9 @@ DSETS = {
     ('chexpert_small15k', str, str, str): (
         lambda train_frac, val_frac, labels: get_dset_chexpert(
             float(train_frac), float(val_frac), small=True, labels=labels, epoch_size=15000)),
+    ('chexpert15k', str, str, str): (
+        lambda train_frac, val_frac, labels: get_dset_chexpert(
+            float(train_frac), float(val_frac), small=False, labels=labels, epoch_size=15000)),
 }
 
 
@@ -574,7 +621,8 @@ def get_dset_loaders_resultfactory(dset_spec:str) -> dict:
         dct['result_factory'] = lambda: TL.MultiClassClassification(
                 len(class_names), binarize_fn=lambda yh: yh.softmax(1).argmax(1))
     elif any(dset_spec.startswith(x) for x in {
-            'chexpert:', 'chexpert_small:', 'chexpert_small15k:'}):
+            'chexpert:', 'chexpert_small:',
+            'chexpert_small15k:', 'chexpert15k:'}):
         dct['result_factory'] = lambda: CheXpertMultiLabelBinaryClassification(
             class_names, binarize_fn=lambda yh: (yh.sigmoid()>.5).long(), report_avg=True)
     else:
@@ -654,7 +702,7 @@ class TrainOptions:
     start_epoch:int = 0  # if "--start_epoch 1", then don't evaluate perf before training.
     device:str = 'cuda' if T.cuda.is_available() else 'cpu'
 
-    dset:str = None 
+    dset:str = None
     """
       Choose the dataset.  Some options:
           --dset intel_mobileodt:train:val:test:v1
