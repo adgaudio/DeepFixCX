@@ -114,7 +114,7 @@ MODELS = {
             mlp_depth=1, mlp_channels=300, mlp_fix_weights='none', mlp_activation=None,
             mlp_attn='VecAttn',
             zero_mean=False, normalization=parse_normalization('0mean,chexpert_small', 'coif2', wavelet_levels, patch_size, 'l1', '0'),
-            adaptive=bool(int(adaptive))
+            adaptive=int(adaptive)
         )
     ),
     ('deepfix_v2', str, str, str, str, str, str, str, str): (

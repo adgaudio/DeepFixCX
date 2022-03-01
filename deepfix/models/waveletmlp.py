@@ -27,7 +27,7 @@ class DeepFixCompression(T.nn.Module):
                  patch_features:list[str]=['l1'],
                  how_to_error_if_input_too_small:str='warn',
                  zero_mean:bool=False,
-                 adaptive:bool=False
+                 adaptive:int=0
                  ):
         """
         Args:
@@ -621,7 +621,7 @@ def get_DeepFixEnd2End(
         mlp_depth=2 , mlp_channels=None, mlp_activation=None,
         mlp_fix_weights='none', patch_features='l1',
         zero_mean:bool=False, normalization=('none', ), mlp_attn='LogSoftmaxVecAttn',
-        adaptive:bool=False):
+        adaptive:int=0):
     enc = DeepFixCompression(
         in_ch=in_channels, in_ch_multiplier=in_ch_multiplier, levels=wavelet_levels,
         wavelet=wavelet,

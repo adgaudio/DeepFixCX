@@ -10,15 +10,22 @@ class WaveletPacket2d(T.nn.Module):
     """Compute a multi-level Wavelet Packet Transform or its inverse.
 
     wavelet:  Any wavelet supported by pywt library.
-    levels:  How many wavelet levels to compute the transform for
+    levels:  How many wavelet levels to compute the transform for.
+      Pass an integer or the string 'max'.
     inverse:  If True, compute an inverse wavelet packet transform.
-    adaptive: If True, learn the lo and hi pass 1-d vectors that generate the
-              2d wavelet filters.  Initialized with values from `wavelet`.
-              Adaptive=True allows the wavelet packet to violate necessary
-              conditions for it to be a wavelet.  E.g. to preserve
-              invertibility, add a loss term that ensures this.
+    adaptive: a value in {0,1,2}.  Determines whether to the 2d filters or 1d
+        lo and hi pass filters mother wavelet are learnable (requires_grad=True)
+      - If adaptive=0, no learning anything.  Just do wavelet transform.
+      - If adaptive=1, allow the lo and hi pass 1-d vectors that generate the
+        2d wavelet filters to be learned.  Initialized with values from
+        `wavelet` . Adaptive=1 allows the wavelet packet to violate necessary
+        conditions for it to be a wavelet.  E.g. to preserve invertibility, add
+        a loss term that ensures this.
+      - If adaptive=2, initialize 2d filters with wavelet values,
+        then register them as learnable parameters, like a regular convolution.
     """
-    def __init__(self, wavelet:str, levels:Union[int,str], inverse:bool=False, adaptive:bool=False):
+    def __init__(self, wavelet:str, levels:Union[int,str],
+                 inverse:bool=False, adaptive:int=0):
         super().__init__()
         if inverse:
             lo, hi = pywt.Wavelet(wavelet).filter_bank[2:]
@@ -29,12 +36,17 @@ class WaveletPacket2d(T.nn.Module):
         else:
             lo, hi = pywt.Wavelet(wavelet).filter_bank[:2]
         lo, hi = T.tensor(lo, dtype=T.float), T.tensor(hi, dtype=T.float)
-        if adaptive:
+        if adaptive == 1:
             self.lo, self.hi = T.nn.Parameter(lo), T.nn.Parameter(hi)
-        else:
+        elif adaptive == 0 or adaptive == 2:
             self.lo, self.hi = lo, hi
             filters = self.compute_filters_2d(lo, hi)
-            self.register_buffer('filters', filters)
+            if adaptive == 0:
+                self.register_buffer('filters', filters)
+            else:
+                self.filters = T.nn.Parameter(filters)
+        else:
+            raise NotImplementedError(f'adaptive={adaptive}')
         self.adaptive = adaptive
         self.levels = levels
         self.inverse = inverse
@@ -76,9 +88,10 @@ class WaveletPacket2d(T.nn.Module):
               - H' and W' are the size of the spatial dimension after transform
                 H/2**(J-1) >= H' >= H/2**J  ... and similarly for W'
         """
-        if self.adaptive:
+        if self.adaptive == 1:
             filters = self.compute_filters_2d(self.lo, self.hi)
         else:
+            assert self.adaptive in {0,2}, 'code bug: not implemented'
             filters = self.filters
         if self.inverse:
             return self._inverse_wavelet_packet_transform(x, filters)

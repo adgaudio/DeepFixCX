@@ -7,11 +7,12 @@ date
 # load the experiments.sh file (but ignore the last two lines so nothing runs)
 source <(cat ./bin/experiments.sh|head -n-1 |tail -n+2)
 
-export num_workers=0
-export batch_size=300
+export num_workers=6
+export batch_size=2000
 # run a job
-C18 | parallel "echo  run {}" | parallel -j 10
+C19 | parallel "echo  run {}" | parallel -j 1
 
 echo done
 date
 exit
+

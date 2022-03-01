@@ -220,13 +220,16 @@ done
 
 C8() {
   # baseline, 10% of training data
-  # ${V}.C8.diagnostic.densenet121.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:untrained:1:14
-  # ${V}.C8.Cardiomegaly.densenet121.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:Cardiomegaly --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:untrained:1:1
-  # ${V}.C8.leaderboard.densenet121.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:leaderboard --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:untrained:1:5
+  local V=3
+  # ${V}.C8.diagnostic.densenet121.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:untrained:1:14 --epochs 80
+  # ${V}.C8.Cardiomegaly.densenet121.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:Cardiomegaly --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:untrained:1:1 --epochs 80
+  # ${V}.C8.leaderboard.densenet121.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:leaderboard --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:untrained:1:5 --epochs 80
+  # ${V}.C8.Cardiomegaly.resnet18.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:Cardiomegaly --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:untrained:1:1 --epochs 80
+  # ${V}.C8.leaderboard.resnet18.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:leaderboard --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:untrained:1:5 --epochs 80
   cat <<EOF
-  ${V}.C8.diagnostic.resnet18.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:untrained:1:14
-  ${V}.C8.Cardiomegaly.resnet18.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:Cardiomegaly --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:untrained:1:1
-  ${V}.C8.leaderboard.resnet18.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:leaderboard --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:untrained:1:5
+  ${V}.C8.diagnostic.resnet18.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:untrained:1:14 --epochs 80
+  ${V}.C8.diagnostic.resnet18.baseline.imagenet    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:imagenet:1:14 --epochs 80
+  ${V}.C8.diagnostic.densenet121.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:untrained:1:14 --epochs 80
 EOF
 }
 # I8() {
@@ -413,7 +416,7 @@ EOF
 }
 
 C18() {
-  # Adaptive 
+  # Adaptive=1
   # Main predictive experiment, all patch sizes and wavelet levels
   python <<EOF
 for level in [1,5,8]:  #range(1, 9):
@@ -422,6 +425,19 @@ for level in [1,5,8]:  #range(1, 9):
         if patchsize <= 320 / 2**level:
             model = f"deepfix_v1:14:{level}:{patchsize}:1"
             print( f"${V}.C18.J={level}.P={patchsize} python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg deepfixmlp:.1 --model {model} --epochs 80")
+        # # else skip this unnecessary task because the (level, patchsize) isn't doing compression.  This assumes images are 320x320, our default from chexpert dataset
+EOF
+}
+C19() {
+  # Adaptive=2
+  # Main predictive experiment, all patch sizes and wavelet levels
+  python <<EOF
+for level in [1,5,8]:  #range(1, 9):
+    # for patchsize in 1,3,5,9,19,37,79,115,160:
+    for patchsize in 1,5,160:
+        if patchsize <= 320 / 2**level:
+            model = f"deepfix_v1:14:{level}:{patchsize}:2"
+            print( f"${V}.C19.J={level}.P={patchsize} python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg deepfixmlp:.1 --model {model} --epochs 80")
         # # else skip this unnecessary task because the (level, patchsize) isn't doing compression.  This assumes images are 320x320, our default from chexpert dataset
 EOF
 }
@@ -458,9 +474,13 @@ EOF
 # C13 | grep -v compute_deepfix | run_gpus 5
 # C15 | run_gpus 1
 # compute_normalization | parallel -j 8
-# ( C16 ; C17 ) | run_gpus 1
 export num_workers=4
 export batch_size=400
-( C17 ) #| run_gpus 1
+# ( C17 ) #| run_gpus 1
+# ( C16 ; C17 ) | run_gpus 1
 # export batch_size=200
 # C18 | run_gpus 1
+# export num_workers=4
+# export batch_size=15
+# C8 | run_gpus 1
+C19 #| run_gpus 1
