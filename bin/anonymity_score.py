@@ -19,6 +19,8 @@ import torchvision.transforms as tvt
 import scipy.stats
 
 from simplepytorch.datasets import CheXpert_Small
+sys.path.append("/mnt/e/Workspace/DeepFix/DeepFix/")
+sys.path.append("/mnt/e/Workspace/DeepFix/DeepFix/third_party")
 from deepfix import train
 from deepfix.models import DeepFixCompression
 
@@ -32,15 +34,16 @@ def euclidean_dist(vec1, vec2):
 
 @dc.dataclass
 class Options:
-    n_patients:int = 5
-    level:int = 5
-    patchsize:int = 64
-    wavelet:str = 'coif1'
-    patch_features:List[str] = ('l1', )
-    device:str = 'cuda'
-    save_fp:str = './results/anonymity_scores/{experiment_id}.pth'
-    save_img_fp:str = './results/anonymity_scores/plots/{experiment_id}.png'
-    cache_dir:str = './results/anonymity_scores/cache/{experiment_id}'
+    n_patients: int = 5
+    level: int = 5
+    patchsize: int = 64
+    wavelet: str = 'coif1'
+    patch_features: List[str] = ('l1', )
+    device: str = 'cuda'
+    save_fp: str = './results/anonymity_scores/{experiment_id}.pth'
+    save_img_fp: str = './results/anonymity_scores/plots/{experiment_id}.png'
+    cache_dir: str = './results/anonymity_scores/cache/{experiment_id}'
+    num_resample: int = 1
 
     def __post_init__(self):
         self.experiment_id = f'{self.n_patients}_{self.wavelet}:{self.level}:{self.patchsize}:{",".join(self.patch_features)}'

@@ -18,7 +18,8 @@ for fp in fps:
     patch_size = int(args[2])
     test_statistic = T.load(fp)['ks_test']
     ks_stats = test_statistic[0]
-    print(test_statistic[1] < 1e-4)
+    #print(test_statistic[1] < 1e-4)
+    print(ks_stats)
     data.append({'level': level, 'patchsize': patch_size, 'test_statistic': ks_stats})
 
 df = pd.DataFrame(data)
