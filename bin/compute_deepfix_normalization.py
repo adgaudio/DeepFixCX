@@ -4,7 +4,8 @@ from simple_parsing import ArgumentParser
 from typing import List
 from deepfix.plotting import plot_img_grid
 from deepfix.models import DeepFixCompression
-from simplepytorch.datasets import CheXpert_Small
+from deepfix.train import get_dset_chexpert
+from simplepytorch.datasets import CheXpert_Small, CheXpert
 import torchvision.transforms as tvt
 from matplotlib import pyplot as plt
 import numpy as np
@@ -42,15 +43,21 @@ def get_model_and_dset(args):
         how_to_error_if_input_too_small='warn')
     deepfix_mdl.to(args.device)
     # dataset:  chexpert dataset
-    assert args.dset == 'chexpert_small', 'not implemented'
-    dset = CheXpert_Small(
-        use_train_set=True,
-        img_transform=tvt.Compose([
-            tvt.RandomCrop((320, 320)),
-            tvt.ToTensor(),  # full res 1024x1024 imgs
-        ]),
-        getitem_transform=lambda dct: dct)
-    return deepfix_mdl, dset
+    if args.dset == 'chexpert_small':
+        #  dset = CheXpert_Small(
+            #  use_train_set=True,
+            #  img_transform=tvt.Compose([
+                #  tvt.RandomCrop((320, 320)),
+                #  tvt.ToTensor(),  # full res 1024x1024 imgs
+            #  ]),
+            #  getitem_transform=lambda dct: dct
+        #  )
+        dset_dct, _ = get_dset_chexpert(train_frac=1, val_frac=0, small=True)
+    elif args.dset == 'chexpert':
+        dset_dct, _ = get_dset_chexpert(train_frac=1, val_frac=0, small=False)
+    else:
+        raise NotImplementedError(args.dset)
+    return deepfix_mdl, dset_dct
 
 
 def get_deepfixed_img_and_labels(deepfix_model, dset, idx, device):
@@ -67,7 +74,8 @@ if __name__ == "__main__":
     import sys
     args = parse_args()
     print(args)
-    deepfix_mdl, dset = get_model_and_dset(args)
+    deepfix_mdl, dset_dct = get_model_and_dset(args)
+    loader = dset_dct['train_loader']
 
     if os.path.exists(args.savefp) and args.overwrite_existing is False:
         print("Data already exists.  Not overwriting it.  Bye!")
@@ -76,31 +84,30 @@ if __name__ == "__main__":
     # get mean and var of whole training set.
     streaming_stats = Welford()
     #  tst = []
-    #  for i in [0,1,2,3,4]:
-    #  for i in range(1000):
-    for i in range(len(dset)):
-        img = dset[i]['image'].unsqueeze(0).to(args.device)
-        enc = deepfix_mdl(img)
-        streaming_stats.add(enc.cpu().double().numpy())
-        if i % 10000 == 0:
-            print(i)
+    for i, mb in enumerate(loader):
+        print(i)
+        x = mb[0].to(args.device, non_blocking=True)
+        with T.no_grad():
+            enc = deepfix_mdl(x)
+        streaming_stats.add_all(enc.cpu().double().numpy())
         #  tst.append(enc)
-
         #  enc = enc.reshape(
             #  4**args.level*len(args.patch_features),
             #  args.patchsize, args.patchsize)
     dct = {
         'means': T.tensor(streaming_stats.mean, dtype=T.float),
         'vars': T.tensor(streaming_stats.var_p, dtype=T.float)}
+
+    # passes test?
+    #  mu_r = T.cat(tst, 0).mean(0)
+    #  assert T.allclose(mu_r.cpu(), dct['means'], 1e-6)
+    #  var_p = T.cat(tst, 0).var(0, unbiased=False)
+    #  assert T.allclose(var_p.cpu(), dct['vars'], 1e-6)
+    #  import sys ; sys.exit()
+
     os.makedirs(dirname(args.savefp), exist_ok=True)
     T.save(dct, args.savefp)
     print(f'Wrote fp:  {args.savefp}')
-
-    # passes test?
-    #  mu_r = T.stack(tst).mean(0)
-    #  T.allclose(mu_r.cpu(), dct['means'], 1e-7)
-    #  var_r = T.stack(tst).var(0, unbiased=False)
-    #  T.allclose(var_p.cpu(), dct['vars'], 1e-6)
 
 
 
