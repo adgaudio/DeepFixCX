@@ -349,11 +349,10 @@ class Normalization(T.nn.Module):
         elif normalization in {'whiten', '0mean'}:
             dct = T.load(filepath)
             mu, var = dct['means'], dct['vars']
+            mu, var = mu.reshape(1,1,D), var.reshape(1,1,D)
             std = var.sqrt()
             self.register_buffer('mu', mu)
             self.register_buffer('std', std)
-            assert mu.shape == (1,1,D)
-            assert std.shape == (1,1,D)
             if normalization == 'whiten':
                 self.normfn = self.whiten
             elif normalization == '0mean':
