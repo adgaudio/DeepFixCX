@@ -431,6 +431,7 @@ def get_dset_chexpert(train_frac=.8, val_frac=.2, small=False,
         kls = D.CheXpert
         kws['img_transform'] = tvt.Compose([
             tvt.ToTensor(),
+            lambda x: x.to('cuda', non_blocking=True),  # assume num_workers=0
             ResizeCenterCropTo((2320, 2320))  # preserving aspect ratio and center crop
         ])
 
@@ -448,7 +449,7 @@ def get_dset_chexpert(train_frac=.8, val_frac=.2, small=False,
     print('batch size', batch_size)
     batch_dct = dict(
         collate_fn=_upsample_pad_minibatch_imgs_to_same_size,
-        num_workers=int(os.environ.get("num_workers", 4)))  # upsample pad must take time
+        num_workers=int(os.environ.get("num_workers", 0)))  # upsample pad must take time
     print('num workers', batch_dct['num_workers'])
     train_loader=DataLoader(
         train_dset, batch_size=batch_size,

@@ -338,15 +338,19 @@ EOF
 
 compute_normalization() {
   python <<EOF
-wavelet = 'coif2'
+wavelet = 'db1'
 patch_features = 'l1'
-for zero_mean in '0': #, '1':
-    for level in range(1, 9):
-        for patchsize in 1,3,5,9,19,37,79,115,160:
-            if patchsize <= 320 / 2**level:
-                # run_id:   norm:{wavelet}:{level}:{patchsize}:{patch_features}:{zero_mean} 
-                print(f"python bin/compute_deepfix_normalization.py --wavelet {wavelet} --level {level} --patchsize {patchsize} --patch_features {patch_features} --zero_mean {zero_mean}")
-            # else skip this unnecessary norm because the (level, patchsize) isn't doing compression.  This assumes images are 320x320, our default from chexpert dataset
+for dset in 'chexpert_small','chexpert':
+    for zero_mean in '0': #, '1':
+        for level in [1,5,8]:  #range(1, 9):
+            # for patchsize in 1,3,5,9,19,37,79,115,160:
+            for patchsize in 1,5,160:
+        # for level in range(1, 9):
+        #     for patchsize in 1,3,5,9,19,37,79,115,160:
+                if patchsize <= 320 / 2**level:
+                    # run_id:   norm:{dset}:{wavelet}:{level}:{patchsize}:{patch_features}:{zero_mean} 
+                    print(f"python bin/compute_deepfix_normalization.py --dset {dset} --wavelet {wavelet} --level {level} --patchsize {patchsize} --patch_features {patch_features} --zero_mean {zero_mean}")
+                # else skip this unnecessary norm because the (level, patchsize) isn't doing compression.  This assumes images are 320x320, our default from chexpert dataset
 EOF
 }
 
@@ -386,6 +390,7 @@ EOF
 
 C16() {
   # Main predictive experiment, all patch sizes and wavelet levels
+  # with coif2
   python <<EOF
 for level in range(1, 9):
     for patchsize in 1,3,5,9,19,37,79,115,160:
@@ -451,7 +456,22 @@ for level in [1,5,8]:  #range(1, 9):
         if patchsize <= 320 / 2**level:
         #     print(f"norm:{level}:{patchsize}:{patch_features}:{zero_mean} python bin/compute_deepfix_normalization.py --level {level} --patchsize {patchsize} --patch_features {patch_features} --zero_mean {zero_mean}")
             model = f"deepfix_v1:14:{level}:{patchsize}"
-            print( f"${V}.C16.J={level}.P={patchsize} python deepfix/train.py --dset chexpert15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg deepfixmlp:.1 --model {model} --epochs 80")
+            print( f"${V}.C20.J={level}.P={patchsize} python deepfix/train.py --dset chexpert15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg deepfixmlp:.1 --model {model} --epochs 80")
+        # # else skip this unnecessary task because the (level, patchsize) isn't doing compression.  This assumes images are 320x320, our default from chexpert dataset
+EOF
+}
+C21() {
+  # Main predictive experiment, all patch sizes and wavelet levels
+  # with db1 (since coif2 has large filters, and edge artifacts might be problematic)
+  python <<EOF
+for level in range(1, 9):
+    for patchsize in 1,3,5,9,19,37,79,115,160:
+# for level in [1,5,8]:
+#     for patchsize in 1,5,160:
+        if patchsize <= 320 / 2**level:
+        #     print(f"norm:{level}:{patchsize}:{patch_features}:{zero_mean} python bin/compute_deepfix_normalization.py --level {level} --patchsize {patchsize} --patch_features {patch_features} --zero_mean {zero_mean}")
+            model = f"deepfix_v1:14:{level}:{patchsize}:0:db1"
+            print( f"${V}.C21.J={level}.P={patchsize} python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg deepfixmlp:.1 --model {model} --epochs 80")
         # # else skip this unnecessary task because the (level, patchsize) isn't doing compression.  This assumes images are 320x320, our default from chexpert dataset
 EOF
 }
@@ -479,6 +499,8 @@ EOF
 # C7 | run_gpus 4
 # ( I8; C8 ) | run_gpus 3
 # C9 #| run_gpus 3
+# export num_workers=4
+# export batch_size=15
 # C8 | run_gpus 3
 # ( C11 ; C8 ) | run_gpus 3
 # ( C9 ; C10 ) | run_gpus 5
@@ -487,14 +509,18 @@ EOF
 # C13 | grep compute_deepfix | parallel -j 10
 # C13 | grep -v compute_deepfix | run_gpus 5
 # C15 | run_gpus 1
-# compute_normalization | parallel -j 8
-# export num_workers=4
-# export batch_size=400
+# compute_normalization #| parallel -j 8
+export num_workers=0
+# export batch_size=200
 # # ( C17 ) #| run_gpus 1
 # ( C16 ; C17 ; C18 ) | run_gpus 1
-# # export batch_size=200
+# C21 | run_gpus 2
+# export batch_size=200
 # # C18 | run_gpus 1
-# # C19 #| run_gpus 1
-# export num_workers=4
-# export batch_size=15
-# C8 | run_gpus 1
+# C19 | run_gpus 1
+# compute_normalization | grep chexpert_small | parallel -j 5
+
+export num_workers=0
+export batch_size=10
+# C20 | run_gpus 2  # 4.588 gb gpu ram for batchsize=10
+compute_normalization | grep -v chexpert_small | parallel -j 1  # "{} --device cpu"
