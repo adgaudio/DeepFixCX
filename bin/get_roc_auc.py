@@ -56,35 +56,41 @@ if __name__ == "__main__":
         'runid_regex', type=re.compile,
         help='regular expression matching the experiment id')
     par.add_argument('--device', default='cuda')
+    par.add_argument('--epochs', default=80, type=int)
     args = par.parse_args()
 
-    N_epochs = 50
-
-    fps = glob.glob(f'results/*/checkpoints/epoch_{N_epochs}.pth')
-    assert len(fps), 'no results at ./results/*/checkpoints/epoch_{N_epochs}.pth'
+    fps = glob.glob(f'results/*/checkpoints/epoch_{args.epochs}.pth')
+    assert len(fps), 'no results at ./results/*/checkpoints/epoch_{args.epochs}.pth'
     fps = [x for x in fps if re.search(args.runid_regex, x)]
     assert len(fps), "didn't find any results"
 
     results = []
     for fp in fps:
         print(fp)
-        # get the model
-        model_dct = T.load(fp, map_location=args.device)
-        # get the dataset loader that was used
-        log_fp = list(sorted(glob.glob(f'{dirname(dirname(abspath(fp)))}/*console.log')))[-1]
-        with open(log_fp, 'r') as fin:
-            fin.readline()
-            cmdline = fin.readline()
-            dset_spec = re.search('--dset (chexpert_small:.*?|chexpert_small15k:.*?) ', cmdline).group(1)
-        dset_dct, class_names = match(dset_spec, DSETS)
-        # compute performance
-        res_dct = evaluate_perf(model_dct['model'], dset_dct['test_loader'], args.device, class_names)
-        # get the experiment id
-        experiment_id = basename(dirname(dirname(fp)))
-        # save the results to experiments directory
-        df = pd.DataFrame(
-            res_dct, index=pd.Index([(experiment_id, N_epochs)], name=('run_id', 'epoch')))
-        df.to_csv(f'{dirname(dirname(fp))}/roc_auc.csv')
+        csv_fp = f'{dirname(dirname(fp))}/roc_auc.csv'
+        if os.path.exists(csv_fp):
+            print('loading from file: {csv_fp}')
+            df = pd.read_csv(csv_fp)
+        else:
+            # get the model
+            model_dct = T.load(fp, map_location=args.device)
+            # ... fix backwards incompatibility with old models
+            #  model_dct['model'].compression_mdl.wavelet_encoder.adaptive = 0
+            # get the dataset loader that was used
+            log_fp = list(sorted(glob.glob(f'{dirname(dirname(abspath(fp)))}/*console.log')))[-1]
+            with open(log_fp, 'r') as fin:
+                fin.readline()
+                cmdline = fin.readline()
+                dset_spec = re.search('--dset (chexpert_small:.*?|chexpert_small15k:.*?) ', cmdline).group(1)
+            dset_dct, class_names = match(dset_spec, DSETS)
+            # compute performance
+            res_dct = evaluate_perf(model_dct['model'], dset_dct['test_loader'], args.device, class_names)
+            # get the experiment id
+            experiment_id = basename(dirname(dirname(fp)))
+            # save the results to experiments directory
+            df = pd.DataFrame(
+                res_dct, index=pd.Index([(experiment_id, args.epochs)], name=('run_id', 'epoch')))
+        df.to_csv(csv_fp)
         # aggregated results
         results.append(df)
     df = pd.concat(results)

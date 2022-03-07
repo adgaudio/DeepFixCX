@@ -1,21 +1,20 @@
 """
-Boilerplate to implement training different networks on different datasets
+Training different networks on different datasets
 with varying config.
 
-I wish a machine could automate setting up decent baseline models and datasets
+I wish a machine could automate setting up decent baseline models and datasets.
 """
 #  import json
 import os
 from os.path import exists
 import pampy
-from simple_parsing import ArgumentParser, choice
+from simple_parsing import ArgumentParser
 from simplepytorch import datasets as D
 from simplepytorch import trainlib as TL
 from simplepytorch import metrics
 from sklearn.model_selection import StratifiedShuffleSplit
 from torch.utils.data import Dataset, DataLoader
-from typing import Union, Optional
-from sklearn.model_selection import StratifiedKFold
+from typing import Union, Optional, Tuple
 import dataclasses as dc
 import numpy as np
 import torch as T
@@ -26,6 +25,19 @@ from deepfix.models.ghaarconv import convert_conv2d_to_gHaarConv2d
 from deepfix.init_from_distribution import init_from_beta, reset_optimizer
 from deepfix import deepfix_strategies as dfs
 import pytorch_wavelets as pyw
+
+
+def parse_normalization(normalization, wavelet, wavelet_levels, wavelet_patch_size, patch_features, zero_mean):
+    if normalization.endswith(',chexpert_small'):
+        fp = f'norms/chexpert_small:{wavelet}:{wavelet_levels}:{wavelet_patch_size}:{patch_features}:{zero_mean}.pth'
+        if normalization == 'whiten,chexpert_small':
+            return ('whiten', fp)
+        elif normalization == '0mean,chexpert_small':
+            return ('0mean', fp)
+        else:
+            raise NotImplementedError(normalization)
+    else:
+        return (normalization, )
 
 
 MODELS = {
@@ -49,7 +61,8 @@ MODELS = {
             in_ch_multiplier=int(in_ch_mul), wavelet='db1',
             wavelet_levels=int(wavelet_levels), wavelet_patch_size=int(patch_size),
             mlp_depth=int(mlp_depth), mlp_channels=int(mlp_channels),
-            mlp_fix_weights='none', mlp_activation=None)
+            mlp_fix_weights='none', mlp_activation=None,
+            normalization=('none', ), mlp_attn='VecAttn')
         ),
     ('waveletmlpV2', str, str, str, str, str, str): (
         lambda in_ch, out_ch, wavelet, wavelet_levels, patch_size, patch_features: get_DeepFixEnd2End(
@@ -58,8 +71,63 @@ MODELS = {
             wavelet_levels=int(wavelet_levels), wavelet_patch_size=int(patch_size),
             mlp_depth=2, mlp_channels=300,
             mlp_fix_weights='none', mlp_activation=None,
-            patch_features=patch_features)
+            patch_features=patch_features,
+            normalization=('none', ), mlp_attn='VecAttn')
         ),
+    ('waveletmlp_bn', str, str, str, str, str, str, str, str): (
+        lambda in_ch, out_ch, wavelet, wavelet_levels, patch_size, patch_features, zero_mean, normalization: get_DeepFixEnd2End(
+            int(in_ch), int(out_ch),
+            in_ch_multiplier=1, wavelet=wavelet,
+            wavelet_levels=int(wavelet_levels), wavelet_patch_size=int(patch_size),
+            mlp_depth=1, mlp_channels=300,
+            mlp_fix_weights='none', mlp_activation=None,
+            patch_features=patch_features,
+            zero_mean=bool(int(zero_mean)),
+            normalization=parse_normalization(normalization, wavelet, wavelet_levels, patch_size, patch_features, zero_mean),
+            mlp_attn='VecAttn', )
+        ),
+    ('attn_test', str, str, str, str): (
+        lambda attn, out_ch, wavelet_levels, patch_size: get_DeepFixEnd2End(
+            1, int(out_ch), in_ch_multiplier=1, wavelet='coif2',
+            wavelet_levels=int(wavelet_levels), wavelet_patch_size=int(patch_size),
+            patch_features='l1',
+            mlp_depth=1, mlp_channels=300, mlp_fix_weights='none', mlp_activation=None,
+            zero_mean=False, normalization=parse_normalization('0mean,chexpert_small', 'coif2', wavelet_levels, patch_size, 'l1', '0'),
+            mlp_attn=attn,)
+    ),
+    ('deepfix_v1', str, str, str): (
+        lambda out_ch, wavelet_levels, patch_size: get_DeepFixEnd2End(
+            1, int(out_ch), in_ch_multiplier=1, wavelet='coif2',
+            wavelet_levels=int(wavelet_levels), wavelet_patch_size=int(patch_size),
+            patch_features='l1',
+            mlp_depth=1, mlp_channels=300, mlp_fix_weights='none', mlp_activation=None,
+            mlp_attn='VecAttn',
+            zero_mean=False, normalization=parse_normalization('0mean,chexpert_small', 'coif2', wavelet_levels, patch_size, 'l1', '0'))
+    ),
+    # adaptive version:
+    ('deepfix_v1', str, str, str, str): (
+        lambda out_ch, wavelet_levels, patch_size, adaptive: get_DeepFixEnd2End(
+            1, int(out_ch), in_ch_multiplier=1, wavelet='coif2',
+            wavelet_levels=int(wavelet_levels), wavelet_patch_size=int(patch_size),
+            patch_features='l1',
+            mlp_depth=1, mlp_channels=300, mlp_fix_weights='none', mlp_activation=None,
+            mlp_attn='VecAttn',
+            zero_mean=False, normalization=parse_normalization('0mean,chexpert_small', 'coif2', wavelet_levels, patch_size, 'l1', '0'),
+            adaptive=int(adaptive)
+        )
+    ),
+    # adaptive version varying wavelet initialization:
+    ('deepfix_v1', str, str, str, str, str): (
+        lambda out_ch, wavelet_levels, patch_size, adaptive, wavelet: get_DeepFixEnd2End(
+            1, int(out_ch), in_ch_multiplier=1, wavelet=wavelet,
+            wavelet_levels=int(wavelet_levels), wavelet_patch_size=int(patch_size),
+            patch_features='l1',
+            mlp_depth=1, mlp_channels=300, mlp_fix_weights='none', mlp_activation=None,
+            mlp_attn='VecAttn',
+            zero_mean=False, normalization=parse_normalization('0mean,chexpert_small', wavelet, wavelet_levels, patch_size, 'l1', '0'),
+            adaptive=int(adaptive)
+        )
+    ),
     ('deepfix_v2', str, str, str, str, str, str, str, str): (
         lambda in_ch, out_ch, wavelet, wavelet_levels, patch_size, patch_features, backbone, pretraining: get_DeepFixEnd2End_v2(
             int(in_ch), int(out_ch),
@@ -264,6 +332,47 @@ def group_random_split(
     return splits
 
 
+class ResizeCenterCropTo(T.nn.Module):
+    """Resize tensor image to desired shape yx=(y, x) by enlarging the image
+    without changing its aspect ratio, then center cropping.
+
+    This can cut out the boundaries of images.
+    """
+    def __init__(self, yx:Tuple[int]):
+        super().__init__()
+        self.yx = yx
+        self.center_crop = tvt.CenterCrop(yx)
+
+    def resize_preserve_aspect(self, x:T.Tensor):
+        """
+        Args:
+            x: Tensor image of shape (?, H, W) or other shape accepted by
+                tvt.functional.resize"""
+        given_shape = x.shape[-2:]
+        sufficiently_large = np.array(given_shape) >= self.yx
+        if np.all(sufficiently_large):
+            return x
+        desired_aspect = self.yx[0] / self.yx[1]
+        given_aspect = given_shape[0] / given_shape[1]
+        if given_aspect < desired_aspect:
+            # resize the y dim based on x
+            resize_to = (self.yx[1], round(self.yx[0] / given_shape[0] * given_shape[1]))
+        elif given_aspect > desired_aspect:
+            # resize the x dim based on y
+            resize_to = (round(self.yx[1] / given_shape[1] * given_shape[0]), self.yx[0])
+        else:
+            # same aspect ratio. just resize the image to yx
+            resize_to = self.yx
+        x = tvt.functional.resize(x, resize_to)
+        #  print(x.shape)
+        return x
+
+    def forward(self, x):
+        x = self.resize_preserve_aspect(x)
+        x = self.center_crop(x)
+        return x
+
+
 def get_dset_chexpert(train_frac=.8, val_frac=.2, small=False,
                       labels:str='diagnostic', num_identities=None,
                       epoch_size:int=None
@@ -272,7 +381,7 @@ def get_dset_chexpert(train_frac=.8, val_frac=.2, small=False,
     Args:
         labels:  either "diagnostic" (the 14 classes defined as
             D.CheXpert.LABELS_DIAGNOSTIC) or "identity" ("patient", "study",
-            "view", "index")
+            "view", "index").
         small:  whether to use CheXpert_Small dataset (previously downsampled
             images) or the fully size dataset.
         num_identities:  used only if labels='identity'.  If
@@ -293,7 +402,7 @@ def get_dset_chexpert(train_frac=.8, val_frac=.2, small=False,
     if labels == 'identity':
         class_names = list(range(num_identities))
         get_ylabels = lambda dct: \
-                (D.CheXpert.format_labels(dct, labels=['index']) % num_identities).long()
+            (D.CheXpert.format_labels(dct, labels=['index']) % num_identities).long()
     else:
         if labels == 'diagnostic':
             class_names = D.CheXpert.LABELS_DIAGNOSTIC
@@ -306,23 +415,27 @@ def get_dset_chexpert(train_frac=.8, val_frac=.2, small=False,
             if k in D.CheXpert.LABELS_DIAGNOSTIC:
                 _label_cleanup_dct[k][np.nan] = 0  # remap missing value to negative
         get_ylabels = lambda dct: \
-                D.CheXpert.format_labels(dct, labels=class_names).float()
+            D.CheXpert.format_labels(dct, labels=class_names).float()
     kws = dict(
-        img_transform=tvt.Compose([
-            #  tvt.CenterCrop((512, 512)),
-            tvt.CenterCrop((320,320)) if small else (lambda x: x),
-            tvt.ToTensor(),
-        ]),
         getitem_transform=lambda dct: (dct['image'], get_ylabels(dct)),
         label_cleanup_dct=_label_cleanup_dct,
     )
     if small:
         kls = D.CheXpert_Small
+        kws['img_transform'] = tvt.Compose([
+            #  tvt.CenterCrop((512, 512)),
+            tvt.CenterCrop((320,320)) if small else (lambda x: x),
+            tvt.ToTensor(),
+        ])
     else:
         kls = D.CheXpert
+        kws['img_transform'] = tvt.Compose([
+            tvt.ToTensor(),
+            lambda x: x.to('cuda', non_blocking=True),  # assume num_workers=0
+            ResizeCenterCropTo((2320, 2320))  # preserving aspect ratio and center crop
+        ])
 
     train_dset = kls(use_train_set=True, **kws)
-    N = len(train_dset)
     # split the dataset into train and val sets
     # ensure patient images exist only in one set.  no mixing.
     train_idxs, val_idxs = group_random_split(
@@ -333,14 +446,16 @@ def get_dset_chexpert(train_frac=.8, val_frac=.2, small=False,
     test_dset = kls(use_train_set=False, **kws)
     # data loaders
     batch_size = int(os.environ.get('batch_size', 15))
+    print('batch size', batch_size)
     batch_dct = dict(
         collate_fn=_upsample_pad_minibatch_imgs_to_same_size,
-        num_workers=int(os.environ.get("num_workers", 4)))  # upsample pad must take time
+        num_workers=int(os.environ.get("num_workers", 0)))  # upsample pad must take time
+    print('num workers', batch_dct['num_workers'])
     train_loader=DataLoader(
         train_dset, batch_size=batch_size,
         sampler=RandomSampler(train_dset, epoch_size or len(train_dset)), **batch_dct)
     val_loader=DataLoader(val_dset, batch_size=batch_size, **batch_dct)
-    test_loader=DataLoader(test_dset, batch_size=1, **batch_dct)
+    test_loader=DataLoader(test_dset, batch_size=batch_size, **batch_dct)
     #
     # debugging:  vis dataset
     #  from deepfix.plotting import plot_img_grid
@@ -349,10 +464,11 @@ def get_dset_chexpert(train_frac=.8, val_frac=.2, small=False,
     #  fig, ax = plt.subplots(1,2)
     #  print('hello world')
     #  for mb in train_loader:
-        #  plot_img_grid(mb[0].squeeze(1), num=1, suptitle=f'shape: {mb[0].shape}')
-        #  plt.show(block=False)
-        #  plt.pause(1)
-    #
+    #      plot_img_grid(mb[0].squeeze(1), num=1, suptitle=f'shape: {mb[0].shape}')
+    #      plt.show(block=False)
+    #      plt.pause(1)
+    #  #
+    #  import sys ; sys.exit()
     return (dict(
         train_dset=train_dset, val_dset=val_dset, test_dset=test_dset,
         train_loader=train_loader, val_loader=val_loader, test_loader=test_loader,
@@ -436,9 +552,9 @@ DSETS = {
         lambda train, val, test, aug: get_dset_intel_mobileodt(train, val, test, aug)),
     #  ('origa', ... todo): ( lambda ...: get_dset_origa(...)
     #  ('riga', ... todo): ( lambda ...: get_dset_riga(...)
-    ('chexpert', str, str): (
-        lambda train_frac, val_frac: get_dset_chexpert(
-            float(train_frac), float(val_frac), small=False, labels='diagnostic')),
+    ('chexpert', str, str, str): (
+        lambda train_frac, val_frac, labels: get_dset_chexpert(
+            float(train_frac), float(val_frac), small=False, labels=labels)),
     ('chexpert_small', str, str): (
         lambda train_frac, val_frac: get_dset_chexpert(
             float(train_frac), float(val_frac), small=True, labels='diagnostic')),
@@ -452,6 +568,9 @@ DSETS = {
     ('chexpert_small15k', str, str, str): (
         lambda train_frac, val_frac, labels: get_dset_chexpert(
             float(train_frac), float(val_frac), small=True, labels=labels, epoch_size=15000)),
+    ('chexpert15k', str, str, str): (
+        lambda train_frac, val_frac, labels: get_dset_chexpert(
+            float(train_frac), float(val_frac), small=False, labels=labels, epoch_size=15000)),
 }
 
 
@@ -499,7 +618,9 @@ class RegularizedLoss(T.nn.Module):
             raise NotImplementedError(regularizer_spec)
 
     def forward(self, yhat, y):
-        return self.lossfn(yhat, y) + self.regularizer(yhat, y)
+        a, b = self.lossfn(yhat, y), self.regularizer(yhat, y)
+        #  print(a.item(),b.item())
+        return a + b
 
     def __repr__(self):
         return f'RegularizedLoss<{repr(self.lossfn)},{self.regularizer_spec}>'
@@ -513,7 +634,8 @@ def get_dset_loaders_resultfactory(dset_spec:str) -> dict:
         dct['result_factory'] = lambda: TL.MultiClassClassification(
                 len(class_names), binarize_fn=lambda yh: yh.softmax(1).argmax(1))
     elif any(dset_spec.startswith(x) for x in {
-            'chexpert:', 'chexpert_small:', 'chexpert_small15k:'}):
+            'chexpert:', 'chexpert_small:',
+            'chexpert_small15k:', 'chexpert15k:'}):
         dct['result_factory'] = lambda: CheXpertMultiLabelBinaryClassification(
             class_names, binarize_fn=lambda yh: (yh.sigmoid()>.5).long(), report_avg=True)
     else:
@@ -593,7 +715,7 @@ class TrainOptions:
     start_epoch:int = 0  # if "--start_epoch 1", then don't evaluate perf before training.
     device:str = 'cuda' if T.cuda.is_available() else 'cpu'
 
-    dset:str = None 
+    dset:str = None
     """
       Choose the dataset.  Some options:
           --dset intel_mobileodt:train:val:test:v1

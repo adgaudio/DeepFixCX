@@ -9,12 +9,23 @@ import warnings
 class WaveletPacket2d(T.nn.Module):
     """Compute a multi-level Wavelet Packet Transform or its inverse.
 
-    wavelet:  any wavelet supported by pywt library.
-    levels:  how many wavelet levels to compute the transform for
-    inverse:  if true, compute an inverse wavelet packet transform.
-
+    wavelet:  Any wavelet supported by pywt library.
+    levels:  How many wavelet levels to compute the transform for.
+      Pass an integer or the string 'max'.
+    inverse:  If True, compute an inverse wavelet packet transform.
+    adaptive: a value in {0,1,2}.  Determines whether to the 2d filters or 1d
+        lo and hi pass filters mother wavelet are learnable (requires_grad=True)
+      - If adaptive=0, no learning anything.  Just do wavelet transform.
+      - If adaptive=1, allow the lo and hi pass 1-d vectors that generate the
+        2d wavelet filters to be learned.  Initialized with values from
+        `wavelet` . Adaptive=1 allows the wavelet packet to violate necessary
+        conditions for it to be a wavelet.  E.g. to preserve invertibility, add
+        a loss term that ensures this.
+      - If adaptive=2, initialize 2d filters with wavelet values,
+        then register them as learnable parameters, like a regular convolution.
     """
-    def __init__(self, wavelet:str, levels:Union[int,str], inverse=False):
+    def __init__(self, wavelet:str, levels:Union[int,str],
+                 inverse:bool=False, adaptive:int=0):
         super().__init__()
         if inverse:
             lo, hi = pywt.Wavelet(wavelet).filter_bank[2:]
@@ -24,21 +35,38 @@ class WaveletPacket2d(T.nn.Module):
             lo = lo[::-1]
         else:
             lo, hi = pywt.Wavelet(wavelet).filter_bank[:2]
-        filters = T.tensor(np.stack([
-            np.outer(lo, lo),
-            np.outer(lo, hi),
-            np.outer(hi, lo),
-            np.outer(hi, hi)]), dtype=T.float).unsqueeze(1)  # shape: O, I=1, H_k, W_k
-        self.register_buffer('filters', filters)
+        lo, hi = T.tensor(lo, dtype=T.float), T.tensor(hi, dtype=T.float)
+        if adaptive == 1:
+            self.lo, self.hi = T.nn.Parameter(lo), T.nn.Parameter(hi)
+        elif adaptive == 0 or adaptive == 2:
+            self.lo, self.hi = lo, hi
+            filters = self.compute_filters_2d(lo, hi)
+            if adaptive == 0:
+                self.register_buffer('filters', filters)
+            else:
+                self.filters = T.nn.Parameter(filters)
+        else:
+            raise NotImplementedError(f'adaptive={adaptive}')
+        self.adaptive = adaptive
         self.levels = levels
         self.inverse = inverse
+
         self.conv_params = dict(
             stride=(2,2),  #filters[0,0].shape,
             #  padding=tuple(np.array(filters[0,0].shape)//2),
-            padding=tuple((np.array(filters[0,0].shape)-1)//2),
+            padding=tuple((np.array([lo.shape[0], hi.shape[0]])-1)//2),
             dilation=1,
             bias=None
         )
+
+    @staticmethod
+    def compute_filters_2d(lo, hi):
+        filters = T.stack([
+            T.outer(lo, lo),
+            T.outer(lo, hi),
+            T.outer(hi, lo),
+            T.outer(hi, hi)]).unsqueeze(1)  # shape: O, I=1, H_k, W_k
+        return filters
 
     def get_max_level(self, input_shape:tuple[int]) -> int:
         H, W = input_shape[2:]
@@ -60,10 +88,15 @@ class WaveletPacket2d(T.nn.Module):
               - H' and W' are the size of the spatial dimension after transform
                 H/2**(J-1) >= H' >= H/2**J  ... and similarly for W'
         """
-        if self.inverse:
-            return self._inverse_wavelet_packet_transform(x)
+        if self.adaptive == 1:
+            filters = self.compute_filters_2d(self.lo, self.hi)
         else:
-            return self._wavelet_packet_transform(x)
+            assert self.adaptive in {0,2}, 'code bug: not implemented'
+            filters = self.filters
+        if self.inverse:
+            return self._inverse_wavelet_packet_transform(x, filters)
+        else:
+            return self._wavelet_packet_transform(x, filters)
 
     def _ensure_even_num_rows_and_cols(self, tmp:T.Tensor):
         if tmp.shape[-2] % 2 == 1 or tmp.shape[-1] % 2 == 1:
@@ -74,7 +107,7 @@ class WaveletPacket2d(T.nn.Module):
             tmp = T.nn.functional.pad(tmp, list(_pad_img))
         return tmp
 
-    def _wavelet_packet_transform(self, x:T.Tensor) -> T.Tensor:
+    def _wavelet_packet_transform(self, x:T.Tensor, filters:T.Tensor) -> T.Tensor:
         B, I, H, W = x.shape
         J = self.levels
         if J == 'max':
@@ -97,7 +130,7 @@ class WaveletPacket2d(T.nn.Module):
             tmp = self._ensure_even_num_rows_and_cols(tmp)
             if lvl == 0:
                 # assign the 4 filters to each input channel
-                tmpfilters = self.filters.repeat(tmp.shape[1],1,1,1)
+                tmpfilters = filters.repeat(tmp.shape[1],1,1,1)
             else:
                 tmpfilters = tmpfilters.repeat(4,1,1,1)
             #  print('forward a', tmp.shape)  # todo: padding issue
@@ -107,7 +140,7 @@ class WaveletPacket2d(T.nn.Module):
         #  print('b', tmp.shape)
         return tmp.reshape(B, I, -1, *tmp.shape[-2:])
 
-    def _inverse_wavelet_packet_transform(self, tmp:T.Tensor) -> T.Tensor:
+    def _inverse_wavelet_packet_transform(self, tmp:T.Tensor, filters:T.Tensor) -> T.Tensor:
         #  tmp = self._ensure_even_num_rows_and_cols(tmp)
         B, I, L, H, W = tmp.shape
         J = int(np.log2(L)/2)
@@ -118,12 +151,12 @@ class WaveletPacket2d(T.nn.Module):
         #  print('a', tmp.shape)
             #  tmp = self._ensure_even_num_rows_and_cols(tmp)
             if lvl == 0:
-                tmpfilters = self.filters.repeat(tmp.shape[1]*4**(J-1),1,1,1)
+                tmpfilters = filters.repeat(tmp.shape[1]*4**(J-1),1,1,1)
                 assert tmpfilters.shape[0] == 4**J * tmp.shape[1], 'sanity check'
                 tmp = tmp.reshape(B, I*L, H, W)
             else:
                 #  z = tmpfilters[::4]  # undo the repeat op
-                tmpfilters = self.filters.repeat(tmp.shape[1]//4,1,1,1)
+                tmpfilters = filters.repeat(tmp.shape[1]//4,1,1,1)
             #  print('inverse a', tmp.shape)  # TODO: padding issue
             tmp = T.conv_transpose2d(
                 tmp, tmpfilters, groups=tmp.shape[1], **self.conv_params)

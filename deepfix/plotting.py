@@ -6,7 +6,8 @@ from typing import Tuple, Iterable
 
 def plot_img_grid(imgs: Iterable, suptitle:str = '', rows_cols: Tuple = None,
                   norm=None, vmin=None, vmax=None, cmap=None,
-                  convert_tensor:bool=True, num:int=None):
+                  convert_tensor:bool=True, num:int=None,
+                  ax_titles:Tuple[str]=None):
     """Plot a grid of n images
 
     :imgs: a numpy array of shape (n,h,w) or a list of plottable images
@@ -43,6 +44,9 @@ def plot_img_grid(imgs: Iterable, suptitle:str = '', rows_cols: Tuple = None,
     #  fig.set_constrained_layout_pads(w_pad=0, h_pad=0, hspace=0., wspace=0.)
     fig.suptitle(suptitle)
     [ax.axis('off') for ax in axs.ravel()]
-    [ax.imshow(zimg, norm=norm, vmin=vmin, vmax=vmax, cmap=cmap)
-     for zimg, ax in zip(imgs, axs.ravel())]
+    if ax_titles is None:
+        ax_titles = [None] * len(fig.axes)
+    for zimg, ax, ax_title in zip(imgs, axs.ravel(), ax_titles):
+        ax.imshow(zimg, norm=norm, vmin=vmin, vmax=vmax, cmap=cmap)
+        ax.set_title(ax_title)
     return fig

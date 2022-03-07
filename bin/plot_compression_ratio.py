@@ -20,19 +20,24 @@ from deepfix.train import get_dset_chexpert, match, MODELS
 from deepfix import plotting as P
 
 p = ap.ArgumentParser()
-p.add_argument('--patch_features', nargs='+', default='l1')
-p.add_argument('--input_shape', nargs="+", type=int, default=(390, 390))
+p.add_argument('--patch_features', nargs='+', default=('l1', ))
+p.add_argument('--input_shape', nargs="+", type=int, default=(320, 320))
+p.add_argument('--patch_sizes', nargs='+', type=int, default=tuple())
 args = p.parse_args()
+if not args.patch_sizes:
+    _P_max = min(args.input_shape)//2
+    _P_inc = _P_max//30 + (_P_max//30)%2
+    args.patch_sizes = (
+        list(range(1, 31, 2))+list(range(31, _P_max, _P_inc)) + [_P_max,2,4])
+    del _P_max, _P_inc
 
 #  dct, _ = get_dset_chexpert(train_frac=1, val_frac=0, small=True)
 #  dset = dct['train_dset']
 
 data = []
-_P_max = min(args.input_shape)//2
-_P_inc = _P_max//30 + (_P_max//30)%2
 gen = ((J,P,M)
        for J in range(1, 9+1)
-       for P in list(range(1, 31, 2))+list(range(31, _P_max, _P_inc)) + [_P_max,2,4]
+       for P in args.patch_sizes
        for M in [1])
 for J,P,M in gen:
     enc1 = DeepFixCompression(
@@ -58,18 +63,21 @@ for J,P,M in gen:
 df = pd.DataFrame(data)
 print(df.to_string(float_format=lambda x: f'{x:.04f}'))
 
-fig, (ax1, ax2) = plt.subplots(1,2, figsize=(14,7))
-fig.suptitle('Compression % for varying Patch Size vs Wavelet Levels')
+fig1, (ax1) = plt.subplots(1,1, figsize=(8,4))
+#  fig1.suptitle('Compression % for varying Patch Size vs Wavelet Levels')
 sns.heatmap(
     df.pivot_table('Compression Ratio (%)', 'Patch Size', 'Wavelet Levels'),
     norm=plt.cm.colors.LogNorm(), ax=ax1, annot=True, fmt='.03f')
 ax1.set_title('Compression Ratio (%)')
+
+fig2, (ax2) = plt.subplots(1,1, figsize=(8,8))
 sns.heatmap(
     df.pivot_table('Output Size', 'Patch Size', 'Wavelet Levels'),
     norm=None, ax=ax2)
 ax2.set_title('Output Size')
-fig.tight_layout()
-fig.savefig('results/plots/compression_ratio_varying_patch_and_level.png', bbox_inches='tight')
+#  fig.tight_layout()
+fig1.savefig('results/plots/compression_ratio_varying_patch_and_level.png', bbox_inches='tight')
+fig2.savefig('results/plots/compression_outsize_varying_patch_and_level.png', bbox_inches='tight')
 print(
     df.pivot_table('Compression Ratio (%)', 'Patch Size', 'Wavelet Levels')
     .to_string(float_format=lambda x: f'{x:.04f}'))
@@ -86,8 +94,8 @@ ax.set_title("Compression Ratio (%) for varying Patch Size (rows) and Wavelet Le
 fig.tight_layout()
 fig.savefig('results/plots/compression_ratio_table_as_img.png', bbox_inches='tight')
 
-plt.show(block=False)
-plt.pause(10)
+#  plt.show(block=False)
+#  plt.pause(10)
 
 
 
