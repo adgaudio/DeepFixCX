@@ -419,19 +419,19 @@ def get_dset_chexpert(train_frac=.8, val_frac=.2, small=False,
     kws = dict(
         getitem_transform=lambda dct: (dct['image'], get_ylabels(dct)),
         label_cleanup_dct=_label_cleanup_dct,
+        img_loader='cv2',
     )
     if small:
         kls = D.CheXpert_Small
         kws['img_transform'] = tvt.Compose([
-            #  tvt.CenterCrop((512, 512)),
-            tvt.CenterCrop((320,320)) if small else (lambda x: x),
             tvt.ToTensor(),
+            tvt.CenterCrop((320,320)) if small else (lambda x: x),
         ])
     else:
         kls = D.CheXpert
         kws['img_transform'] = tvt.Compose([
-            tvt.ToTensor(),
-            lambda x: x.to('cuda', non_blocking=True),  # assume num_workers=0
+            #  tvt.ToTensor(),
+            #  lambda x: x.to('cuda', non_blocking=True),  # assume num_workers=0
             ResizeCenterCropTo((2320, 2320))  # preserving aspect ratio and center crop
         ])
 
@@ -448,7 +448,8 @@ def get_dset_chexpert(train_frac=.8, val_frac=.2, small=False,
     batch_size = int(os.environ.get('batch_size', 15))
     print('batch size', batch_size)
     batch_dct = dict(
-        collate_fn=_upsample_pad_minibatch_imgs_to_same_size,
+        #  collate_fn=_upsample_pad_minibatch_imgs_to_same_size,
+        #  pin_memory=True,
         num_workers=int(os.environ.get("num_workers", 0)))  # upsample pad must take time
     print('num workers', batch_dct['num_workers'])
     train_loader=DataLoader(
@@ -626,7 +627,7 @@ class RegularizedLoss(T.nn.Module):
         return f'RegularizedLoss<{repr(self.lossfn)},{self.regularizer_spec}>'
 
 
-def get_dset_loaders_resultfactory(dset_spec:str) -> dict:
+def get_dset_loaders_resultfactory(dset_spec:str, device:str) -> dict:
     dct, class_names = match(dset_spec, DSETS)
     if any(dset_spec.startswith(x) for x in {'intel_mobileodt:', }):
         #  dct['result_factory'] = lambda: TL.MultiLabelBinaryClassification(
@@ -637,15 +638,16 @@ def get_dset_loaders_resultfactory(dset_spec:str) -> dict:
             'chexpert:', 'chexpert_small:',
             'chexpert_small15k:', 'chexpert15k:'}):
         dct['result_factory'] = lambda: CheXpertMultiLabelBinaryClassification(
-            class_names, binarize_fn=lambda yh: (yh.sigmoid()>.5).long(), report_avg=True)
+            class_names, binarize_fn=lambda yh: (yh.sigmoid()>.5).long(), report_avg=True, device=device)
     else:
         raise NotImplementedError(f"I don't know how to create the result factory for {dset_spec}")
     return dct
 
 class CheXpertMultiLabelBinaryClassification(TL.MultiLabelBinaryClassification):
     def update(self, yhat, y, loss) -> None:
+        yhat, y, loss = yhat.detach(), y.detach(), loss.detach()
+        loss = loss.to('cpu', non_blocking=True)
         self.num_samples += yhat.shape[0]
-        self.loss += loss.item()
         assert yhat.shape == y.shape
         assert yhat.ndim == 2 and yhat.shape[1] == len(self._cms), "sanity check: model outputs expected prediction shape"
         binarized = self._binarize_fn(yhat)
@@ -656,7 +658,9 @@ class CheXpertMultiLabelBinaryClassification(TL.MultiLabelBinaryClassification):
             rows = ignore[:, i]
             if rows.sum() == 0:
                 continue  # don't update a confusion matrix if all data for this class is ignored
-            cm += metrics.confusion_matrix(y[rows, i], binarized[rows, i], num_classes=2).cpu()
+            #  print(y.device, binarized.device)
+            cm += metrics.confusion_matrix_binary_soft_assignment(y[rows, i], binarized[rows, i]).to(self.device, non_blocking=True)
+        self.loss += loss.item()
 
 
 def get_deepfix_train_strategy(args:'TrainOptions'):
@@ -697,7 +701,7 @@ def train_config(args:'TrainOptions') -> TL.TrainConfig:
     return TL.TrainConfig(
         **get_model_opt_loss(
             args.model, args.opt, args.lossfn, args.loss_reg, args.device),
-        **get_dset_loaders_resultfactory(args.dset),
+        **get_dset_loaders_resultfactory(args.dset, args.device),
         device=args.device,
         epochs=args.epochs,
         start_epoch=args.start_epoch,
