@@ -464,10 +464,10 @@ C21() {
   # Main predictive experiment, all patch sizes and wavelet levels
   # with db1 (since coif2 has large filters, and edge artifacts might be problematic)
   python <<EOF
-for level in range(1, 9):
-    for patchsize in 1,3,5,9,19,37,79,115,160:
 # for level in [1,5,8]:
 #     for patchsize in 1,5,160:
+for level in range(1, 9):
+    for patchsize in 1,3,5,9,19,37,79,115,160:
         if patchsize <= 320 / 2**level:
         #     print(f"norm:{level}:{patchsize}:{patch_features}:{zero_mean} python bin/compute_deepfix_normalization.py --level {level} --patchsize {patchsize} --patch_features {patch_features} --zero_mean {zero_mean}")
             model = f"deepfix_v1:14:{level}:{patchsize}:0:db1"
@@ -476,6 +476,20 @@ for level in range(1, 9):
 EOF
 }
 
+C22()  {
+  # Compute the re-identification privacy scores
+  python <<EOF
+wavelet = 'db1'
+n_patients = 2000
+# n_patients = 6  # for testing
+# for level in [8,5,1]:
+#     for patchsize in 1,5,160:
+for level in range(1, 9):
+    for patchsize in 1,3,5,9,19,37,79,115,160:
+        if patchsize <= 320 / 2**level:
+            print(f'''${V}.C22.{n_patients}.{wavelet}.J={level}.P={patchsize} python bin/anonymity_score.py --n_bootstrap 6 --wavelet {wavelet} --level {level} --patchsize {patchsize} --n_patients {n_patients} --plot ''')
+EOF
+}
 
 
 # I1 | expand 3 | run_gpus echo 5
@@ -509,18 +523,15 @@ EOF
 # C13 | grep compute_deepfix | parallel -j 10
 # C13 | grep -v compute_deepfix | run_gpus 5
 # C15 | run_gpus 1
-# compute_normalization #| parallel -j 8
-export num_workers=0
-# export batch_size=200
+# export num_workers=0
+# export batch_size=10
+# compute_normalization | grep -v chexpert_small | parallel -j 1  # "{} --device cpu"
+# C20 | run_gpus 2  # 4.588 gb gpu ram for batchsize=10
+export num_workers=2
+export batch_size=200
+# compute_normalization | grep chexpert_small | parallel -j 5
 # # ( C17 ) #| run_gpus 1
 # ( C16 ; C17 ; C18 ) | run_gpus 1
-# C21 | run_gpus 2
-# export batch_size=200
-# # C18 | run_gpus 1
 # C19 | run_gpus 1
-# compute_normalization | grep chexpert_small | parallel -j 5
-
-export num_workers=0
-export batch_size=10
-# C20 | run_gpus 2  # 4.588 gb gpu ram for batchsize=10
-compute_normalization | grep -v chexpert_small | parallel -j 1  # "{} --device cpu"
+# C21 | run_gpus 1
+C22 | run_gpus 1
