@@ -21,6 +21,7 @@ import scipy.spatial.distance
 
 from simplepytorch.datasets import CheXpert_Small
 from deepfix.models import DeepFixCompression
+from deepfix.models.waveletmlp import Normalization
 
 
 def euclidean_dist(vec1, vec2):
@@ -35,14 +36,16 @@ class Options:
     n_patients: int = 5  # choose as high as fits in ram.
     level: int = 2
     patchsize: int = 64
-    wavelet: str = 'coif2'
+    wavelet: str = 'db1'
     patch_features: List[str] = ('l1', )
     device: str = 'cuda'
     save_fp: str = './results/anonymity_scores/{experiment_id}.pth'
     save_img_fp: str = './results/anonymity_scores/plots/{experiment_id}.png'
     n_bootstrap: int = 1
     plot: bool = False
+    normalization: str = 'none'  # 'none' and '0mean' don't affect ks statistic, so just keep it at 'none'. 'whiten' should, but probably gives same result.
 
+k
     def __post_init__(self):
         self.experiment_id = f'{self.n_bootstrap}:{self.n_patients}:{self.wavelet}:{self.level}:{self.patchsize}:{",".join(self.patch_features)}'
         self.experiment_id = self.experiment_id.replace(':', '-')
@@ -82,18 +85,14 @@ def get_model(args):
         patch_size=args.patchsize, patch_features=args.patch_features,
         adaptive=0, zero_mean=False,
         how_to_error_if_input_too_small='warn')
+    if args.normalization != 'none':
+        D = deepfix_mdl.out_shape[-1]
+        assert D == 4**args.level * args.patchsize**2 * len(args.patch_features)
+        deepfix_mdl = T.nn.Sequential(deepfix_mdl, Normalization(
+            D=D, normalization=args.normalization, filepath=(
+                f'norms/chexpert_small:{args.wavelet}:{args.level}:{args.patchsize}:{",".join(args.patch_features)}:0.pth')))
     deepfix_mdl.to(args.device)
     return deepfix_mdl
-
-
-def get_deepfixed_img_and_labels(deepfix_model, dset, bootstrap_idx, idx, device):
-    dct = dset[idx]
-    x = dct['image'].to(device, non_blocking=True)
-    patient_id = dct['labels'].loc['Patient']
-    x_deepfix = deepfix_model(x.unsqueeze(0))
-    metadata = {'labels': dct['labels'], 'fp': dct['fp'],
-                'filesize': x.shape, 'compressed_size': x_deepfix.shape}
-    return x_deepfix, patient_id, metadata
 
 
 def analyze_dist_matrices(args, cdists:List[T.Tensor], patient_id_matches:List[T.Tensor]):
@@ -166,17 +165,19 @@ def main():
     #  save cdist and patient_id_matches to a pth file
     makedirs(dirname(args.save_fp), exist_ok=True)
     T.save({
-        'pdists': pdists, 'patient_id_matches': patient_id_matches,
-        'link_pdists_to_chexpert_data': link_to_original_data,  #  of form: {'row or col index': metadata}
-        'distances_same_patient': same_patient,
-        'distances_diff_patient': diff_patient,
+        #  'pdists': pdists, 'patient_id_matches': patient_id_matches,
+        #  'link_pdists_to_chexpert_data': link_to_original_data,  #  of form: {'row or col index': metadata}
+        #  'distances_same_patient': same_patient,
+        #  'distances_diff_patient': diff_patient,
         'ks_tests': ks_tests,
     }, args.save_fp)
+
     print(f'saved distance matrix to {args.save_fp}')
-    ks_pvalue = np.mean([x.pvalue for x in ks_tests])
     kss_mean = np.mean([x.statistic for x in ks_tests])
+    kss = [x.statistic for x in ks_tests]
     kss_std = np.std([x.statistic for x in ks_tests])
-    print('Averaged KS result', kss_mean, ks_pvalue)
+    ks_pvalue = np.mean([x.pvalue for x in ks_tests])
+    print('Averaged KS result', kss_mean, kss)
     for kst in ks_tests:
         print(kst)
 
