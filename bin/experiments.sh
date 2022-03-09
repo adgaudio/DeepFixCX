@@ -491,6 +491,26 @@ for level in range(1, 9):
 EOF
 }
 
+plots() {
+  # compression ratio
+  python ./bin/plot_compression_ratio.py --patch_sizes 1 3 5 9 19 37 79 115 160
+
+  # predictive performance (after running C21 (or C16))
+  # --> ROC AUC
+  python bin/get_roc_auc.py 2.C21
+  bin/plot_perf_rocauc_heatmap.py 2.C21
+  # --> BAcc
+  ./bin/plot_heatmap_levels_vs_patchsize.sh 2.C21
+
+  # privacy: re-identification  (after running C22)
+  ./bin/plot_ks_heatmap.py 2000
+  # privacy: reconstruction
+  ### todo
+
+  # visualize the 4-d cube with scatter matrix (after running above plots)
+  ./bin/plot_3d.py
+}
+
 
 # I1 | expand 3 | run_gpus echo 5
 # I2 | run_gpus 5
