@@ -423,12 +423,18 @@ EOF
 C18() {
   # Adaptive=1
   # Main predictive experiment, all patch sizes and wavelet levels
+  local V=$((V+2))
+  # v=v  uses wavelet=db1 with standard 0mean normalization
+  # v=v+1 same as above, but hacked to compute selu in each recursive level
+  # v=v+2 uses wavelet='normal_:2' and normalization='batchnorm'
   python <<EOF
-for level in [1,5,8]:  #range(1, 9):
+wavelet = 'normal_,2'
+normalization = 'batchnorm'  #  '0mean,chexpert_small'
+for level in [5,8,1]:  #range(1, 9):
     # for patchsize in 1,3,5,9,19,37,79,115,160:
-    for patchsize in 1,5,160:
+    for patchsize in 5,1,160:
         if patchsize <= 320 / 2**level:
-            model = f"deepfix_v1:14:{level}:{patchsize}:1"
+            model = f"deepfix_v1:14:{level}:{patchsize}:1:{wavelet}:{normalization}"
             print( f"${V}.C18.J={level}.P={patchsize} python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg deepfixmlp:.1 --model {model} --epochs 80")
         # # else skip this unnecessary task because the (level, patchsize) isn't doing compression.  This assumes images are 320x320, our default from chexpert dataset
 EOF
@@ -436,6 +442,9 @@ EOF
 C19() {
   # Adaptive=2
   # Main predictive experiment, all patch sizes and wavelet levels
+  # v=v  uses wavelet=db1
+  # v=v+1 uses wavelet=db1, but hacked to compute selu in each recursive thing
+  local V=$((V+1))
   python <<EOF
 for level in [1,5,8]:  #range(1, 9):
     # for patchsize in 1,3,5,9,19,37,79,115,160:
@@ -490,6 +499,21 @@ for level in range(1, 9):
             print(f'''${V}.C22.{n_patients}.{wavelet}.J={level}.P={patchsize} python bin/anonymity_score.py --n_bootstrap 6 --wavelet {wavelet} --level {level} --patchsize {patchsize} --n_patients {n_patients} --plot ''')
 EOF
 }
+
+C23() {
+  # Adapt, before encoder
+  python <<EOF
+for level in [5,8,1]:
+    for patchsize in 5,1,160:
+# for level in range(1, 9):
+    # for patchsize in 1,3,5,9,19,37,79,115,160:
+        if patchsize <= 320 / 2**level:
+            model = f"adeepfix_v1:14:{level}:{patchsize}"
+            print( f"${V}.C23.J={level}.P={patchsize} python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg deepfixmlp:.1 --model {model} --epochs 80")
+        # # else skip this unnecessary task because the (level, patchsize) isn't doing compression.  This assumes images are 320x320, our default from chexpert dataset
+EOF
+}
+
 
 plots() {
   # compression ratio
@@ -554,4 +578,10 @@ export batch_size=200
 # ( C16 ; C17 ; C18 ) | run_gpus 1
 # C19 | run_gpus 1
 # C21 | run_gpus 1
-C22 | run_gpus 1
+# C22 | run_gpus 1
+export num_workers=0
+export batch_size=400
+# C23 | run_gpus 1
+C18 | run_gpus 1
+export batch_size=100
+C19 | run_gpus 1

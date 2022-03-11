@@ -20,7 +20,7 @@ import numpy as np
 import torch as T
 import torchvision.transforms as tvt
 
-from deepfix.models import get_effnetv2, get_resnet, get_densenet, get_efficientnetv1, get_DeepFixEnd2End, get_DeepFixEnd2End_v2, DeepFixMLP
+from deepfix.models import get_effnetv2, get_resnet, get_densenet, get_efficientnetv1, get_DeepFixEnd2End, get_DeepFixEnd2End_v2, DeepFixMLP, UnetD
 from deepfix.models.ghaarconv import convert_conv2d_to_gHaarConv2d
 from deepfix.init_from_distribution import init_from_beta, reset_optimizer
 from deepfix import deepfix_strategies as dfs
@@ -104,7 +104,20 @@ MODELS = {
             mlp_attn='VecAttn',
             zero_mean=False, normalization=parse_normalization('0mean,chexpert_small', 'coif2', wavelet_levels, patch_size, 'l1', '0'))
     ),
-    # adaptive version:
+    # adaptive, placing unet before deepfix encoder
+    ('adeepfix_v1', str, str, str): (
+        lambda out_ch, wavelet_levels, patch_size: T.nn.Sequential(
+            UnetD(channels=(1,3,6,12,24,48,96), depthwise_channel_multiplier=4,),
+            get_DeepFixEnd2End(
+                1, int(out_ch), in_ch_multiplier=1, wavelet='db1',
+                wavelet_levels=int(wavelet_levels), wavelet_patch_size=int(patch_size),
+                patch_features='l1',
+                mlp_depth=1, mlp_channels=300, mlp_fix_weights='none', mlp_activation=None,
+                mlp_attn='VecAttn',
+                zero_mean=False, normalization=parse_normalization('0mean,chexpert_small', 'db1', wavelet_levels, patch_size, 'l1', '0'))
+        )
+    ),
+    # adaptive wavelet packet version:
     ('deepfix_v1', str, str, str, str): (
         lambda out_ch, wavelet_levels, patch_size, adaptive: get_DeepFixEnd2End(
             1, int(out_ch), in_ch_multiplier=1, wavelet='coif2',
@@ -116,7 +129,7 @@ MODELS = {
             adaptive=int(adaptive)
         )
     ),
-    # adaptive version varying wavelet initialization:
+    # adaptive wavelet packet version varying wavelet initialization:
     ('deepfix_v1', str, str, str, str, str): (
         lambda out_ch, wavelet_levels, patch_size, adaptive, wavelet: get_DeepFixEnd2End(
             1, int(out_ch), in_ch_multiplier=1, wavelet=wavelet,
@@ -128,6 +141,19 @@ MODELS = {
             adaptive=int(adaptive)
         )
     ),
+    # adaptive wavelet packet, supporting adaptive=1 or adaptive=2, different wavelets (including pytorch init like 'normal_:2'), and varying normalization
+    ('deepfix_v1', str, str, str, str, str, str): (
+        lambda out_ch, wavelet_levels, patch_size, adaptive, wavelet, normalization: get_DeepFixEnd2End(
+            1, int(out_ch), in_ch_multiplier=1, wavelet=wavelet,
+            wavelet_levels=int(wavelet_levels), wavelet_patch_size=int(patch_size),
+            patch_features='l1',
+            mlp_depth=1, mlp_channels=300, mlp_fix_weights='none', mlp_activation=None,
+            mlp_attn='VecAttn',
+            zero_mean=False, normalization=parse_normalization(normalization, wavelet, wavelet_levels, patch_size, 'l1', '0'),
+            adaptive=int(adaptive)
+        )
+    ),
+    # adaptive wavelet packet, supporting pytorch initialization and custom normalization
     ('deepfix_v2', str, str, str, str, str, str, str, str): (
         lambda in_ch, out_ch, wavelet, wavelet_levels, patch_size, patch_features, backbone, pretraining: get_DeepFixEnd2End_v2(
             int(in_ch), int(out_ch),
