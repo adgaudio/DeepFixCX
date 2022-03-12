@@ -430,9 +430,10 @@ C18() {
   python <<EOF
 wavelet = 'normal_,2'
 normalization = 'batchnorm'  #  '0mean,chexpert_small'
-for level in [5,8,1]:  #range(1, 9):
+for level in [5]: # ,8,1]:  #range(1, 9):
     # for patchsize in 1,3,5,9,19,37,79,115,160:
-    for patchsize in 5,1,160:
+    # for patchsize in 5,1,160:
+    for patchsize in 5,:
         if patchsize <= 320 / 2**level:
             model = f"deepfix_v1:14:{level}:{patchsize}:1:{wavelet}:{normalization}"
             print( f"${V}.C18.J={level}.P={patchsize} python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg deepfixmlp:.1 --model {model} --epochs 80")
@@ -460,12 +461,12 @@ C20() {
   python <<EOF
 # for level in range(1, 9):
 #     for patchsize in 1,3,5,9,19,37,79,115,160:
-for level in [1,5,8]:  #range(1, 9):
-    for patchsize in 1,5,160:
+for level in [5,8,1]:  #range(1, 9):
+    for patchsize in 5,160,1:
         if patchsize <= 320 / 2**level:
         #     print(f"norm:{level}:{patchsize}:{patch_features}:{zero_mean} python bin/compute_deepfix_normalization.py --level {level} --patchsize {patchsize} --patch_features {patch_features} --zero_mean {zero_mean}")
             model = f"deepfix_v1:14:{level}:{patchsize}"
-            print( f"${V}.C20.J={level}.P={patchsize} python deepfix/train.py --dset chexpert15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg deepfixmlp:.1 --model {model} --epochs 80")
+            print( f"${V}.C20.J={level}.P={patchsize} python deepfix/train.py --dset chexpert15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg deepfixmlp:.1 --model {model} --epochs 80 --start_epoch 1")
         # # else skip this unnecessary task because the (level, patchsize) isn't doing compression.  This assumes images are 320x320, our default from chexpert dataset
 EOF
 }
@@ -501,7 +502,7 @@ EOF
 }
 
 C23() {
-  # Adapt, before encoder
+  # Adapt, unet before encoder
   python <<EOF
 for level in [5,8,1]:
     for patchsize in 5,1,160:
@@ -529,6 +530,8 @@ plots() {
   # privacy: re-identification  (after running C22)
   ./bin/plot_ks_heatmap.py 2000
   # privacy: reconstruction
+
+  python ./bin/plot_ssim_heatmap.py --patch_sizes 1 3 5 9 19 37 79 115 160
   ### todo
 
   # visualize the 4-d cube with scatter matrix (after running above plots)
@@ -567,10 +570,10 @@ plots() {
 # C13 | grep compute_deepfix | parallel -j 10
 # C13 | grep -v compute_deepfix | run_gpus 5
 # C15 | run_gpus 1
-# export num_workers=0
-# export batch_size=10
+export num_workers=6
+export batch_size=16
 # compute_normalization | grep -v chexpert_small | parallel -j 1  # "{} --device cpu"
-# C20 | run_gpus 2  # 4.588 gb gpu ram for batchsize=10
+C20 | run_gpus 3  # 4.588 gb gpu ram for batchsize=10
 export num_workers=2
 export batch_size=200
 # compute_normalization | grep chexpert_small | parallel -j 5
@@ -582,6 +585,6 @@ export batch_size=200
 export num_workers=0
 export batch_size=400
 # C23 | run_gpus 1
-C18 | run_gpus 1
+# C18 | run_gpus 1
 export batch_size=100
-C19 | run_gpus 1
+# C19 | run_gpus 1

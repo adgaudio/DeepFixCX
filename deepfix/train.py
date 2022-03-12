@@ -456,7 +456,7 @@ def get_dset_chexpert(train_frac=.8, val_frac=.2, small=False,
     else:
         kls = D.CheXpert
         kws['img_transform'] = tvt.Compose([
-            #  tvt.ToTensor(),
+            tvt.ToTensor(),
             #  lambda x: x.to('cuda', non_blocking=True),  # assume num_workers=0
             ResizeCenterCropTo((2320, 2320))  # preserving aspect ratio and center crop
         ])
