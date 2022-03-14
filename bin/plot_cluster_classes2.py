@@ -173,7 +173,7 @@ def hierarchy_pos(G, root=None, width=1., vert_gap = 0.2, vert_loc = 0, leaf_vs_
 
 
 
- print("setup")
+print("setup")
 # cmdline modifiable settings
 import dataclasses as dc
 @dc.dataclass

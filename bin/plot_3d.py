@@ -8,8 +8,7 @@ fps = [
     ('Compression (%)', 'results/plots/compression_ratio_varying_patch_and_level.csv'),
 
     # Privacy Claims:
-    ('Privacy: Reconstruction', 'results/plots/heatmap_anonymity_ks_2000.csv'),
-    # TODO: reconstruction ^^
+    ('Privacy: Reconstruction', 'results/plots/heatmap_reconstruction_l1.csv'),
     ('Privacy: Re-identification', 'results/plots/heatmap_anonymity_ks_2000.csv'),
 
     # Predictive Performance
@@ -30,7 +29,7 @@ df.head()
 df2 = df.pivot(['Patch Size, P', 'Wavelet Level, J'], 'Claim', 'value').copy()
 df2['Privacy: Re-identification'] = df2['Privacy: Re-identification'] ** 2
 df2.head()
-pd.plotting.scatter_matrix(df2)
+pd.plotting.scatter_matrix(df2.dropna())
 
 fig, ax = plt.subplots(1, 1, subplot_kw=dict(projection="3d"))
 # adjust size according to a sense of "depth"

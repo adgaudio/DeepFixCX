@@ -530,12 +530,13 @@ plots() {
   # privacy: re-identification  (after running C22)
   ./bin/plot_ks_heatmap.py 2000
   # privacy: reconstruction
-
-  python ./bin/plot_ssim_heatmap.py --patch_sizes 1 3 5 9 19 37 79 115 160
-  ### todo
+  batch_size=300 python ./bin/plot_ssim_heatmap.py
+  batch_size=300 python ./bin/plot_ssim_heatmap.py --patch_features sum
+  python ./bin/plot_reconstructions.py
 
   # visualize the 4-d cube with scatter matrix (after running above plots)
-  ./bin/plot_3d.py
+  # not used
+  # ./bin/plot_3d.py
 }
 
 

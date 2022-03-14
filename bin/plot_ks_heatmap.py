@@ -44,13 +44,16 @@ if __name__ == "__main__":
     df['Patch Size, P'] = df['Patch_Size']
     df['Wavelet Level, J'] = df['Level']
 
+
+    #  n_patients=2000
+    #  pivot_table = pd.read_csv('results/plots/heatmap_anonymity_ks_2000.csv').set_index('Patch Size, P')#.drop(columns='Unnamed: 0')
     pivot_table = pd.pivot_table(
         df, values='test_statistic',
         index='Patch Size, P', columns='Wavelet Level, J')
     fig, ax = plt.subplots()
     sns.heatmap(
         data=pivot_table, annot=True, norm=plt.cm.colors.PowerNorm(2),
-        cmap='YlGnBu_r', linewidths=.5, ax=ax, cbar=False)
+        cmap='Blues_r', linewidths=.5, ax=ax, cbar=False, fmt='.03f')
     #  fig.suptitle('Privacy: Re-identification Score')
     ax.set_title('Privacy: Re-identification Score')
         #  .set_title('ks statistics')
