@@ -1,5 +1,6 @@
 import torch as T
-from typing import List
+import torchvision.transforms as tvt
+from typing import List, Tuple
 import math
 import warnings
 from itertools import chain
@@ -198,6 +199,39 @@ class DeepFixCompression(T.nn.Module):
         num_detail_matrices = 4**J
         num_features_per_patch = F
         return (num_detail_matrices * num_patches * num_features_per_patch)
+
+    @staticmethod
+    def reconstruct(deepfix_embedding: T.Tensor, orig_img_HW:Tuple[int],
+                    wavelet:str, J:int, P:int) -> T.Tensor:
+        """Use the inverse wavelet transform to reconstruct a deepfix embedding.
+        This assumes patch_features is only one feature, like "l1" or "sum".
+        It "unpools" the patches by repeating the value of each patch.
+        The pooling function may cause output values outside of [0,1].  You
+        could normalize the output values into [0,1] by clipping them with
+        `tensor.clamp(0,1)`, or do nothing.
+        Args:
+            deepfix_embedding:  The output of DeepFixCompression.forward(...), of shape (B, ...)
+            orig_img_CHW:  a tuple like (H, W) denoting spatial height and spatial width of original input image.
+            wavelet: the value passed to DeepFixCompression
+            J: the wavelet level passed to DeepFixCompression
+            P: the patch size passed to DeepFixCompression
+        Returns:
+            Image of shape (B, C, H, W) corresponding to reconstruction of
+            original input image.
+
+        """
+        H, W = orig_img_HW
+        B = deepfix_embedding.shape[0]
+        # get the reconstruction
+        iwp = WaveletPacket2d(levels=J,wavelet=wavelet,inverse=True)
+        repY, repX = int(math.ceil(H/2**J/P)), int(math.ceil(W/2**J/P))
+        recons = iwp(
+            deepfix_embedding.reshape(B,-1,4**J,P,P)
+            .repeat_interleave(repX, dim=-1).repeat_interleave(repY, dim=-2) / (repY*repX)
+        )
+        # ... restore original size by removing any padding created by deepfix
+        recons = tvt.CenterCrop((H, W))(recons)
+        return recons
 
 
 class DeepFixCompression__OLD(T.nn.Module):
@@ -414,6 +448,7 @@ class SoftmaxVecAttn(T.nn.Module):
     def __init__(self, D):
         super().__init__()
         self.vec_attn = T.nn.Parameter(T.rand((1,1,D)))
+
     def forward(self, x):
         return x * self.vec_attn.softmax(-1)
 

@@ -38,25 +38,19 @@ for J,P in product(range(1,9), args.patch_sizes):
         # get deepfix encoding
         op = enc(x)
         # get the reconstruction
-        repY, repX = int(np.ceil(H/2**J/P)), int(np.ceil(W/2**J/P))
-        recons = wi(
-            op.reshape(B,1,4**J,P,P)
-            .repeat_interleave(repX, dim=-1).repeat_interleave(repY, dim=-2)
-        )
-        # ... restore original size by removing any padding created by deepfix
-        recons = tvt.CenterCrop((H,W))(recons)
-        #
-        # .. normalize the image values into [0,1] (based on batch min and max)
-        # because the l1 pooling makes reconstructed values outsize [0,1]
-        mx = T.max(recons)
-        mn = T.min(recons)
-        #  print(mx, mn)
-        recons = (recons-mn)/(mx-mn)
+
+        recons = enc.reconstruct(op, (H, W), args.wavelet, J=J, P=P)
+        recons = recons.clamp(0,1)
         #
         # compute ssim for each img in the minibatch
         for im1, im2 in zip(x.squeeze(1).unbind(0), recons.squeeze(1).unbind(0)):
             _val, _map = ssim(im1.numpy(), im2.numpy(), win_size=3, full=True)
             ssim_per_img.append(_val)
+            #  fig, axs = plt.subplots(1,3)
+            #  axs[0].imshow(im1.numpy(), 'gray')
+            #  axs[1].imshow(im2.numpy(), 'gray')
+            #  axs[2].imshow(_map, 'gray')
+            #  fig.suptitle(f'J={J} P={P}')
     ssim_store.append({
         'Wavelet Level, J': J, 'Patch Size, P': P,
         'Avg SSIM': np.mean(ssim_per_img)})
@@ -67,12 +61,12 @@ print(df)
 # generate plot
 pivot_table = df.pivot_table('Avg SSIM', 'Patch Size, P', 'Wavelet Level, J')
 
-#  pivot_table = pd.read_csv('results/plots/heatmap_reconstruction.csv').set_index('Patch Size, P')#.drop(columns='Unnamed: 0')
+pivot_table = pd.read_csv('results/plots/heatmap_reconstruction_l1.csv').set_index('Patch Size, P')#.drop(columns='Unnamed: 0')
 fig,axs = plt.subplots(1,1)#, figsize=(8,4))
 sns.heatmap(
     pivot_table,
     cmap='Blues_r',
-    norm=plt.cm.colors.PowerNorm(1.5),
+    #  norm=plt.cm.colors.PowerNorm(2),
     ax=axs, annot=True, fmt='.03f', cbar=False)
 axs.set_title('Privacy: Reconstruction Score')
 # save plot

@@ -44,19 +44,9 @@ for J,P in product(range(1,9), args.patch_sizes):
     op = enc(img.unsqueeze(0))
     #
     # get the reconstruction
-    repY, repX = int(np.ceil(H/2**J/P)), int(np.ceil(W/2**J/P))
-    recons = wi(
-        op.reshape(1,1,4**J,P,P)
-        .repeat_interleave(repX, dim=-1).repeat_interleave(repY, dim=-2)
-    )
-    # ... restore original size by removing any padding created by deepfix
-    recons = tvt.CenterCrop((H,W))(recons)
-    #
-    # .. normalize the image values into [0,1] (based on batch min and max)
-    # because the l1 pooling makes reconstructed values outsize [0,1]
-    mx = T.max(recons)
-    mn = T.min(recons)
-    recons = (recons-mn)/(mx-mn)
+    recons = enc.reconstruct(op, (H, W), wavelet=args.wavelet, J=J, P=P)
+    print(recons.max(), recons.min())
+    #  recons = recons.clamp(0,1)
     #
     #
     reconstructed_imgs[args.patch_sizes.index(P)][J-1] = recons.squeeze().numpy()
@@ -67,7 +57,7 @@ y,x = 2270, 1720
 imgmap = np.block(reconstructed_imgs)
 #  imgmap[y-150:y+H+150, x-150:x+W+150] = 1
 imgmap[y:y+H, x:x+W] = img.squeeze().numpy()
-ax.imshow(imgmap, cmap='gray', interpolation='antialiased')
+ax.imshow(imgmap, cmap='gray', interpolation='antialiased', vmin=0, vmax=1)
 # styling for the overlayed original img
 pady, padx = 225, 275
 imgmap[y-pady:y+H+pady, x-padx:x+W+padx] = 1
@@ -84,7 +74,7 @@ ax.set_xticks(np.linspace(W//2, W*8-W//2, 8), labels=np.arange(1, 9))
 ax.set_xlabel('Wavelet Level, J')
 ax.set_title('DeepFix Image Reconstruction')
 #  fig.suptitle('Reconstructed images')
-save_fp = 'results/plots/reconstructed_imgs.png'
+save_fp = f'results/plots/reconstructed_imgs_{",".join(x for x in args.patch_features)}.png'
 fig.savefig(save_fp, bbox_inches='tight', dpi=300)
 print('saved to:', save_fp)
 
