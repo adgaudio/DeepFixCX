@@ -21,7 +21,7 @@ col = 'ROC AUC LEADERBOARD'
 heatmap_data = df.pivot_table(col, "Patch Size, P", "Wavelet Level, J")
 fig, ax = plt.subplots()
 ax = sns.heatmap(data=heatmap_data, cmap='RdYlGn', annot=True, fmt='.03f', cbar=False, ax=ax)
-ax.set_title('Predictive Performance: Test Balanced Accuracy')
+ax.set_title('Predictive Performance: Test ROC AUC')
 
 # save the plot to file
 savefp = f'./results/plots/heatmap_perf_rocauc__{experiment_name}.png'

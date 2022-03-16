@@ -1,4 +1,5 @@
 from itertools import product
+from skimage.metrics import structural_similarity as ssim
 from matplotlib import pyplot as plt
 from matplotlib.patches import Rectangle
 import argparse as ap
@@ -18,7 +19,8 @@ p=ap.ArgumentParser()
 p.add_argument('--patch_features',nargs='+',type=str,default=('l1', ))
 p.add_argument('--input_shape',nargs='+',type=int,default=(320,320))
 p.add_argument('--patch_sizes',nargs='+',type=int,default=tuple([1,3,5,9,19,37,79,115,160]))
-p.add_argument('--wavelet',nargs="+",type=str,default='db1')
+p.add_argument('--wavelet',type=str,default='db1')
+p.add_argument('--ssim', action='store_true')
 args=p.parse_args()
 
 # load image
@@ -49,7 +51,11 @@ for J,P in product(range(1,9), args.patch_sizes):
     #  recons = recons.clamp(0,1)
     #
     #
-    reconstructed_imgs[args.patch_sizes.index(P)][J-1] = recons.squeeze().numpy()
+    if args.ssim:
+        _, features = ssim(img.squeeze().numpy(), recons.squeeze().numpy(), full=True)
+        reconstructed_imgs[args.patch_sizes.index(P)][J-1] = features
+    else:
+        reconstructed_imgs[args.patch_sizes.index(P)][J-1] = recons.squeeze().numpy()
 
 # show the reconstructions with the original image overlayed at position (y,x)
 fig, ax = plt.subplots()#figsize=(20,20))
@@ -74,7 +80,7 @@ ax.set_xticks(np.linspace(W//2, W*8-W//2, 8), labels=np.arange(1, 9))
 ax.set_xlabel('Wavelet Level, J')
 ax.set_title('DeepFix Image Reconstruction')
 #  fig.suptitle('Reconstructed images')
-save_fp = f'results/plots/reconstructed_imgs_{",".join(x for x in args.patch_features)}.png'
+save_fp = f'results/plots/reconstructed_imgs_{",".join(x for x in args.patch_features)}{"_ssim" if args.ssim else ""}.png'
 fig.savefig(save_fp, bbox_inches='tight', dpi=300)
 print('saved to:', save_fp)
 

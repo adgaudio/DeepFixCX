@@ -222,8 +222,9 @@ class DeepFixCompression(T.nn.Module):
         """
         H, W = orig_img_HW
         B = deepfix_embedding.shape[0]
+        dev = deepfix_embedding.device
         # get the reconstruction
-        iwp = WaveletPacket2d(levels=J,wavelet=wavelet,inverse=True)
+        iwp = WaveletPacket2d(levels=J,wavelet=wavelet,inverse=True).to(dev)
         repY, repX = int(math.ceil(H/2**J/P)), int(math.ceil(W/2**J/P))
         recons = iwp(
             deepfix_embedding.reshape(B,-1,4**J,P,P)

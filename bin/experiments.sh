@@ -515,6 +515,16 @@ for level in [5,8,1]:
 EOF
 }
 
+timings() {
+  cat <<EOF
+${V}.timing.ResNet18                           env batch_size=15    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:untrained:1:14 --epochs 6 --start_epoch 1
+EOF
+python <<EOF
+for J,P in [ (1,1), (160,1), (8,1), (5,5) ]:
+    model = f"deepfix_v1:14:{J}:{P}:0:db1"
+    print(f'''${V}.timing.DeepFix.J={J}.P={P}  env batch_size=1600  python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg deepfixmlp:.1 --model {model} --epochs 6 --start_epoch 1''')
+EOF
+}
 
 plots() {
   # compression ratio
@@ -574,7 +584,7 @@ plots() {
 export num_workers=6
 export batch_size=16
 # compute_normalization | grep -v chexpert_small | parallel -j 1  # "{} --device cpu"
-C20 | run_gpus 3  # 4.588 gb gpu ram for batchsize=10
+# C20 | run_gpus 3  # 4.588 gb gpu ram for batchsize=10
 export num_workers=2
 export batch_size=200
 # compute_normalization | grep chexpert_small | parallel -j 5
@@ -589,3 +599,4 @@ export batch_size=400
 # C18 | run_gpus 1
 export batch_size=100
 # C19 | run_gpus 1
+timings | run_gpus 1

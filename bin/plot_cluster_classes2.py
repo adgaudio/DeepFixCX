@@ -1,3 +1,4 @@
+from collections import defaultdict
 from itertools import product
 from matplotlib import pyplot as plt
 from sklearn.cluster import AgglomerativeClustering
@@ -173,163 +174,218 @@ def hierarchy_pos(G, root=None, width=1., vert_gap = 0.2, vert_loc = 0, leaf_vs_
 
 
 
-print("setup")
-# cmdline modifiable settings
-import dataclasses as dc
-@dc.dataclass
-class CmdlineOpts:
-    J:int = 2
-    P:int = 19
-from simple_parsing import ArgumentParser
-args = ArgumentParser()
-args.add_arguments(CmdlineOpts, dest='args')
-args = args.parse_args().args
-# "static" config
-J, P = args.J, args.P
-wavelet='db1'
-fp = f'results/2.C21.J={J}.P={P}/checkpoints/epoch_80.pth'
-assert wavelet == 'db1' and '2.C21' in fp, 'setup error'
-device = 'cuda'
-orig_img_shape = (320, 320)  # original image size (320x320 imgs)
-B = int(os.environ.get('batch_size', 15))
-I = 1  # num input image channels (1 for x-ray)
+if __name__ == "__main__":
 
-# get model and dataloader
-print("get model and dataloader")
-mdl = T.load(fp)['model']
-# backwards compatibility with earlier version of deepfix
-mdl.compression_mdl.wavelet_encoder.adaptive = 0
+    print("setup")
+    # cmdline modifiable settings
+    import dataclasses as dc
 
-dset_dct, class_names = get_dset_chexpert(small=True)
-d = dset_dct['test_dset']
-# create dataloader for ONLY frontal imgs
-d = T.utils.data.Subset(d, np.arange(len(d))[d.labels_csv['Frontal/Lateral'] == 0])
-N = len(d)
-d = T.utils.data.DataLoader(d, batch_size=B, shuffle=False)
+    @dc.dataclass
+    class CmdlineOpts:
+        J:int = 1
+        P:int = 79
+    from simple_parsing import ArgumentParser
+    args = ArgumentParser()
+    args.add_arguments(CmdlineOpts, dest='args')
+    args = args.parse_args().args
+    # "static" config
+    J, P = args.J, args.P
+    wavelet='db1'
+    fp = f'results/2.C21.J={J}.P={P}/checkpoints/epoch_80.pth'
+    assert wavelet == 'db1' and '2.C21' in fp, 'setup error'
+    device = 'cuda'
+    orig_img_shape = (320, 320)  # original image size (320x320 imgs)
+    B = int(os.environ.get('batch_size', 15))
+    I = 1  # num input image channels (1 for x-ray)
 
+    # get model and dataloader
+    print("get model and dataloader")
+    mdl = T.load(fp)['model']
+    # backwards compatibility with earlier version of deepfix
+    mdl.compression_mdl.wavelet_encoder.adaptive = 0
 
-# get saliency
-print("Get Saliency of all images in test dataset")
-iwp = WaveletPacket2d(wavelet, levels=J, inverse=True).to(device)
-explainer = captum.attr.NoiseTunnel(captum.attr.IntegratedGradients(mdl.mlp))
-#  explainer = captum.attr.IntegratedGradients(mdl.mlp)
-attrs_img_mean, attrs_enc_mean = {}, {}
-for mb in d:
-    x = mb[0].to(device, non_blocking=True)
-    B = x.shape[0]
-    # Compute attribution maps.  Assume no access to original img
-    enc = mdl.compression_mdl(x)
-    attrs_enc, attrs_img = {}, {}
-    for i, kls in enumerate(class_names):
-        attrs_enc[kls] = (
-            explainer.attribute(enc, nt_samples=15, nt_type='smoothgrad_sq', target=i)
-            .detach().reshape((B, I, 4**J, P, P)).float())
-        # reconstruct and don't unpool (i.e. ignore the deepfix l1 pooling)
-        attrs_img[kls] = T.nn.Upsample(orig_img_shape)(iwp(attrs_enc[kls]))
-    # Aggregate attribution maps
-    for kls, attr in attrs_img.items():
-        if kls not in attrs_img_mean:
-            attrs_img_mean[kls] = attrs_img[kls].sum(0)/N
-            attrs_enc_mean[kls] = attrs_enc[kls].sum(0)/N
-        else:
-            attrs_img_mean[kls] += attrs_img[kls].sum(0)/N
-            attrs_enc_mean[kls] += attrs_enc[kls].sum(0)/N
-    # reconstruct the image
-    #  recon_img = T.nn.Upsample(orig_img_shape)(iwp(enc.reshape(B,I,4**J,P,P)))
-    H,W = orig_img_shape
-    repY, repX = H//2**J//P, W//2**J//P
-    recon_img = (iwp(enc.reshape(B,I,4**J,P,P)
-            .repeat_interleave(repX, dim=-1).repeat_interleave(repY, dim=-2)
-                      ))
-    # --> reconstructed img may not have original size depending on orig size, J and P.
-    recon_img = T.nn.Upsample(orig_img_shape)(recon_img)
+    # VAL dataset for more samples
+    dset_dct, class_names = get_dset_chexpert(.9, .01, small=True)
+    d = dset_dct['val_dset']
+    # create dataloader for ONLY frontal imgs
+    lcsv = d.dataset.labels_csv
+    idxs = np.arange(len(d.dataset))[((lcsv['index'].isin(d.indices)) & (lcsv['Frontal/Lateral'] == 1)).values]
+    d = T.utils.data.Subset(d.dataset, idxs)
+    N = len(d)
+    d = T.utils.data.DataLoader(d, batch_size=B, shuffle=False)
+    print(f'Analyzing {N} samples')
 
-# plot the image and reconstruction
-dplt.plot_img_grid(x.squeeze(1), cmap='gray')
-dplt.plot_img_grid(recon_img.squeeze(1), cmap='gray')
-#
-# plot reconstructions and saliency
-#
-for class_idx, class_name in enumerate(class_names[:4]):
-    with T.no_grad():
-        yhat = ((mdl.mlp(enc)[:, class_idx]>0)*1.).tolist()
-    labels = list(zip(mb[1][:, class_idx].tolist(), yhat))
-    #  dplt.plot_img_grid(
-        #  attrs_img[class_name].abs().squeeze(1), vmin='min', vmax='max',
-        #  suptitle=f'{class_name}  (y, $\hat y$)',
-        #  ax_titles=labels
-    #  )
-    color_imgs = recon_img.repeat((1,3,1,1)).cpu().numpy()
-    color_imgs = (color_imgs - color_imgs.min()) / (color_imgs.max() - color_imgs.min())
-    s = attrs_img[class_name]
-    s = s.abs()  # magnitude of saliency
-    s = s.cpu().numpy()
-    # normalize for overlaying on top of the reconstructed image.
-    s = np.abs(((s - s.mean((-1,-2), keepdims=True)) / s.std((-1,-2), keepdims=True)))
-    color_imgs[:, [0]] += s
-    color_imgs[:, :] /= np.percentile(color_imgs[:, [0]], 99)
-    fig = dplt.plot_img_grid(color_imgs.transpose(0,2,3,1), suptitle=class_name, ax_titles=labels)
+    # TEST dataset
+    #  dset_dct, class_names = get_dset_chexpert(.9, .1, small=True)
+    #  d = dset_dct['test_dset']
+    #  #  d = dset_dct['val_dset']
+    #  # create dataloader for ONLY frontal imgs
+    #  d = T.utils.data.Subset(d, np.arange(len(d))[d.labels_csv['Frontal/Lateral'] == 0])
+    #  N = len(d)
+    #  d = T.utils.data.DataLoader(d, batch_size=B, shuffle=False)
 
 
-# plot the average saliency per class
-dplt.plot_img_grid([attrs_img_mean[k].squeeze(0) for k in class_names], ax_titles=class_names, suptitle='Per-class Average Saliency Attribution')
+    # get saliency
+    print("Get Saliency of all images in dataset")
+    #  iwp = WaveletPacket2d(wavelet, levels=J, inverse=True).to(device)
+    explainer = captum.attr.NoiseTunnel(captum.attr.Saliency( T.nn.Sequential(mdl.mlp, T.nn.Sigmoid())))
+        #  captum.attr.IntegratedGradients(mdl.mlp))
+    #  explainer = captum.attr.IntegratedGradients(mdl.mlp)
+    attrs_img_mean, attrs_enc_mean = {}, {}
+    attrs_cm = defaultdict(lambda: (T.tensor(0.), 0))
+    gtlabels, preds = [], []
+    for mb in d:
+        x = mb[0].to(device, non_blocking=True)
+        _B = x.shape[0]
+        # get Deepfix encoding
+        enc = mdl.compression_mdl(x)
+        # save predictions / ground truth
+        gtlabels.append(mb[1])
+        with T.no_grad():
+            preds.append(mdl.mlp(enc).cpu())
+            # reconstruct the image
+            recon_img = mdl.compression_mdl.reconstruct(
+                enc, orig_img_shape, wavelet=wavelet, J=J, P=P).cpu()
+        # Compute attribution maps.  Assume no access to original img
+        attrs_enc, attrs_img = {}, {}
+        for i, kls in enumerate(class_names):
+            attrs_enc[kls] = (
+                explainer.attribute(
+                    enc, target=i,
+                    nt_samples=15, nt_samples_batch_size=B, nt_type='smoothgrad',
+                )
+                .detach().reshape((_B, I, 4**J, P, P)).float())
+            attrs_img[kls] = mdl.compression_mdl.reconstruct(
+                attrs_enc[kls], orig_img_shape, wavelet=wavelet, J=J, P=P).cpu() #(1+recon_img.clamp(0,1))
+            #  attrs_img[kls] = T.nn.Upsample(orig_img_shape)(iwp(attrs_enc[kls]).cpu())
+        # Aggregate attribution maps
+        for i, kls in enumerate(class_names):
+            # overall avg saliency per class.
+            if kls not in attrs_img_mean:
+                attrs_img_mean[kls] = attrs_img[kls].sum(0).cpu()/N
+                attrs_enc_mean[kls] = attrs_enc[kls].sum(0).cpu()/N
+            else:
+                attrs_img_mean[kls] += attrs_img[kls].sum(0).cpu()/N
+                attrs_enc_mean[kls] += attrs_enc[kls].sum(0).cpu()/N
+            # avg saliency per class per errtype (errtypes in {fp, tp, fn, fp})
+            # ... for given class, assign samples to each possible value of the
+            #     confusion matrix.  aggregate by maintaining a running mean
+            mb_stats = dict(
+                tp=(mb[1][:, i] == 1) == (preds[-1][:, i] > 0).cpu(),
+                fp=(mb[1][:, i] == 0) == (preds[-1][:, i] > 0).cpu(),
+                fn=(mb[1][:, i] == 1) == (preds[-1][:, i] < 0).cpu(),
+                tn=(mb[1][:, i] == 0) == (preds[-1][:, i] < 0).cpu())
+            # running mean
+            for errtyp in 'tn', 'fp', 'fn', 'tp':
+                oldval, oldcnt = attrs_cm[(kls, errtyp)]
+                mask = mb_stats[errtyp]
+                if mask.sum() == 0: continue
+                newcnt = oldcnt + mask.sum()
+                _newvals = attrs_img[kls][mask].abs().sum(0).cpu()
+                attrs_cm[(kls, errtyp)] = (oldval * oldcnt/newcnt + _newvals/newcnt, newcnt)
+    attrs_cm = dict(attrs_cm)
+    gtlabels = T.cat(gtlabels, 0)
+    preds = T.cat(preds, 0)
 
-# how classes distribute across wavelet level and wavelet a,h,v,d orientations.
-df = pd.DataFrame({k: attrs_enc_mean[k].sum((-2,-1)).squeeze(0).cpu().numpy() for k in class_names})
-df.index = list(''.join(x) for x in product(*['AHVD']*J))
-z = df
-z = z / z.sum(1).values.reshape(-1,1)
-#  z = z / z.sum(0)
-z.plot.bar(stacked=True, title='Distribution across wavelet scales and orientations')
+    # plot the image and reconstruction
+    dplt.plot_img_grid(x.squeeze(1), cmap='gray')
+    dplt.plot_img_grid(recon_img.squeeze(1), cmap='gray')
+    #
+    # plot reconstructions and saliency for just a few images
+    #
+    for class_idx, class_name in enumerate(class_names[:4]):
+        with T.no_grad():
+            yhat = ((mdl.mlp(enc)[:, class_idx]>0)*1.).tolist()
+        labels = list(zip(mb[1][:, class_idx].tolist(), yhat))
+        #  dplt.plot_img_grid(
+            #  attrs_img[class_name].abs().squeeze(1), vmin='min', vmax='max',
+            #  suptitle=f'{class_name}  (y, $\hat y$)',
+            #  ax_titles=labels
+        #  )
+        color_imgs = recon_img.repeat((1,3,1,1)).numpy()
+        color_imgs = (color_imgs - color_imgs.min()) / (color_imgs.max() - color_imgs.min())
+        s = attrs_img[class_name]
+        s = s.abs()  # magnitude of saliency
+        s = s.cpu().numpy()
+        # normalize for overlaying on top of the reconstructed image.
+        s = np.abs(((s - s.mean((-1,-2), keepdims=True)) / s.std((-1,-2), keepdims=True)))
+        color_imgs[:, [0]] += s
+        color_imgs[:, :] /= np.percentile(color_imgs[:, [0]], 99)
+        fig = dplt.plot_img_grid(color_imgs.transpose(0,2,3,1), suptitle=class_name, ax_titles=labels)
 
 
-df = pd.DataFrame({k: v.cpu().numpy().ravel() for k, v in attrs_enc_mean.items()})
+    # plot the average saliency per class
+    dplt.plot_img_grid([attrs_img_mean[k].squeeze(0).abs() for k in class_names], ax_titles=class_names, suptitle='Per-class Average Saliency Attribution', cmap='gray'), #, norm=plt.cm.colors.PowerNorm(.2))
+    # ... one figure of subplots with avg saliency over the confusion matrix: TP, FP, FN, TN
+    #  for i, k in enumerate(class_names):
+    #      arrs = []
+    #      errtypes = 'tp', 'tn', 'fp', 'fn'
+    #      for errtyp in errtypes:
+    #          attr_map, n = attrs_cm[(k, errtyp)]
+    #          print(k, errtyp, n, attr_map.shape)
+    #          arrs.append(attr_map.squeeze() if n != 0 else [[np.nan]])
+    #      dplt.plot_img_grid(arrs, ax_titles=errtypes, suptitle=k, rows_cols=(1,4), cmap='gray')
 
-X = pd.DataFrame({k: v.cpu().numpy().ravel() for k, v in attrs_img.items()}).T.values
-model = AgglomerativeClustering(
-    n_clusters=None,
-    affinity='euclidean',
-    distance_threshold=0,  # ensures we compute whole tree, from sklearn docs
-    linkage="average",
-)
-model.fit(X)
-Z = get_linkage_matrix_from_sklearn(model)
-Z[:,2] = 1 + (Z[:,2] - Z[:,2].min())/(Z[:,2]-Z[:,2].min()).std()
-G = linkage_to_networkx(Z, df.columns)
-plt.figure(figsize=(24, 12))
-pos = hierarchy_pos(G, leaf_vs_root_factor=1)
-nx.draw_networkx(G, pos=pos)
-nx.draw_networkx_edge_labels(
-    G, pos, edge_labels={e: round(G.edges[e]['weight'], 4) for e in G.edges},
-)
-plt.figure(figsize=(14, 10))
-sph.dendrogram(Z, labels=df.columns, leaf_rotation=25)
-#
-#
-grp = nx.community.greedy_modularity_communities(G, 'weight')
-print('modularity', '\n'.join(str(x) for x in grp))
-# inconsistent:  list(nx.community.asyn_lpa_communities(G, 'weight'))
-#
-# flatten the dendrogram into a better hierarchical structure
-G2 = G.copy()
-for grp in list(nx.community.naive_greedy_modularity_communities(G)):
-    # find the node that connects the group to the tree
-    parent = [x for x in grp if set(G2[x]).difference(grp)]
-    if len(parent)>1:
-        print(grp)
-        root = parent[0]  # save this to visualize with the hierarchy layout
-        continue
-    assert len(parent) == 1, 'sanity check: assume each group has 1 node that connects the group to the tree'
-    parent = parent[0]
-    # connect the group to this node
-    for child in list(grp):
-        if child == parent: continue
-        if isinstance(child, int):
-            G2.remove_node(child)
-        else:
-            # connect this node only to the parent
-            G2.remove_edges_from(list(G2.edges(child))) # remove all connections
-            G2.add_edge(parent, child)
-plt.figure(figsize=(24,8))
-pos = hierarchy_pos(G2, root=root, leaf_vs_root_factor=1, width=1)
-nx.draw_networkx(G2, pos=pos)
+    #      fig, axs = plt.subplots(1, 4)
+    #      for ar, ax in zip(arrs, axs):
+    #          ax.imshow(ar.cpu().numpy().squeeze(0))
+
+
+    # how classes distribute across wavelet level and wavelet a,h,v,d orientations.
+    df = pd.DataFrame({k: attrs_enc_mean[k].sum((-2,-1)).squeeze(0).cpu().numpy() for k in class_names})
+    df.index = list(''.join(x) for x in product(*['AHVD']*J))
+    z = df
+    z = z / z.sum(1).values.reshape(-1,1)
+    #  z = z / z.sum(0)
+    z.plot.bar(stacked=True, title='Distribution across wavelet scales and orientations')
+
+
+    df = pd.DataFrame({k: v.cpu().numpy().ravel() for k, v in attrs_enc_mean.items()})
+    X = pd.DataFrame({k: v.cpu().numpy().ravel() for k, v in attrs_img.items()}).T.values
+    model = AgglomerativeClustering(
+        n_clusters=None,
+        affinity='euclidean',
+        distance_threshold=0,  # ensures we compute whole tree, from sklearn docs
+        linkage="ward",
+    )
+    model.fit(X)
+    Z = get_linkage_matrix_from_sklearn(model)
+    Z[:,2] = 1 + (Z[:,2] - Z[:,2].min())/(Z[:,2]-Z[:,2].min()).std()
+    G = linkage_to_networkx(Z, df.columns)
+    plt.figure(figsize=(24, 12))
+    pos = hierarchy_pos(G, leaf_vs_root_factor=1)
+    nx.draw_networkx(G, pos=pos)
+    nx.draw_networkx_edge_labels(
+        G, pos, edge_labels={e: round(G.edges[e]['weight'], 4) for e in G.edges},
+    )
+    plt.figure(figsize=(14, 10))
+    sph.dendrogram(Z, labels=df.columns, leaf_rotation=25)
+    #
+    #
+    grp = nx.community.greedy_modularity_communities(G, 'weight')
+    print('modularity', '\n'.join(str(x) for x in grp))
+    # inconsistent:  list(nx.community.asyn_lpa_communities(G, 'weight'))
+    #
+    # flatten the dendrogram into a better hierarchical structure
+    G2 = G.copy()
+    for grp in list(nx.community.naive_greedy_modularity_communities(G)):
+        # find the node that connects the group to the tree
+        parent = [x for x in grp if set(G2[x]).difference(grp)]
+        if len(parent)>1:
+            print(grp)
+            root = parent[0]  # save this to visualize with the hierarchy layout
+            continue
+        assert len(parent) == 1, 'sanity check: assume each group has 1 node that connects the group to the tree'
+        parent = parent[0]
+        # connect the group to this node
+        for child in list(grp):
+            if child == parent: continue
+            if isinstance(child, int):
+                G2.remove_node(child)
+            else:
+                # connect this node only to the parent
+                G2.remove_edges_from(list(G2.edges(child))) # remove all connections
+                G2.add_edge(parent, child)
+    plt.figure(figsize=(24,8))
+    pos = hierarchy_pos(G2, root=root, leaf_vs_root_factor=1, width=1)
+    nx.draw_networkx(G2, pos=pos)
