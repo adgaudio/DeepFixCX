@@ -817,7 +817,8 @@ def main():
     #      cfg.train(cfg)
     #  print(p.key_averages().table(
     #      sort_by="self_cuda_time_total", row_limit=-1))
+    return cfg
 
 
 if __name__ == "__main__":
-    main()
+    cfg = main()

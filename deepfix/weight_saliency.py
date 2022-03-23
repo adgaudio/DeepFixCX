@@ -73,7 +73,7 @@ Y, YHat, Scalar = T.Tensor, T.Tensor, T.Tensor  # for type checking
 
 
 def get_saliency(
-        cost_fn: Callable[('YHat', 'Y'), 'Scalar'],
+        cost_fn: Callable[['YHat', 'Y'], 'Scalar'],
         model:T.nn.Module, loader:T.utils.data.DataLoader,
         device:str, num_minibatches:int=float('inf'),
     mode:str = 'weight*grad', param_names:Optional[list[str]]=None

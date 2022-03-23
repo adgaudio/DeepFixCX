@@ -16,7 +16,8 @@ def plot_img_grid(imgs: Iterable, suptitle:str = '', rows_cols: Tuple = None,
         to numpy.  (Don't try to convert channels-first to channels-last).
     :vmin: and :vmax: and :norm: are passed to ax.imshow(...).  if vmin or vmax
         equal 'min' or 'max, respectively, find the min or max value across all
-        elements in the input `imgs`
+        elements in the input `imgs`.
+        norm can be a list of norms.
     :cmap: a matplotlib colormap
     :num: the matplotlib figure number to use
     """
@@ -46,7 +47,9 @@ def plot_img_grid(imgs: Iterable, suptitle:str = '', rows_cols: Tuple = None,
     [ax.axis('off') for ax in axs.ravel()]
     if ax_titles is None:
         ax_titles = [None] * len(fig.axes)
-    for zimg, ax, ax_title in zip(imgs, axs.ravel(), ax_titles):
+    if not isinstance(norm, (list, tuple)):
+        norm = [norm] * len(fig.axes)
+    for zimg, ax, ax_title, norm in zip(imgs, axs.ravel(), ax_titles, norm):
         ax.imshow(zimg, norm=norm, vmin=vmin, vmax=vmax, cmap=cmap)
         ax.set_title(ax_title)
     return fig
