@@ -716,10 +716,10 @@ def compress_save(model,loader,train,J,P):
 
     for n,(x,y) in enumerate(loader):
         x=T.tensor(x)
-        print(n)
+        #print(n)
         x=model(x).numpy()
-        if(n==400):
-            break
+        #if(n==400):
+        #    break
         
         for im in range(x.shape[0]):
             C=df_set.loc[df_set['Path']==y[0][im]]
