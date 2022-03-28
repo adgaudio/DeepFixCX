@@ -9,6 +9,8 @@ from .wavelet_packet import WaveletPacket2d
 from deepfix.models.api import get_resnet
 
 
+
+
 class InvalidWaveletParametersError(Exception): pass
 
 
@@ -135,6 +137,7 @@ class DeepFixCompression(T.nn.Module):
         lvl = lvl.reshape(B,C*D,max(1,h//p),max(1,w//p),p*p)
         lvl = lvl.permute(0,1,4,2,3)  # put the spatial dimensions last.
         data_2d = lvl
+        
         #
         # for each patch, get some numbers
         features = []
@@ -451,8 +454,8 @@ class DeepFixEnd2End(T.nn.Module):
         self.mlp = mlp
 
     def forward(self, x):
-        with T.no_grad():
-            x = self.compression_mdl(x)
+        #with T.no_grad():
+        x = self.compression_mdl(x)
         x = self.mlp(x)
         return x
 
@@ -546,7 +549,7 @@ def get_DeepFixEnd2End(
 
 
 class DeepFixClassifier(T.nn.Module):
-    def __init__(self, backbone:str, backbone_pretraining:str, in_channels:int, out_channels:int, patch_size:int):
+    def __init__(self,backbone:str, backbone_pretraining:str, in_channels:int, out_channels:int, patch_size:int):
         super().__init__()
 
         # figure out how many layers gets us to a 64x64 img via upsampling
@@ -587,7 +590,7 @@ def get_DeepFixEnd2End_v2(
         in_ch_multiplier=1, wavelet='coif1', wavelet_levels=4, wavelet_patch_size=1,
         patch_features='l1', backbone='resnet18', backbone_pretraining='imagenet'):
     enc = DeepFixCompression(
-        in_ch=in_channels, in_ch_multiplier=in_ch_multiplier, levels=wavelet_levels,
+            in_ch=in_channel, in_ch_multiplier=in_ch_multiplier, levels=wavelet_levels,
         wavelet=wavelet, patch_size=wavelet_patch_size, patch_features=patch_features.split(','))
     enc_channels = 4**wavelet_levels*in_channels*in_ch_multiplier*len(patch_features.split(','))
 
@@ -598,6 +601,59 @@ def get_DeepFixEnd2End_v2(
 
     m = DeepFixEnd2End(enc, classifier)
     return m
+
+
+def get_deepfix_enc(in_ch,in_ch_multiplier,levels,wavelet,patch_size,patch_features='l1'):
+    return Deepfixcompression_encoder(in_ch,in_ch_multiplier,levels,wavelet,patch_size,patch_features)
+
+class Deepfixcompression_encoder(T.nn.Module):
+            def __init__(self,
+                 in_ch:int,
+                 in_ch_multiplier:int,
+                 # wavelet params
+                 levels:int, wavelet:str,
+                 # wavelet spatial feature extraction params
+                 patch_size:int,
+                 patch_features:list[str]=['sum_pos', 'sum_neg'],
+                 how_to_error_if_input_too_small:str='warn',
+                 ):
+                super().__init__()
+                self.compressor= DeepFixCompression(in_ch=in_ch, in_ch_multiplier=in_ch_multiplier, levels=levels,wavelet=wavelet, patch_size=patch_size, patch_features=patch_features.split(','))
+                self.P,self.levels,self.M=patch_size,levels,in_ch_multiplier
+                self.inv_wav=WaveletPacket2d(wavelet=wavelet,levels=levels,inverse=True)
+
+            def forward(self,x):
+                x=self.compressor(x)
+                B=x.shape[0]
+                x=x.reshape(B,self.M,4**self.levels,self.P,self.P)
+            
+                x=self.inv_wav(x)
+            
+                return x
+
+
+class DeepFixmlp_Classifier(T.nn.Module):
+    def __init__(self,levels:int,wavelet:str,
+            in_ch:int,out_channels:int, patch_size:int,
+            in_ch_multiplier:int,mlp_depth:int,
+            mlp_channels:int,final_layer:T.nn.Module,patch_features:list[str]=['sum_pos','sum_neg'],
+            fix_weights='none'):
+      
+        super().__init__()
+        enc_channels = 4**levels*in_ch*patch_size*patch_size*len(patch_features.split(','))
+        
+        self.classifier=DeepFixMLP(C=in_ch,D=enc_channels,
+                out_ch=out_channels,depth=mlp_depth,
+                mid_ch=mlp_channels,final_layer=final_layer,
+                fix_weights=fix_weights)
+
+        self.wpt = WaveletPacket2d(levels=levels,wavelet=wavelet)
+
+    def forward(self,x):
+        x=self.wpt(x)
+        x=self.classifier(x)
+        return x
+
 
 
 if __name__ == "__main__":

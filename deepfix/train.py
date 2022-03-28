@@ -19,9 +19,20 @@ from sklearn.model_selection import StratifiedKFold
 import dataclasses as dc
 import numpy as np
 import torch as T
+import PIL 
+import cv2
+import pandas as pd
 import torchvision.transforms as tvt
-
-from deepfix.models import get_effnetv2, get_resnet, get_densenet, get_efficientnetv1, get_DeepFixEnd2End, get_DeepFixEnd2End_v2, DeepFixMLP
+from skimage.metrics import structural_similarity as ssim
+from skimage.transform import resize
+from deepfix.visual import visualize_activation
+from captum.attr import GradientShap
+from captum.attr import IntegratedGradients
+from captum.attr import NoiseTunnel
+from captum.attr import GuidedGradCam
+from deepfix.models import get_effnetv2, get_resnet, get_densenet, get_efficientnetv1, get_DeepFixEnd2End, get_DeepFixEnd2End_v2, DeepFixMLP, DeepFixCompression, get_deepfix_enc
+from deepfix.models.waveletmlp import DeepFixmlp_Classifier
+from deepfix.models.wavelet_packet import WaveletPacket2d
 from deepfix.models.ghaarconv import convert_conv2d_to_gHaarConv2d
 from deepfix.init_from_distribution import init_from_beta, reset_optimizer
 from deepfix import deepfix_strategies as dfs
@@ -67,6 +78,9 @@ MODELS = {
             wavelet_levels=int(wavelet_levels), wavelet_patch_size=int(patch_size),
             patch_features=patch_features,
             backbone=backbone, backbone_pretraining=pretraining,)
+        ),
+    ('waveletmlp_classifier',str,str,str,str,str,str,str):
+    (lambda in_ch,out_ch,in_ch_mul,wavelet,levels,patch_size,patch_features : DeepFixmlp_Classifier(levels=int(levels),wavelet=wavelet,in_ch=int(in_ch),out_channels=int(out_ch),patch_size=int(patch_size),patch_features=patch_features,in_ch_multiplier=int(in_ch_mul),mlp_depth=2,mlp_channels=300,final_layer=None,fix_weights='none')
         ),
 
     #  ('waveletres18v2', str, str, str): lambda pretrain, in_ch, out_ch: (
@@ -266,7 +280,7 @@ def group_random_split(
 
 def get_dset_chexpert(train_frac=.8, val_frac=.2, small=False,
                       labels:str='diagnostic', num_identities=None,
-                      epoch_size:int=None
+                      epoch_size:int=None,compressed_dir=None
                       ):
     """
     Args:
@@ -294,6 +308,9 @@ def get_dset_chexpert(train_frac=.8, val_frac=.2, small=False,
         class_names = list(range(num_identities))
         get_ylabels = lambda dct: \
                 (D.CheXpert.format_labels(dct, labels=['index']) % num_identities).long()
+    #elif labels == 'Path':
+    #            class_names = ['Path']
+    #            get_ylabels = lambda dct: D.CheXpert.format_labels(dct, labels='Path', as_tensor=False).tolist()
     else:
         if labels == 'diagnostic':
             class_names = D.CheXpert.LABELS_DIAGNOSTIC
@@ -305,8 +322,12 @@ def get_dset_chexpert(train_frac=.8, val_frac=.2, small=False,
         for k in class_names:
             if k in D.CheXpert.LABELS_DIAGNOSTIC:
                 _label_cleanup_dct[k][np.nan] = 0  # remap missing value to negative
-        get_ylabels = lambda dct: \
-                D.CheXpert.format_labels(dct, labels=class_names).float()
+        if(labels=='Path'):
+            get_ylabels = lambda dct:\
+                    D.CheXpert.format_labels(dct,labels=class_names,as_tensor=False).tolist()
+        else:
+            get_ylabels = lambda dct: \
+                D.CheXpert.format_labels(dct, labels=class_names,as_tensor=True).float()
     kws = dict(
         img_transform=tvt.Compose([
             #  tvt.CenterCrop((512, 512)),
@@ -318,6 +339,17 @@ def get_dset_chexpert(train_frac=.8, val_frac=.2, small=False,
     )
     if small:
         kls = D.CheXpert_Small
+        if compressed_dir:
+            kws['img_transform'] = tvt.Compose([
+                                
+                                  tvt.Lambda(lambda image: T.tensor(np.array(image).astype(np.float32)).unsqueeze(0)),
+                                  tvt.Normalize((0),(65535))
+                            ])
+            kws['dataset_dir'] = compressed_dir
+        else:
+            kws['img_transform'] = tvt.Compose([
+                    tvt.ToTensor(),
+                    tvt.CenterCrop((320,320)) if small else (lambda x: x),])
     else:
         kls = D.CheXpert
 
@@ -340,7 +372,7 @@ def get_dset_chexpert(train_frac=.8, val_frac=.2, small=False,
         train_dset, batch_size=batch_size,
         sampler=RandomSampler(train_dset, epoch_size or len(train_dset)), **batch_dct)
     val_loader=DataLoader(val_dset, batch_size=batch_size, **batch_dct)
-    test_loader=DataLoader(test_dset, batch_size=1, **batch_dct)
+    test_loader=DataLoader(test_dset, batch_size=15, **batch_dct)
     #
     # debugging:  vis dataset
     #  from deepfix.plotting import plot_img_grid
@@ -452,12 +484,29 @@ DSETS = {
     ('chexpert_small15k', str, str, str): (
         lambda train_frac, val_frac, labels: get_dset_chexpert(
             float(train_frac), float(val_frac), small=True, labels=labels, epoch_size=15000)),
+    ('chexpert_small15k_compressed', str, str, str,str,str): (
+        lambda train_frac, val_frac, labels,levels,patch_size: get_dset_chexpert(
+            float(train_frac), float(val_frac), small=True, labels=labels, epoch_size=15,compressed_dir='./Compressed_{J}_{P}'.format(J=levels,P=patch_size)+'/CheXpert-v1.0-small/')), 
+    
+}
+DSETS_COMPRESS = {
+    ('chexpert', str, str): (
+        lambda train_frac, val_frac: get_dset_chexpert(
+            float(train_frac), float(val_frac), small=False, labels='Path')),
+    ('chexpert_small', str, str): (
+        lambda train_frac, val_frac: get_dset_chexpert(
+            float(train_frac), float(val_frac), small=True, labels='Path')),
+    ('chexpert_small', str, str, str): (
+        lambda train_frac, val_frac, labels: get_dset_chexpert(
+            float(train_frac), float(val_frac), small=True, labels='Path')),
+    ('chexpert_small15k', str, str, str): (
+        lambda train_frac, val_frac, labels: get_dset_chexpert(
+            float(train_frac), float(val_frac), small=True, labels='Path', epoch_size=15000)),
 }
 
 
 def match(spec:str, dct:dict):
     return pampy.match(spec.split(':'), *(x for y in dct.items() for x in y))
-
 
 def get_model_opt_loss(
         model_spec:str, opt_spec:str, loss_spec:str, regularizer_spec:str,
@@ -513,12 +562,13 @@ def get_dset_loaders_resultfactory(dset_spec:str) -> dict:
         dct['result_factory'] = lambda: TL.MultiClassClassification(
                 len(class_names), binarize_fn=lambda yh: yh.softmax(1).argmax(1))
     elif any(dset_spec.startswith(x) for x in {
-            'chexpert:', 'chexpert_small:', 'chexpert_small15k:'}):
+            'chexpert:', 'chexpert_small:', 'chexpert_small15k:','chexpert_small15k_compressed'}):
         dct['result_factory'] = lambda: CheXpertMultiLabelBinaryClassification(
             class_names, binarize_fn=lambda yh: (yh.sigmoid()>.5).long(), report_avg=True)
     else:
         raise NotImplementedError(f"I don't know how to create the result factory for {dset_spec}")
     return dct
+
 
 class CheXpertMultiLabelBinaryClassification(TL.MultiLabelBinaryClassification):
     def update(self, yhat, y, loss) -> None:
@@ -619,6 +669,7 @@ class TrainOptions:
     loss_reg:str = 'none'  # Optionally add a regularizer to the loss.  loss + reg.  Accepted values:  "none", "deepfixmlp:X" where X is a positive float denoting the lambda in l1 regularizer
     model:str = 'resnet18:imagenet:3:3'  # Model specification adheres to the template "model_name:pretraining:in_ch:out_ch"
     deepfix:str = 'off'
+    make_compress:bool = False
     """
     DeepFix Re-initialization Method.  Options:
         "off" or "reinit:N:P:R" or "d[f]hist:path_to_histogram.pth"
@@ -630,15 +681,76 @@ class TrainOptions:
 
     def execute(self):
         cfg = train_config(self)
-        cfg.train(cfg)
+
+def collate_fn_chexpert(data):
+    x,y=data
+    return x,y
+class Train_Dataset(Dataset):
+    def __init__(self,data_dir,label_file):
+       
+        self.file_list=[data_dir+'/'+name for name in os.listdir(data_dir) if os.path.isfile(data_dir+'/'+name)]
+        self.labels=np.load(label_file)
+        self.transform = tvt.ToTensor() 
+    def __getitem__(self,index):
+        x=self.get_image(index)
+    
+        y=self.labels[index]
+        return  self.transform(x),T.tensor(y)
+
+    def __len__(self):
+        return len(self.file_list)
+                
+    def get_image(self,index):
+        fp=self.file_list[index]
+        im=PIL.Image.open(fp)
+        return PIL.ImageOps.grayscale(im)
+
+def compress_save(model,loader,train,J,P):
+    from matplotlib import pyplot as plt
+    if(train):
+        df_set=pd.read_csv('./data/CheXpert-v1.0-small/train.csv')
+    else:
+        df_set=pd.read_csv('./data/CheXpert-v1.0-small/valid.csv')
+
+    df=pd.DataFrame()#.reindex_like(df_set)
+
+    for n,(x,y) in enumerate(loader):
+        x=T.tensor(x)
+        print(n)
+        x=model(x).numpy()
+        if(n==400):
+            break
+        
+        for im in range(x.shape[0]):
+            C=df_set.loc[df_set['Path']==y[0][im]]
+
+            dir_path='./Compressed_{J}_{P}/'.format(J=J,P=P)
+            path=y[0][im][:-4]
+
+            df=pd.concat([df,C])
+
+            df.loc[df["Path"] == y[0][im], "Path"] = path + '.png'
+            ind=path.rfind('/')
+
+            os.makedirs(dir_path+path[:ind],exist_ok=True)
+            cv2.imwrite(dir_path+path+'.png', (x[im][0].clip(0,2)/2*65535).round().astype('uint16'),  [cv2.IMWRITE_PNG_COMPRESSION, 7])         
+    
+    if(train):
+        df.to_csv(dir_path+'CheXpert-v1.0-small/train.csv',sep=',',index=False)
+    else:
+        df.to_csv(dir_path+'CheXpert-v1.0-small/valid.csv',sep=',',index=False)
 
 
 def main():
+    from matplotlib import pyplot as plt
+    from matplotlib import cm
+    from matplotlib import colors
     p = ArgumentParser()
     p.add_arguments(TrainOptions, dest='TrainOptions')
     args = p.parse_args().TrainOptions
-    print(args)
-    cfg = train_config(args)
+    
+    model_args=args.model.split(':')
+    #cfg = train_config(args)
 
     if args.prune != 'off':
         assert args.prune.startswith('ChannelPrune:')
@@ -653,7 +765,23 @@ def main():
         assert a/b != 1
         print(f'done channelpruning.  {a/b}')
 
-    cfg.train(cfg)
+    if(args.make_compress):
+        dct,_=match(args.dset,DSETS_COMPRESS)
+        in_ch,in_ch_mul,wavelet,levels,patch_size,patch_features=model_args
+        enc=get_deepfix_enc(in_ch=int(in_ch),in_ch_multiplier=int(in_ch_mul),levels=int(levels),wavelet=wavelet,patch_size=int(patch_size),patch_features=patch_features)
+        compress_save(enc,DataLoader(dct['test_dset'],batch_size=15),False,int(levels),int(patch_size))
+        print("Testing data saved")
+        compress_save(enc,DataLoader(dct['train_dset'],batch_size=50),True,int(levels),int(patch_size))
+        print("Training data saved")
+    else:
+        cfg=train_config(args)   
+        cfg.train(cfg)
+    
+
+    #linking this to cfg train?
+    #cfg.train(cfg)
+
+
     #  import IPython ; IPython.embed() ; import sys ; sys.exit()
 
     #  with T.profiler.profile(
