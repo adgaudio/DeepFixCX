@@ -17,16 +17,17 @@ df = df.join(model_hyperparams.reset_index('match', drop=True), how='outer')
 
 # generate the plot
 #  note:  pivot table implicitly computes the mean when the sanity check fails
-col = 'ROC AUC LEADERBOARD'
-heatmap_data = df.pivot_table(col, "Patch Size, P", "Wavelet Level, J")
-fig, ax = plt.subplots()
-ax = sns.heatmap(data=heatmap_data, cmap='RdYlGn', annot=True, fmt='.03f', cbar=False, ax=ax)
-ax.set_title('Predictive Performance: Test ROC AUC')
+for col, filename_substring in [('ROC AUC LEADERBOARD', 'rocauc'),
+                                ('BAcc LEADERBOARD', 'bacc_leaderboard')]:
+    heatmap_data = df.pivot_table(col, "Patch Size, P", "Wavelet Level, J")
+    fig, ax = plt.subplots()
+    ax = sns.heatmap(data=heatmap_data, cmap='RdYlGn', annot=True, fmt='.03f', cbar=False, ax=ax)
+    ax.set_title(f'Predictive Performance: Test {col}')
 
-# save the plot to file
-savefp = f'./results/plots/heatmap_perf_rocauc__{experiment_name}.png'
-if os.path.exists(savefp):
-    os.remove(savefp)
-ax.figure.savefig(savefp, bbox_inches='tight')
-heatmap_data.to_csv(savefp.replace('.png', '.csv'))
-print(f'save to: {savefp}')
+    # save the plot to file
+    savefp = f'./results/plots/heatmap_perf_{filename_substring}__{experiment_name}.png'
+    if os.path.exists(savefp):
+        os.remove(savefp)
+    ax.figure.savefig(savefp, bbox_inches='tight')
+    heatmap_data.to_csv(savefp.replace('.png', '.csv'))
+    print(f'save to: {savefp}')
