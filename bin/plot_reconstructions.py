@@ -47,7 +47,7 @@ for J,P in product(range(1,9), args.patch_sizes):
     #
     # get the reconstruction
     recons = enc.reconstruct(op, (H, W), wavelet=args.wavelet, J=J, P=P)
-    print(recons.max(), recons.min())
+    #  print(recons.max(), recons.min())
     #  recons = recons.clamp(0,1)
     #
     #
@@ -58,7 +58,7 @@ for J,P in product(range(1,9), args.patch_sizes):
         reconstructed_imgs[args.patch_sizes.index(P)][J-1] = recons.squeeze().numpy()
 
 # show the reconstructions with the original image overlayed at position (y,x)
-fig, ax = plt.subplots()#figsize=(20,20))
+fig, ax = plt.subplots(dpi=300)#figsize=(20,20))
 y,x = 2270, 1720
 imgmap = np.block(reconstructed_imgs)
 #  imgmap[y-150:y+H+150, x-150:x+W+150] = 1
@@ -78,10 +78,11 @@ ax.set_yticks(
 ax.set_ylabel('Patch Size, P')
 ax.set_xticks(np.linspace(W//2, W*8-W//2, 8), labels=np.arange(1, 9))
 ax.set_xlabel('Wavelet Level, J')
-ax.set_title('DeepFix Image Reconstruction')
+#  ax.set_title('DeepFix Image Reconstruction')
 #  fig.suptitle('Reconstructed images')
 save_fp = f'results/plots/reconstructed_imgs_{",".join(x for x in args.patch_features)}{"_ssim" if args.ssim else ""}.png'
 fig.savefig(save_fp, bbox_inches='tight', dpi=300)
 print('saved to:', save_fp)
 
-plt.show()
+plt.show(block=False)
+plt.pause(2)

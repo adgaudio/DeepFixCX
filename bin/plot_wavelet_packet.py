@@ -24,8 +24,9 @@ def plot_wavelet_packet_transform():
         fig = P.plot_img_grid(
             z,
             cmap='PRGn',
-            vmin=[z[0].min()] + [min(x.min() for x in z[1:])]*(len(z)-1),
-            vmax=[z[0].max()] + [max(x.max() for x in z[1:])]*(len(z)-1),
+            norm=[ plt.cm.colors.CenteredNorm(0) ] + [plt.cm.colors.TwoSlopeNorm(
+                0, min(x.min() for x in z[1:]).item(), max(x.max() for x in z[1:]).item())
+            ]*(len(z)-1),
             ax_titles=[a+b for a in 'AVHD' for b in 'AVHD']
         )#, norm=plt.cm.colors.SymLogNorm(.1))
         save_fp = f'./results/plots/wp_{wavelet}_J{J}.png'

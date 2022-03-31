@@ -45,7 +45,7 @@ class Options:
     plot: bool = False
     normalization: str = 'none'  # 'none' and '0mean' don't affect ks statistic, so just keep it at 'none'. 'whiten' should, but probably gives same result.
 
-k
+
     def __post_init__(self):
         self.experiment_id = f'{self.n_bootstrap}:{self.n_patients}:{self.wavelet}:{self.level}:{self.patchsize}:{",".join(self.patch_features)}'
         self.experiment_id = self.experiment_id.replace(':', '-')

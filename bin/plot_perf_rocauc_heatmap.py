@@ -20,9 +20,9 @@ df = df.join(model_hyperparams.reset_index('match', drop=True), how='outer')
 for col, filename_substring in [('ROC AUC LEADERBOARD', 'rocauc'),
                                 ('BAcc LEADERBOARD', 'bacc_leaderboard')]:
     heatmap_data = df.pivot_table(col, "Patch Size, P", "Wavelet Level, J")
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(6,2.5), dpi=300)
     ax = sns.heatmap(data=heatmap_data, cmap='RdYlGn', annot=True, fmt='.03f', cbar=False, ax=ax)
-    ax.set_title(f'Predictive Performance: Test {col}')
+    #  ax.set_title(f'Predictive Performance: Test {col}')
 
     # save the plot to file
     savefp = f'./results/plots/heatmap_perf_{filename_substring}__{experiment_name}.png'

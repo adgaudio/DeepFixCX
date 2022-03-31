@@ -19,9 +19,12 @@ def make_plot(fp_csv_in, fp_img_out):
          .droplevel(None, axis=1))
     cols = {-2: '- (Missing)', 0: '-', 1: '+', 2: 'Uncertain'}
     z.columns = [cols[k] for k in z.columns]
-    ax = z.plot.barh(stacked=True)
+    fig, ax = plt.subplots(figsize=(5.2,3))
+    z.plot.barh(stacked=True, ax=ax)
+    ax.legend(loc='lower left')
     plt.tight_layout()
     plt.savefig(fp_img_out, bbox_inches='tight')
+    print(fp_img_out)
 
 
 make_plot(
