@@ -202,7 +202,7 @@ class DeepFixCompression(T.nn.Module):
 
     @staticmethod
     def reconstruct(deepfix_embedding: T.Tensor, orig_img_HW:Tuple[int],
-                    wavelet:str, J:int, P:int) -> T.Tensor:
+                    wavelet:str, J:int, P:int, restore_orig_size:bool=True) -> T.Tensor:
         """Use the inverse wavelet transform to reconstruct a deepfix embedding.
         This assumes patch_features is only one feature, like "l1" or "sum".
         It "unpools" the patches by repeating the value of each patch.
@@ -215,6 +215,8 @@ class DeepFixCompression(T.nn.Module):
             wavelet: the value passed to DeepFixCompression
             J: the wavelet level passed to DeepFixCompression
             P: the patch size passed to DeepFixCompression
+            restore_orig_size: If True, reconstruct to the original input size by
+                unpooling.  Otherwise, reconstruct to some smaller size.
         Returns:
             Image of shape (B, C, H, W) corresponding to reconstruction of
             original input image.
@@ -223,15 +225,21 @@ class DeepFixCompression(T.nn.Module):
         H, W = orig_img_HW
         B = deepfix_embedding.shape[0]
         dev = deepfix_embedding.device
+        repY, repX = int(math.ceil(H/2**J/P)), int(math.ceil(W/2**J/P))
+        deepfix_embedding = deepfix_embedding.reshape(B,-1,4**J,P,P)
+        # unpool
+        if restore_orig_size:
+            deepfix_embedding = deepfix_embedding\
+                    .repeat_interleave(repX, dim=-1)\
+                    .repeat_interleave(repY, dim=-2)
+        # normalize
+        deepfix_embedding = deepfix_embedding / (repY*repX)
         # get the reconstruction
         iwp = WaveletPacket2d(levels=J,wavelet=wavelet,inverse=True).to(dev)
-        repY, repX = int(math.ceil(H/2**J/P)), int(math.ceil(W/2**J/P))
-        recons = iwp(
-            deepfix_embedding.reshape(B,-1,4**J,P,P)
-            .repeat_interleave(repX, dim=-1).repeat_interleave(repY, dim=-2) / (repY*repX)
-        )
-        # ... restore original size by removing any padding created by deepfix
-        recons = tvt.CenterCrop((H, W))(recons)
+        recons = iwp(deepfix_embedding)
+        if restore_orig_size:
+            # ... restore original size by removing any padding created by deepfix
+            recons = tvt.CenterCrop((H, W))(recons)
         return recons
 
 
