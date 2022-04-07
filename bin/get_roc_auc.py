@@ -132,7 +132,8 @@ if __name__ == "__main__":
             # save the results to experiments directory
             df = pd.DataFrame(
                 res_dct, index=pd.Index([(experiment_id, args.epochs)], name=('run_id', 'epoch')))
-        df.to_csv(csv_fp)
+            df.to_csv(csv_fp)
+            pd.Series(class_thresholds).to_csv(f'{dirname(dirname(fp))}/class_thresholds.csv')
         # aggregated results
         results.append(df)
     df = pd.concat(results)
@@ -140,6 +141,7 @@ if __name__ == "__main__":
 
     os.makedirs('./results/plots/roc_auc', exist_ok=True)
     df.to_csv(f'./results/plots/roc_auc/test_{args.runid_regex.pattern}.csv')
+
     #  ax = df.plot.barh(legend=False)
     #  ax.figure.legend(loc='center left', bbox_to_anchor=(1.0, 0.5))
     #  ax.figure.savefig(

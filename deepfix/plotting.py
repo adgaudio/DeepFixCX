@@ -56,7 +56,7 @@ def plot_img_grid(imgs: Iterable, suptitle:str = '', rows_cols: Tuple = None,
     norm = tolist(norm, len(fig.axes))
     vmin = tolist(vmin, len(fig.axes))
     vmax = tolist(vmax, len(fig.axes))
-    for zimg, ax, ax_title, norm, vmin, vmax in zip(imgs, axs.ravel(), ax_titles, norm, vmin, vmax):
+    for zimg, ax, ax_title, norm, vmin, vmax in zip(imgs, axs.flatten(), ax_titles, norm, vmin, vmax):
         ax.imshow(zimg, norm=norm, vmin=vmin, vmax=vmax, cmap=cmap)
         ax.set_title(ax_title)
     return fig

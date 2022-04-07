@@ -219,17 +219,21 @@ done
 }
 
 C8() {
-  # baseline, 10% of training data
+  # baseline
   local V=3
   # ${V}.C8.diagnostic.densenet121.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:untrained:1:14 --epochs 80
   # ${V}.C8.Cardiomegaly.densenet121.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:Cardiomegaly --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:untrained:1:1 --epochs 80
-  # ${V}.C8.leaderboard.densenet121.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:leaderboard --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:untrained:1:5 --epochs 80
   # ${V}.C8.Cardiomegaly.resnet18.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:Cardiomegaly --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:untrained:1:1 --epochs 80
-  # ${V}.C8.leaderboard.resnet18.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:leaderboard --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:untrained:1:5 --epochs 80
+
   cat <<EOF
+  ${V}.C8.leaderboard.resnet18.baseline.fromscratch    env batch_size=55 num_workers=6    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:leaderboard --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:untrained:1:5 --epochs 80
+  ${V}.C8.leaderboard.resnet18.baseline.imagenet       env batch_size=55 num_workers=6    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:leaderboard --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:imagenet:1:5 --epochs 80
+  ${V}.C8.leaderboard.densenet121.baseline.fromscratch env batch_size=10 num_workers=6    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:leaderboard --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:untrained:1:5 --epochs 80
+  ${V}.C8.leaderboard.densenet121.baseline.imagenet    env batch_size=10 num_workers=6    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:leaderboard --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:imagenet:1:5 --epochs 80
   ${V}.C8.diagnostic.resnet18.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:untrained:1:14 --epochs 80
   ${V}.C8.diagnostic.resnet18.baseline.imagenet    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:imagenet:1:14 --epochs 80
   ${V}.C8.diagnostic.densenet121.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:untrained:1:14 --epochs 80
+  ${V}.C8.diagnostic.densenet121.baseline.imagenet    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:imagenet:1:14 --epochs 80
 EOF
 }
 # I8() {
@@ -515,38 +519,75 @@ for level in [5,8,1]:
 EOF
 }
 
-timings() {
-  cat <<EOF
-${V}.timing.ResNet18                           env batch_size=15    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:untrained:1:14 --epochs 6 --start_epoch 1
+C24() {
+  # Main predictive experiment, all patch sizes and wavelet levels
+  # version V+0:  with db1, with deepfixmlp:1, with leaderboard classes
+  # version V+1:  with db1, deepfixmlp:0, leaderboard
+  local V=$((V+1))
+  python <<EOF
+# for level in [1,5,8]:
+#     for patchsize in 1,5,160:
+# hack: my gpu has a hardware problem.  too high batch size or num workers causes server to crash.  bypass it this way.
+for level, patchsize in [(1,160), (6,5), (3,19), (8,1)]:
+    model = f"deepfix_v1:5:{level}:{patchsize}:0:db1"
+    print( f"${V}.C24.J={level}.P={patchsize} env num_workers=0 batch_size=200 python deepfix/train.py --dset chexpert_small15k:.9:.1:leaderboard --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg deepfixmlp:0 --model {model} --epochs 80")
+for level in range(1, 9):
+    for patchsize in 1,3,5,9,19,37,79,115,160:
+        if patchsize <= 320 / 2**level:
+        #     print(f"norm:{level}:{patchsize}:{patch_features}:{zero_mean} python bin/compute_deepfix_normalization.py --level {level} --patchsize {patchsize} --patch_features {patch_features} --zero_mean {zero_mean}")
+            model = f"deepfix_v1:5:{level}:{patchsize}:0:db1"
+            print( f"${V}.C24.J={level}.P={patchsize} env num_workers=5 batch_size=600 python deepfix/train.py --dset chexpert_small15k:.9:.1:leaderboard --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg deepfixmlp:0 --model {model} --epochs 80")
+        # # else skip this unnecessary task because the (level, patchsize) isn't doing compression.  This assumes images are 320x320, our default from chexpert dataset
 EOF
+}
+
+timings() {
 python <<EOF
-for J,P in [ (1,1), (160,1), (8,1), (5,5) ]:
+for J,P,batch_size in [ (2,19,1000),(1,1,1350), (1,160,800), (8,1,600), (5,5,1350) ]:
     model = f"deepfix_v1:14:{J}:{P}:0:db1"
-    print(f'''${V}.timing.DeepFix.J={J}.P={P}  env batch_size=1600  python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg deepfixmlp:.1 --model {model} --epochs 6 --start_epoch 1''')
+    print(f'''${V}.timing.DeepFix.J={J}.P={P}  env batch_size={batch_size} num_workers=6  python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg deepfixmlp:.1 --model {model} --epochs 6 --start_epoch 1''')
+EOF
+  cat <<EOF
+${V}.timing.ResNet18                           env batch_size=55 num_workers=6    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:untrained:1:14 --epochs 6 --start_epoch 1
+${V}.timing.Densenet121                        env batch_size=10 num_workers=6    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:untrained:1:14 --epochs 6 --start_epoch 1
 EOF
 }
 
 plots() {
   # compression ratio
   python ./bin/plot_compression_ratio.py --patch_sizes 1 3 5 9 19 37 79 115 160
+  python ./bin/plot_compression_ratio.py --patch_sizes 1 2 3 4 5 6 7 8 --input_size 64 64
+  k
 
   # predictive performance (after running C21 (or C16))
-  # --> ROC AUC
-  python bin/get_roc_auc.py 2.C21
+  # C21 | run_gpus 1
+  # C8 | run_gpus 1
+  # --> get ROC AUC and BAcc data on test set by loading saved model checkpoints
+  python bin/get_roc_auc.py 3.C8 --overwrite
+  python bin/get_roc_auc.py 2.C21 --overwrite
+  python bin/get_roc_auc.py 2.C24 --overwrite
+  # --> make the heatmap plot
   bin/plot_perf_rocauc_heatmap.py 2.C21
-  # --> BAcc
-  ./bin/plot_heatmap_levels_vs_patchsize.sh 2.C21
+  bin/plot_perf_rocauc_heatmap.py 2.C24
+  # --> BAcc on val set, with 0.5 threshold instead of optimal threshold
+  # ./bin/plot_heatmap_levels_vs_patchsize.sh 2.C21
 
   # privacy: re-identification  (after running C22)
-  ./bin/plot_ks_heatmap.py 2000
-  # privacy: reconstruction
-  batch_size=300 python ./bin/plot_ssim_heatmap.py
-  batch_size=300 python ./bin/plot_ssim_heatmap.py --patch_features sum
+  # C22 | run_gpus 1
+  ./bin/plot_ks_heatmap.py 2000 1
+  # --> reconstruction heatmap plot (ssim)
+  batch_size=300 python ./bin/plot_ssim_heatmap.py --overwrite
+  batch_size=300 python ./bin/plot_ssim_heatmap.py --overwrite --patch_features sum
+  # --> pictures of reconstructed images
   python ./bin/plot_reconstructions.py
+  python ./bin/plot_reconstructions.py --ssim
+  # ... and appendix
+  python ./bin/plot_reconstructions.py --patch_features sum
+  python ./bin/plot_reconstructions.py --ssim --patch_features sum
 
   # visualize the 4-d cube with scatter matrix (after running above plots)
   # not used
-  # ./bin/plot_3d.py
+  # python ./bin/plot_3d.py
 }
 
 
@@ -581,22 +622,24 @@ plots() {
 # C13 | grep compute_deepfix | parallel -j 10
 # C13 | grep -v compute_deepfix | run_gpus 5
 # C15 | run_gpus 1
-export num_workers=6
-export batch_size=16
+# export num_workers=6
+# export batch_size=16
 # compute_normalization | grep -v chexpert_small | parallel -j 1  # "{} --device cpu"
 # C20 | run_gpus 3  # 4.588 gb gpu ram for batchsize=10
-export num_workers=2
-export batch_size=200
+# export num_workers=2
+# export batch_size=200
 # compute_normalization | grep chexpert_small | parallel -j 5
 # # ( C17 ) #| run_gpus 1
 # ( C16 ; C17 ; C18 ) | run_gpus 1
 # C19 | run_gpus 1
 # C21 | run_gpus 1
 # C22 | run_gpus 1
-export num_workers=0
-export batch_size=400
+# export num_workers=0
+# export batch_size=400
 # C23 | run_gpus 1
 # C18 | run_gpus 1
-export batch_size=100
+# export batch_size=100
 # C19 | run_gpus 1
 timings | run_gpus 1
+# C24 | run_gpus 1
+# C8 | run_gpus 1

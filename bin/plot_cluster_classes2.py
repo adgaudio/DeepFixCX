@@ -182,8 +182,8 @@ if __name__ == "__main__":
 
     @dc.dataclass
     class CmdlineOpts:
-        J:int = 1
-        P:int = 79
+        J:int = 2
+        P:int = 19
     from simple_parsing import ArgumentParser
     args = ArgumentParser()
     args.add_arguments(CmdlineOpts, dest='args')
@@ -204,12 +204,17 @@ if __name__ == "__main__":
     # backwards compatibility with earlier version of deepfix
     mdl.compression_mdl.wavelet_encoder.adaptive = 0
 
+    # get the thresholds (from the get_rocauc script) for true prediction.
+    class_thresholds = pd.read_csv(
+        f'{os.path.dirname(os.path.dirname(fp))}/class_thresholds.csv',
+        index_col=0)['0']
+
     # VAL dataset for more samples
     dset_dct, class_names = get_dset_chexpert(.9, .01, small=True)
     d = dset_dct['val_dset']
     # create dataloader for ONLY frontal imgs
     lcsv = d.dataset.labels_csv
-    idxs = np.arange(len(d.dataset))[((lcsv['index'].isin(d.indices)) & (lcsv['Frontal/Lateral'] == 1)).values]
+    idxs = np.arange(len(d.dataset))[((lcsv['index'].isin(d.indices)) & (lcsv['Frontal/Lateral'] == 0)).values]
     d = T.utils.data.Subset(d.dataset, idxs)
     N = len(d)
     d = T.utils.data.DataLoader(d, batch_size=B, shuffle=False)
@@ -218,19 +223,20 @@ if __name__ == "__main__":
     # TEST dataset
     #  dset_dct, class_names = get_dset_chexpert(.9, .1, small=True)
     #  d = dset_dct['test_dset']
+    #  lcsv = d.labels_csv
     #  #  d = dset_dct['val_dset']
-    #  # create dataloader for ONLY frontal imgs
-    #  d = T.utils.data.Subset(d, np.arange(len(d))[d.labels_csv['Frontal/Lateral'] == 0])
+    #  #  lcsv = d.dataset.labels_csv
+    #  #  create dataloader for ONLY frontal imgs
+    #  idxs = np.arange(len(d))[(lcsv['Frontal/Lateral'] == 0).values]
+    #  d = T.utils.data.Subset(d, idxs)
     #  N = len(d)
     #  d = T.utils.data.DataLoader(d, batch_size=B, shuffle=False)
+    #  import sys ; sys.exit()
 
 
     # get saliency
     print("Get Saliency of all images in dataset")
-    #  iwp = WaveletPacket2d(wavelet, levels=J, inverse=True).to(device)
-    explainer = captum.attr.NoiseTunnel(captum.attr.Saliency( T.nn.Sequential(mdl.mlp, T.nn.Sigmoid())))
-        #  captum.attr.IntegratedGradients(mdl.mlp))
-    #  explainer = captum.attr.IntegratedGradients(mdl.mlp)
+    explainer = captum.attr.DeepLift(mdl.mlp, True)
     attrs_img_mean, attrs_enc_mean = {}, {}
     attrs_cm = defaultdict(lambda: (T.tensor(0.), 0))
     gtlabels, preds = [], []
@@ -239,49 +245,54 @@ if __name__ == "__main__":
         _B = x.shape[0]
         # get Deepfix encoding
         enc = mdl.compression_mdl(x)
+        # Use the approximation image as baseline for the attribution method
+        baseline = enc.reshape(_B, 4**J,P,P).clone()
+        baseline[:, 1:] = 0
+        baseline = baseline.reshape(enc.shape)
         # save predictions / ground truth
         gtlabels.append(mb[1])
         with T.no_grad():
             preds.append(mdl.mlp(enc).cpu())
-            # reconstruct the image
-            recon_img = mdl.compression_mdl.reconstruct(
-                enc, orig_img_shape, wavelet=wavelet, J=J, P=P).cpu()
+        # reconstruct the image
+        recon_img = mdl.compression_mdl.reconstruct(
+            enc.detach(), orig_img_shape, wavelet=wavelet, J=J, P=P).cpu()
         # Compute attribution maps.  Assume no access to original img
         attrs_enc, attrs_img = {}, {}
         for i, kls in enumerate(class_names):
             attrs_enc[kls] = (
                 explainer.attribute(
-                    enc, target=i,
-                    nt_samples=15, nt_samples_batch_size=B, nt_type='smoothgrad',
+                    enc, target=i, baselines=baseline,
+                    #  nt_samples=15, nt_samples_batch_size=B, nt_type='smoothgrad',
                 )
-                .detach().reshape((_B, I, 4**J, P, P)).float())
+                .detach().reshape((_B, I, 4**J, P, P)).float()) ** 2
             attrs_img[kls] = mdl.compression_mdl.reconstruct(
-                attrs_enc[kls], orig_img_shape, wavelet=wavelet, J=J, P=P).cpu() #(1+recon_img.clamp(0,1))
-            #  attrs_img[kls] = T.nn.Upsample(orig_img_shape)(iwp(attrs_enc[kls]).cpu())
+                attrs_enc[kls], orig_img_shape, wavelet=wavelet, J=J, P=P,
+                restore_orig_size=True).cpu().abs()
         # Aggregate attribution maps
         for i, kls in enumerate(class_names):
             # overall avg saliency per class.
             if kls not in attrs_img_mean:
-                attrs_img_mean[kls] = attrs_img[kls].sum(0).cpu()/N
-                attrs_enc_mean[kls] = attrs_enc[kls].sum(0).cpu()/N
+                attrs_img_mean[kls] = attrs_img[kls].abs().sum(0).cpu().clone()/N
+                attrs_enc_mean[kls] = attrs_enc[kls].abs().sum(0).cpu().clone()/N
             else:
-                attrs_img_mean[kls] += attrs_img[kls].sum(0).cpu()/N
-                attrs_enc_mean[kls] += attrs_enc[kls].sum(0).cpu()/N
+                attrs_img_mean[kls] += attrs_img[kls].abs().sum(0).cpu().clone()/N
+                attrs_enc_mean[kls] += attrs_enc[kls].abs().sum(0).cpu().clone()/N
             # avg saliency per class per errtype (errtypes in {fp, tp, fn, fp})
             # ... for given class, assign samples to each possible value of the
             #     confusion matrix.  aggregate by maintaining a running mean
+            t = class_thresholds[kls]  # TODO: check it is correct.
             mb_stats = dict(
-                tp=(mb[1][:, i] == 1) == (preds[-1][:, i] > 0).cpu(),
-                fp=(mb[1][:, i] == 0) == (preds[-1][:, i] > 0).cpu(),
-                fn=(mb[1][:, i] == 1) == (preds[-1][:, i] < 0).cpu(),
-                tn=(mb[1][:, i] == 0) == (preds[-1][:, i] < 0).cpu())
+                tp=(mb[1][:, i] == 1) == (preds[-1][:, i] > t).cpu(),
+                fp=(mb[1][:, i] == 0) == (preds[-1][:, i] > t).cpu(),
+                fn=(mb[1][:, i] == 1) == (preds[-1][:, i] < t).cpu(),
+                tn=(mb[1][:, i] == 0) == (preds[-1][:, i] < t).cpu())
             # running mean
             for errtyp in 'tn', 'fp', 'fn', 'tp':
                 oldval, oldcnt = attrs_cm[(kls, errtyp)]
                 mask = mb_stats[errtyp]
                 if mask.sum() == 0: continue
                 newcnt = oldcnt + mask.sum()
-                _newvals = attrs_img[kls][mask].abs().sum(0).cpu()
+                _newvals = attrs_img[kls][mask].sum(0).cpu().clone()
                 attrs_cm[(kls, errtyp)] = (oldval * oldcnt/newcnt + _newvals/newcnt, newcnt)
     attrs_cm = dict(attrs_cm)
     gtlabels = T.cat(gtlabels, 0)
@@ -290,12 +301,13 @@ if __name__ == "__main__":
     # plot the image and reconstruction
     dplt.plot_img_grid(x.squeeze(1), cmap='gray')
     dplt.plot_img_grid(recon_img.squeeze(1), cmap='gray')
+
     #
     # plot reconstructions and saliency for just a few images
     #
     for class_idx, class_name in enumerate(class_names[:4]):
         with T.no_grad():
-            yhat = ((mdl.mlp(enc)[:, class_idx]>0)*1.).tolist()
+            yhat = ((mdl.mlp(enc)[:, class_idx]>class_thresholds[class_name])*1.).tolist()
         labels = list(zip(mb[1][:, class_idx].tolist(), yhat))
         #  dplt.plot_img_grid(
             #  attrs_img[class_name].abs().squeeze(1), vmin='min', vmax='max',
@@ -315,8 +327,19 @@ if __name__ == "__main__":
 
 
     # plot the average saliency per class
-    dplt.plot_img_grid([attrs_img_mean[k].squeeze(0).abs() for k in class_names], ax_titles=class_names, suptitle='Per-class Average Saliency Attribution', cmap='gray'), #, norm=plt.cm.colors.PowerNorm(.2))
+    #  fig, = dplt.plot_img_grid([attrs_cm[(k, 'fp')][0].squeeze(0).abs()+  attrs_cm[(k, 'fn')][0].squeeze(0).abs() for k in class_names], ax_titles=class_names, suptitle='Per-class Average Saliency Attribution', cmap='gray'), #, norm=plt.cm.colors.PowerNorm(.2))
+    asterisk = list(sorted(['Atelectasis', 'Cardiomegaly', 'Consolidation', 'Edema', 'Pleural Effusion']))
+    not_asterisk = list(sorted([k for k in class_names if k not in asterisk]))
+    fig, = dplt.plot_img_grid(
+        [attrs_img[k].squeeze(0).abs().squeeze(0) for k in asterisk + not_asterisk],
+        ax_titles=[(k.replace("Enlarged Car", "Enlarged\nCar")+("*" if k in asterisk else ""))
+                   for k in (asterisk+not_asterisk)],
+        cmap='gray', rows_cols=(2,7)), #, norm=plt.cm.colors.PowerNorm(.2))
+    #  fig.tight_layout()
+    fig.subplots_adjust(hspace=0, wspace=0)
+    fig.savefig('./results/plots/attribution_all_classes.png', bbox_inches='tight')
     # ... one figure of subplots with avg saliency over the confusion matrix: TP, FP, FN, TN
+
     #  for i, k in enumerate(class_names):
     #      arrs = []
     #      errtypes = 'tp', 'tn', 'fp', 'fn'
@@ -326,28 +349,29 @@ if __name__ == "__main__":
     #          arrs.append(attr_map.squeeze() if n != 0 else [[np.nan]])
     #      dplt.plot_img_grid(arrs, ax_titles=errtypes, suptitle=k, rows_cols=(1,4), cmap='gray')
 
-    #      fig, axs = plt.subplots(1, 4)
-    #      for ar, ax in zip(arrs, axs):
-    #          ax.imshow(ar.cpu().numpy().squeeze(0))
-
-
     # how classes distribute across wavelet level and wavelet a,h,v,d orientations.
-    df = pd.DataFrame({k: attrs_enc_mean[k].sum((-2,-1)).squeeze(0).cpu().numpy() for k in class_names})
+    df = pd.DataFrame({k: attrs_enc_mean[k].abs().sum((-2,-1)).squeeze(0).cpu().numpy() for k in class_names})
     df.index = list(''.join(x) for x in product(*['AHVD']*J))
-    z = df
-    z = z / z.sum(1).values.reshape(-1,1)
-    #  z = z / z.sum(0)
-    z.plot.bar(stacked=True, title='Distribution across wavelet scales and orientations')
-
+    z = df.copy()
+    z = z.abs()  # tmp
+    #  z = z / z.sum(1).values.reshape(-1,1)
+    z = z / z.sum(0)
+    ax = z.plot.bar(stacked=True, legend=False)
+    ax.legend(ncol=1, loc='upper right')
+    ax.figure.savefig('./results/plots/attribution_magnitude_scales_orientations.png', bbox_inches='tight')
 
     df = pd.DataFrame({k: v.cpu().numpy().ravel() for k, v in attrs_enc_mean.items()})
     X = pd.DataFrame({k: v.cpu().numpy().ravel() for k, v in attrs_img.items()}).T.values
+    #  X = X/X.sum(1, keepdims=True)
     model = AgglomerativeClustering(
         n_clusters=None,
         affinity='euclidean',
         distance_threshold=0,  # ensures we compute whole tree, from sklearn docs
         linkage="ward",
     )
+#  [
+        #  'Cardiomegaly', 'Lung Opacity', 'Edema', 'Pneumothorax',
+        #  'Pleural Effusion', 'Support Devices']]
     model.fit(X)
     Z = get_linkage_matrix_from_sklearn(model)
     Z[:,2] = 1 + (Z[:,2] - Z[:,2].min())/(Z[:,2]-Z[:,2].min()).std()

@@ -235,7 +235,8 @@ class DeepFixCompression(T.nn.Module):
         # normalize
         deepfix_embedding = deepfix_embedding / (repY*repX)
         # get the reconstruction
-        iwp = WaveletPacket2d(levels=J,wavelet=wavelet,inverse=True).to(dev)
+        iwp = WaveletPacket2d(levels=J,wavelet=wavelet,inverse=True).to(
+            dev, deepfix_embedding.dtype)
         recons = iwp(deepfix_embedding)
         if restore_orig_size:
             # ... restore original size by removing any padding created by deepfix
