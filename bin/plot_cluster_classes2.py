@@ -331,7 +331,7 @@ if __name__ == "__main__":
     asterisk = list(sorted(['Atelectasis', 'Cardiomegaly', 'Consolidation', 'Edema', 'Pleural Effusion']))
     not_asterisk = list(sorted([k for k in class_names if k not in asterisk]))
     fig, = dplt.plot_img_grid(
-        [attrs_img[k].squeeze(0).abs().squeeze(0) for k in asterisk + not_asterisk],
+        [attrs_img_mean[k].squeeze(0).abs().squeeze(0) for k in asterisk + not_asterisk],
         ax_titles=[(k.replace("Enlarged Car", "Enlarged\nCar")+("*" if k in asterisk else ""))
                    for k in (asterisk+not_asterisk)],
         cmap='gray', rows_cols=(2,7)), #, norm=plt.cm.colors.PowerNorm(.2))
