@@ -219,17 +219,21 @@ done
 }
 
 C8() {
-  # baseline, 10% of training data
+  # baseline
   local V=3
   # ${V}.C8.diagnostic.densenet121.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:untrained:1:14 --epochs 80
   # ${V}.C8.Cardiomegaly.densenet121.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:Cardiomegaly --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:untrained:1:1 --epochs 80
-  # ${V}.C8.leaderboard.densenet121.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:leaderboard --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:untrained:1:5 --epochs 80
   # ${V}.C8.Cardiomegaly.resnet18.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:Cardiomegaly --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:untrained:1:1 --epochs 80
-  # ${V}.C8.leaderboard.resnet18.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:leaderboard --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:untrained:1:5 --epochs 80
+
   cat <<EOF
+  ${V}.C8.leaderboard.resnet18.baseline.fromscratch    env batch_size=55 num_workers=6    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:leaderboard --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:untrained:1:5 --epochs 80
+  ${V}.C8.leaderboard.resnet18.baseline.imagenet       env batch_size=55 num_workers=6    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:leaderboard --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:imagenet:1:5 --epochs 80
+  ${V}.C8.leaderboard.densenet121.baseline.fromscratch env batch_size=10 num_workers=6    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:leaderboard --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:untrained:1:5 --epochs 80
+  ${V}.C8.leaderboard.densenet121.baseline.imagenet    env batch_size=10 num_workers=6    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:leaderboard --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:imagenet:1:5 --epochs 80
   ${V}.C8.diagnostic.resnet18.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:untrained:1:14 --epochs 80
   ${V}.C8.diagnostic.resnet18.baseline.imagenet    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:imagenet:1:14 --epochs 80
   ${V}.C8.diagnostic.densenet121.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:untrained:1:14 --epochs 80
+  ${V}.C8.diagnostic.densenet121.baseline.imagenet    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:imagenet:1:14 --epochs 80
 EOF
 }
 # I8() {
@@ -423,12 +427,19 @@ EOF
 C18() {
   # Adaptive=1
   # Main predictive experiment, all patch sizes and wavelet levels
+  local V=$((V+2))
+  # v=v  uses wavelet=db1 with standard 0mean normalization
+  # v=v+1 same as above, but hacked to compute selu in each recursive level
+  # v=v+2 uses wavelet='normal_:2' and normalization='batchnorm'
   python <<EOF
-for level in [1,5,8]:  #range(1, 9):
+wavelet = 'normal_,2'
+normalization = 'batchnorm'  #  '0mean,chexpert_small'
+for level in [5]: # ,8,1]:  #range(1, 9):
     # for patchsize in 1,3,5,9,19,37,79,115,160:
-    for patchsize in 1,5,160:
+    # for patchsize in 5,1,160:
+    for patchsize in 5,:
         if patchsize <= 320 / 2**level:
-            model = f"deepfix_v1:14:{level}:{patchsize}:1"
+            model = f"deepfix_v1:14:{level}:{patchsize}:1:{wavelet}:{normalization}"
             print( f"${V}.C18.J={level}.P={patchsize} python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg deepfixmlp:.1 --model {model} --epochs 80")
         # # else skip this unnecessary task because the (level, patchsize) isn't doing compression.  This assumes images are 320x320, our default from chexpert dataset
 EOF
@@ -436,6 +447,9 @@ EOF
 C19() {
   # Adaptive=2
   # Main predictive experiment, all patch sizes and wavelet levels
+  # v=v  uses wavelet=db1
+  # v=v+1 uses wavelet=db1, but hacked to compute selu in each recursive thing
+  local V=$((V+1))
   python <<EOF
 for level in [1,5,8]:  #range(1, 9):
     # for patchsize in 1,3,5,9,19,37,79,115,160:
@@ -451,12 +465,12 @@ C20() {
   python <<EOF
 # for level in range(1, 9):
 #     for patchsize in 1,3,5,9,19,37,79,115,160:
-for level in [1,5,8]:  #range(1, 9):
-    for patchsize in 1,5,160:
+for level in [5,8,1]:  #range(1, 9):
+    for patchsize in 5,160,1:
         if patchsize <= 320 / 2**level:
         #     print(f"norm:{level}:{patchsize}:{patch_features}:{zero_mean} python bin/compute_deepfix_normalization.py --level {level} --patchsize {patchsize} --patch_features {patch_features} --zero_mean {zero_mean}")
             model = f"deepfix_v1:14:{level}:{patchsize}"
-            print( f"${V}.C20.J={level}.P={patchsize} python deepfix/train.py --dset chexpert15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg deepfixmlp:.1 --model {model} --epochs 80")
+            print( f"${V}.C20.J={level}.P={patchsize} python deepfix/train.py --dset chexpert15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg deepfixmlp:.1 --model {model} --epochs 80 --start_epoch 1")
         # # else skip this unnecessary task because the (level, patchsize) isn't doing compression.  This assumes images are 320x320, our default from chexpert dataset
 EOF
 }
@@ -464,10 +478,10 @@ C21() {
   # Main predictive experiment, all patch sizes and wavelet levels
   # with db1 (since coif2 has large filters, and edge artifacts might be problematic)
   python <<EOF
-for level in range(1, 9):
-    for patchsize in 1,3,5,9,19,37,79,115,160:
 # for level in [1,5,8]:
 #     for patchsize in 1,5,160:
+for level in range(1, 9):
+    for patchsize in 1,3,5,9,19,37,79,115,160:
         if patchsize <= 320 / 2**level:
         #     print(f"norm:{level}:{patchsize}:{patch_features}:{zero_mean} python bin/compute_deepfix_normalization.py --level {level} --patchsize {patchsize} --patch_features {patch_features} --zero_mean {zero_mean}")
             model = f"deepfix_v1:14:{level}:{patchsize}:0:db1"
@@ -476,6 +490,132 @@ for level in range(1, 9):
 EOF
 }
 
+C22()  {
+  # Compute the re-identification privacy scores
+  python <<EOF
+wavelet = 'db1'
+n_patients = 2000
+# n_patients = 6  # for testing
+# for level in [8,5,1]:
+#     for patchsize in 1,5,160:
+for level in range(1, 9):
+    for patchsize in 1,3,5,9,19,37,79,115,160:
+        if patchsize <= 320 / 2**level:
+            print(f'''${V}.C22.{n_patients}.{wavelet}.J={level}.P={patchsize} python bin/anonymity_score.py --n_bootstrap 6 --wavelet {wavelet} --level {level} --patchsize {patchsize} --n_patients {n_patients} --plot ''')
+EOF
+}
+
+C23() {
+  # Adapt, unet before encoder
+  python <<EOF
+for level in [5,8,1]:
+    for patchsize in 5,1,160:
+# for level in range(1, 9):
+    # for patchsize in 1,3,5,9,19,37,79,115,160:
+        if patchsize <= 320 / 2**level:
+            model = f"adeepfix_v1:14:{level}:{patchsize}"
+            print( f"${V}.C23.J={level}.P={patchsize} python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg deepfixmlp:.1 --model {model} --epochs 80")
+        # # else skip this unnecessary task because the (level, patchsize) isn't doing compression.  This assumes images are 320x320, our default from chexpert dataset
+EOF
+}
+
+C24() {
+  # Main predictive experiment, all patch sizes and wavelet levels
+  # version V+0:  with db1, with deepfixmlp:1, with leaderboard classes
+  # version V+1:  with db1, deepfixmlp:0, leaderboard
+  local V=$((V+1))
+  python <<EOF
+# for level in [1,5,8]:
+#     for patchsize in 1,5,160:
+# hack: my gpu has a hardware problem.  too high batch size or num workers causes server to crash.  bypass it this way.
+for level, patchsize in [(1,160), (6,5), (3,19), (8,1)]:
+    model = f"deepfix_v1:5:{level}:{patchsize}:0:db1"
+    print( f"${V}.C24.J={level}.P={patchsize} env num_workers=0 batch_size=200 python deepfix/train.py --dset chexpert_small15k:.9:.1:leaderboard --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg deepfixmlp:0 --model {model} --epochs 80")
+for level in range(1, 9):
+    for patchsize in 1,3,5,9,19,37,79,115,160:
+        if patchsize <= 320 / 2**level:
+        #     print(f"norm:{level}:{patchsize}:{patch_features}:{zero_mean} python bin/compute_deepfix_normalization.py --level {level} --patchsize {patchsize} --patch_features {patch_features} --zero_mean {zero_mean}")
+            model = f"deepfix_v1:5:{level}:{patchsize}:0:db1"
+            print( f"${V}.C24.J={level}.P={patchsize} env num_workers=5 batch_size=600 python deepfix/train.py --dset chexpert_small15k:.9:.1:leaderboard --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg deepfixmlp:0 --model {model} --epochs 80")
+        # # else skip this unnecessary task because the (level, patchsize) isn't doing compression.  This assumes images are 320x320, our default from chexpert dataset
+EOF
+}
+
+timings_e2e_table() {
+  # data for the end-to-end timing table.
+python <<EOF
+for J,P,batch_size in [ (6,5,1000), (2,19,1000),(1,1,1350), (1,160,800), (8,1,600), (5,5,1350) ]:
+    model = f"deepfix_v1:14:{J}:{P}:0:db1"
+    print(f'''${V}.timing.DeepFix.J={J}.P={P}  env batch_size={batch_size} num_workers=6  python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg deepfixmlp:.1 --model {model} --epochs 6 --start_epoch 1''')
+EOF
+  cat <<EOF
+${V}.timing.ResNet18                           env batch_size=55 num_workers=6    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:untrained:1:14 --epochs 6 --start_epoch 1
+${V}.timing.Densenet121                        env batch_size=10 num_workers=6    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:untrained:1:14 --epochs 6 --start_epoch 1
+EOF
+}
+
+timings_2_table() {
+  # data for the timings table for encoder
+  python<<EOF
+for J,P in [(6,5), (0,0), (2,19), (1,1), (1,160)]:
+  for dev in ['cpu','cuda']:
+    print(f"""${V}.timing2.{J}.{P}.{dev} env batch_size=1000 num_workers=10 python bin/table_timing_encoder_decoder.py -J {J} -P {P} --device {dev}""")
+EOF
+}
+
+filesizes_table() {
+  # data to report on-disk compression performance
+python <<EOF
+for J,P in [(6,5), (0,0), (2,19), (1,1), (1,160)]:
+  for fmt in ['jpg','png']:
+    print(f"""python bin/make_compressed_dataset.py -J {J} -P {P} --read_from_dirpath ./data/CheXpert-v1.0-small/  --compressed_img_format {fmt} --dsets valid""")
+for J,P in [(6,5), (0,0), (2,19), (1,1), (1,160)]:
+  for fmt in ['jpg','png']:
+    print(f"""echo {J} {P} {fmt} \$(find data/CheXpert-v1.0-small.compressed_{fmt}.J={J}.P={P}/valid -type f| parallel du -b |  datamash mean 1)""")
+# the train set
+for fmt in ['jpg','png']:
+  print(f"""python bin/make_compressed_dataset.py -J 2 -P 19 --read_from_dirpath ./data/CheXpert-v1.0-small/  --compressed_img_format {fmt} --dsets train""")
+EOF
+}
+
+plots() {
+  # compression ratio
+  python ./bin/plot_compression_ratio.py --patch_sizes 1 3 5 9 19 37 79 115 160
+  python ./bin/plot_compression_ratio.py --patch_sizes 1 2 3 4 5 6 7 8 --input_size 64 64
+
+  # predictive performance (after running C21 (or C16))
+  # C21 | run_gpus 1
+  # C8 | run_gpus 1
+  # --> get ROC AUC and BAcc data on test set by loading saved model checkpoints
+  python bin/get_roc_auc.py 3.C8 --overwrite
+  python bin/get_roc_auc.py 2.C21 --overwrite
+  python bin/get_roc_auc.py 2.C24 --overwrite
+  # --> make the heatmap plot
+  bin/plot_perf_rocauc_heatmap.py 2.C21
+  bin/plot_perf_rocauc_heatmap.py 2.C24
+  # --> BAcc on val set, with 0.5 threshold instead of optimal threshold
+  # ./bin/plot_heatmap_levels_vs_patchsize.sh 2.C21
+
+  # privacy: re-identification  (after running C22)
+  # C22 | run_gpus 1
+  ./bin/plot_ks_heatmap.py 2000 1
+  # --> reconstruction heatmap plot (ssim)
+  batch_size=300 python ./bin/plot_ssim_heatmap.py --overwrite
+  batch_size=300 python ./bin/plot_ssim_heatmap.py --overwrite --patch_features sum
+  # --> pictures of reconstructed images
+  python ./bin/plot_reconstructions.py
+  python ./bin/plot_reconstructions.py --ssim
+  # ... and appendix
+  python ./bin/plot_reconstructions.py --patch_features sum
+  python ./bin/plot_reconstructions.py --ssim --patch_features sum
+
+  # visualize the 4-d cube with scatter matrix (after running above plots)
+  # not used
+  # python ./bin/plot_3d.py
+
+  # make a privatized and compressed chexpert dataset on the disk
+  # python bin/make_compressed_dataset.py -J 2 -P 19 --centercrop 320 320 --compressed_img_format png --read_from_dirpath ./data/CheXpert-v1.0-small/
+}
 
 
 # I1 | expand 3 | run_gpus echo 5
@@ -509,18 +649,26 @@ EOF
 # C13 | grep compute_deepfix | parallel -j 10
 # C13 | grep -v compute_deepfix | run_gpus 5
 # C15 | run_gpus 1
-# compute_normalization #| parallel -j 8
-export num_workers=0
+# export num_workers=6
+# export batch_size=16
+# compute_normalization | grep -v chexpert_small | parallel -j 1  # "{} --device cpu"
+# C20 | run_gpus 3  # 4.588 gb gpu ram for batchsize=10
+# export num_workers=2
 # export batch_size=200
+# compute_normalization | grep chexpert_small | parallel -j 5
 # # ( C17 ) #| run_gpus 1
 # ( C16 ; C17 ; C18 ) | run_gpus 1
-# C21 | run_gpus 2
-# export batch_size=200
-# # C18 | run_gpus 1
 # C19 | run_gpus 1
-# compute_normalization | grep chexpert_small | parallel -j 5
-
-export num_workers=0
-export batch_size=10
-# C20 | run_gpus 2  # 4.588 gb gpu ram for batchsize=10
-compute_normalization | grep -v chexpert_small | parallel -j 1  # "{} --device cpu"
+# C21 | run_gpus 1
+# C22 | run_gpus 1
+# export num_workers=0
+# export batch_size=400
+# C23 | run_gpus 1
+# C18 | run_gpus 1
+# export batch_size=100
+# C19 | run_gpus 1
+# timings_e2e_table | run_gpus 1
+timings_2_table | run_gpus 1
+# filesizes_table | parallel -j 1
+# C24 | run_gpus 1
+# C8 | run_gpus 1

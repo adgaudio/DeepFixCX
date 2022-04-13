@@ -18,7 +18,7 @@ class DeepFix_TrainOneEpoch:
         >>> cfg.train()
     """
     def __init__(self, N:int, P:float, R:int,
-                 train_one_epoch_fn:Callable[TL.TrainConfig, TL.Result]):
+                 train_one_epoch_fn:Callable[[TL.TrainConfig], TL.Result]):
         """
         Args:
             N: Re-initialize weights every N epochs.  N>1.
@@ -51,10 +51,10 @@ class DeepFix_TrainOneEpoch:
 
 @dc.dataclass
 class DeepFix_LambdaInit:
-    init_fn: Callable[T.nn.Module,None]
+    init_fn: Callable[[T.nn.Module], None]
     args:tuple = ()
     kwargs:dict = dc.field(default_factory=dict)
-    train_one_epoch_fn:Callable[TL.TrainConfig, TL.Result] = TL.train_one_epoch
+    train_one_epoch_fn:Callable[[TL.TrainConfig], TL.Result] = TL.train_one_epoch
     _called = False
 
     def __call__(self, cfg: TL.TrainConfig):
@@ -67,7 +67,7 @@ class DeepFix_LambdaInit:
 @dc.dataclass
 class DeepFix_DHist:
     fp: str
-    train_one_epoch_fn:Callable[TL.TrainConfig, TL.Result] = TL.train_one_epoch
+    train_one_epoch_fn:Callable[[TL.TrainConfig], TL.Result] = TL.train_one_epoch
     init_with_hist:bool = True
     fixed:bool = False
     _called = False

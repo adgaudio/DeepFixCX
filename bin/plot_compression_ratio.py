@@ -36,7 +36,7 @@ if not args.patch_sizes:
 
 data = []
 gen = ((J,P,M)
-       for J in range(1, 9+1)
+       for J in range(1, int(math.log2(min(args.input_shape)))+1)
        for P in args.patch_sizes
        for M in [1])
 for J,P,M in gen:
@@ -45,52 +45,56 @@ for J,P,M in gen:
         wavelet='db1', patch_size=P, patch_features=args.patch_features,
         how_to_error_if_input_too_small='raise')
     x = T.zeros((1,1,*args.input_shape))
-    try:
+    if P <= min(args.input_shape) / 2**J:
         z = enc1(x)
         cr = math.prod(z.shape) / math.prod(x.shape) * 100
         out_size = math.prod(z.shape)
-    except InvalidWaveletParametersError:
+    else:
         cr = float('nan')
         out_size = -1
     #  plt.figure() ; plt.imshow(x.squeeze(), cmap='gray')
     #  res = enc1.wavelet_encoder(x.unsqueeze(0))
     data.append({
-        'Wavelet Levels': J, 'Patch Size': P, 'Channel Multiplier': M,
-        'Compression Ratio (%)': cr,
+        'Wavelet Level, J': J, 'Patch Size, P': P, 'Channel Multiplier': M,
+        'Compression Ratio (% of original size)': cr,
         'Input Shape': x.shape,
         'Output Size': out_size,
     })
 df = pd.DataFrame(data)
-print(df.to_string(float_format=lambda x: f'{x:.04f}'))
+#  print(df.to_string(float_format=lambda x: f'{x:.04f}'))
 
-fig1, (ax1) = plt.subplots(1,1, figsize=(8,4))
+fig1, (ax1) = plt.subplots(1,1, figsize=(6,2.5), dpi=300)
 #  fig1.suptitle('Compression % for varying Patch Size vs Wavelet Levels')
+heatmap_data = df.pivot_table('Compression Ratio (% of original size)', 'Patch Size, P', 'Wavelet Level, J')
 sns.heatmap(
-    df.pivot_table('Compression Ratio (%)', 'Patch Size', 'Wavelet Levels'),
-    norm=plt.cm.colors.LogNorm(), ax=ax1, annot=True, fmt='.03f')
-ax1.set_title('Compression Ratio (%)')
+    heatmap_data,
+    norm=plt.cm.colors.LogNorm(), ax=ax1, annot=True, fmt='.03f', cbar=False)
+#  ax1.set_title('Compression Ratio (% of original size)')
 
 fig2, (ax2) = plt.subplots(1,1, figsize=(8,8))
 sns.heatmap(
-    df.pivot_table('Output Size', 'Patch Size', 'Wavelet Levels'),
+    df.pivot_table('Output Size', 'Patch Size, P', 'Wavelet Level, J'),
     norm=None, ax=ax2)
 ax2.set_title('Output Size')
 #  fig.tight_layout()
-fig1.savefig('results/plots/compression_ratio_varying_patch_and_level.png', bbox_inches='tight')
+save_fp = 'results/plots/compression_ratio_varying_patch_and_level.png'
+fig1.savefig(save_fp, bbox_inches='tight')
+print('save to', save_fp)
+heatmap_data.to_csv(save_fp.replace('.png', '.csv'))
 fig2.savefig('results/plots/compression_outsize_varying_patch_and_level.png', bbox_inches='tight')
-print(
-    df.pivot_table('Compression Ratio (%)', 'Patch Size', 'Wavelet Levels')
-    .to_string(float_format=lambda x: f'{x:.04f}'))
+#  print(
+#      df.pivot_table('Compression Ratio (% of original size)', 'Patch Size, P', 'Wavelet Level, J')
+#      .to_string(float_format=lambda x: f'{x:.04f}'))
 
 fig, ax = plt.subplots(figsize=(max(15, 1*df.shape[0]), max(15, .5*df.shape[1])))
 ax.axis('off')
 ax.imshow([[0]])
 pd.plotting.table(
     ax,
-    df.pivot_table('Compression Ratio (%)', 'Patch Size', 'Wavelet Levels').round(3),
+    df.pivot_table('Compression Ratio (% of original size)', 'Patch Size, P', 'Wavelet Level, J').round(3),
     loc='center'
 )
-ax.set_title("Compression Ratio (%) for varying Patch Size (rows) and Wavelet Level (columns)")
+ax.set_title("Compression Ratio (% of original size)")
 fig.tight_layout()
 fig.savefig('results/plots/compression_ratio_table_as_img.png', bbox_inches='tight')
 

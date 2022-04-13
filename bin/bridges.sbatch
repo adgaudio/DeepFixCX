@@ -1,11 +1,11 @@
 #!/bin/bash
 #SBATCH -N 1
-#SBATCH --ntasks-per-node=5
-#SBATCH -p GPU-shared
+#SBATCH --ntasks-per-node=41
 #SBATCH -t 24:00:00
-#SBATCH --gpus=1
+#SBATCH -p RM-shared
 
-#type 'man sbatch' for more information and options
+
+#type 'man sbatch' for more information and options #SBATCH -p GPU-shared #SBATCH --gpus=1
 #this job will ask for 1 V100 GPUs in GPU-shared for 1 second
 
 #echo commands to stdout

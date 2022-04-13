@@ -20,7 +20,7 @@ import numpy as np
 import torch as T
 import torchvision.transforms as tvt
 
-from deepfix.models import get_effnetv2, get_resnet, get_densenet, get_efficientnetv1, get_DeepFixEnd2End, get_DeepFixEnd2End_v2, DeepFixMLP
+from deepfix.models import get_effnetv2, get_resnet, get_densenet, get_efficientnetv1, get_DeepFixEnd2End, get_DeepFixEnd2End_v2, DeepFixMLP, UnetD
 from deepfix.models.ghaarconv import convert_conv2d_to_gHaarConv2d
 from deepfix.init_from_distribution import init_from_beta, reset_optimizer
 from deepfix import deepfix_strategies as dfs
@@ -104,7 +104,20 @@ MODELS = {
             mlp_attn='VecAttn',
             zero_mean=False, normalization=parse_normalization('0mean,chexpert_small', 'coif2', wavelet_levels, patch_size, 'l1', '0'))
     ),
-    # adaptive version:
+    # adaptive, placing unet before deepfix encoder
+    ('adeepfix_v1', str, str, str): (
+        lambda out_ch, wavelet_levels, patch_size: T.nn.Sequential(
+            UnetD(channels=(1,3,6,12,24,48,96), depthwise_channel_multiplier=4,),
+            get_DeepFixEnd2End(
+                1, int(out_ch), in_ch_multiplier=1, wavelet='db1',
+                wavelet_levels=int(wavelet_levels), wavelet_patch_size=int(patch_size),
+                patch_features='l1',
+                mlp_depth=1, mlp_channels=300, mlp_fix_weights='none', mlp_activation=None,
+                mlp_attn='VecAttn',
+                zero_mean=False, normalization=parse_normalization('0mean,chexpert_small', 'db1', wavelet_levels, patch_size, 'l1', '0'))
+        )
+    ),
+    # adaptive wavelet packet version:
     ('deepfix_v1', str, str, str, str): (
         lambda out_ch, wavelet_levels, patch_size, adaptive: get_DeepFixEnd2End(
             1, int(out_ch), in_ch_multiplier=1, wavelet='coif2',
@@ -116,7 +129,7 @@ MODELS = {
             adaptive=int(adaptive)
         )
     ),
-    # adaptive version varying wavelet initialization:
+    # adaptive wavelet packet version varying wavelet initialization:
     ('deepfix_v1', str, str, str, str, str): (
         lambda out_ch, wavelet_levels, patch_size, adaptive, wavelet: get_DeepFixEnd2End(
             1, int(out_ch), in_ch_multiplier=1, wavelet=wavelet,
@@ -128,6 +141,19 @@ MODELS = {
             adaptive=int(adaptive)
         )
     ),
+    # adaptive wavelet packet, supporting adaptive=1 or adaptive=2, different wavelets (including pytorch init like 'normal_:2'), and varying normalization
+    ('deepfix_v1', str, str, str, str, str, str): (
+        lambda out_ch, wavelet_levels, patch_size, adaptive, wavelet, normalization: get_DeepFixEnd2End(
+            1, int(out_ch), in_ch_multiplier=1, wavelet=wavelet,
+            wavelet_levels=int(wavelet_levels), wavelet_patch_size=int(patch_size),
+            patch_features='l1',
+            mlp_depth=1, mlp_channels=300, mlp_fix_weights='none', mlp_activation=None,
+            mlp_attn='VecAttn',
+            zero_mean=False, normalization=parse_normalization(normalization, wavelet, wavelet_levels, patch_size, 'l1', '0'),
+            adaptive=int(adaptive)
+        )
+    ),
+    # adaptive wavelet packet, supporting pytorch initialization and custom normalization
     ('deepfix_v2', str, str, str, str, str, str, str, str): (
         lambda in_ch, out_ch, wavelet, wavelet_levels, patch_size, patch_features, backbone, pretraining: get_DeepFixEnd2End_v2(
             int(in_ch), int(out_ch),
@@ -419,19 +445,19 @@ def get_dset_chexpert(train_frac=.8, val_frac=.2, small=False,
     kws = dict(
         getitem_transform=lambda dct: (dct['image'], get_ylabels(dct)),
         label_cleanup_dct=_label_cleanup_dct,
+        img_loader='cv2',
     )
     if small:
         kls = D.CheXpert_Small
         kws['img_transform'] = tvt.Compose([
-            #  tvt.CenterCrop((512, 512)),
-            tvt.CenterCrop((320,320)) if small else (lambda x: x),
             tvt.ToTensor(),
+            tvt.CenterCrop((320,320)) if small else (lambda x: x),
         ])
     else:
         kls = D.CheXpert
         kws['img_transform'] = tvt.Compose([
             tvt.ToTensor(),
-            lambda x: x.to('cuda', non_blocking=True),  # assume num_workers=0
+            #  lambda x: x.to('cuda', non_blocking=True),  # assume num_workers=0
             ResizeCenterCropTo((2320, 2320))  # preserving aspect ratio and center crop
         ])
 
@@ -448,7 +474,8 @@ def get_dset_chexpert(train_frac=.8, val_frac=.2, small=False,
     batch_size = int(os.environ.get('batch_size', 15))
     print('batch size', batch_size)
     batch_dct = dict(
-        collate_fn=_upsample_pad_minibatch_imgs_to_same_size,
+        #  collate_fn=_upsample_pad_minibatch_imgs_to_same_size,
+        #  pin_memory=True,
         num_workers=int(os.environ.get("num_workers", 0)))  # upsample pad must take time
     print('num workers', batch_dct['num_workers'])
     train_loader=DataLoader(
@@ -626,7 +653,7 @@ class RegularizedLoss(T.nn.Module):
         return f'RegularizedLoss<{repr(self.lossfn)},{self.regularizer_spec}>'
 
 
-def get_dset_loaders_resultfactory(dset_spec:str) -> dict:
+def get_dset_loaders_resultfactory(dset_spec:str, device:str) -> dict:
     dct, class_names = match(dset_spec, DSETS)
     if any(dset_spec.startswith(x) for x in {'intel_mobileodt:', }):
         #  dct['result_factory'] = lambda: TL.MultiLabelBinaryClassification(
@@ -637,15 +664,16 @@ def get_dset_loaders_resultfactory(dset_spec:str) -> dict:
             'chexpert:', 'chexpert_small:',
             'chexpert_small15k:', 'chexpert15k:'}):
         dct['result_factory'] = lambda: CheXpertMultiLabelBinaryClassification(
-            class_names, binarize_fn=lambda yh: (yh.sigmoid()>.5).long(), report_avg=True)
+            class_names, binarize_fn=lambda yh: (yh.sigmoid()>.5).long(), report_avg=True, device=device)
     else:
         raise NotImplementedError(f"I don't know how to create the result factory for {dset_spec}")
     return dct
 
 class CheXpertMultiLabelBinaryClassification(TL.MultiLabelBinaryClassification):
     def update(self, yhat, y, loss) -> None:
+        yhat, y, loss = yhat.detach(), y.detach(), loss.detach()
+        loss = loss.to('cpu', non_blocking=True)
         self.num_samples += yhat.shape[0]
-        self.loss += loss.item()
         assert yhat.shape == y.shape
         assert yhat.ndim == 2 and yhat.shape[1] == len(self._cms), "sanity check: model outputs expected prediction shape"
         binarized = self._binarize_fn(yhat)
@@ -656,7 +684,9 @@ class CheXpertMultiLabelBinaryClassification(TL.MultiLabelBinaryClassification):
             rows = ignore[:, i]
             if rows.sum() == 0:
                 continue  # don't update a confusion matrix if all data for this class is ignored
-            cm += metrics.confusion_matrix(y[rows, i], binarized[rows, i], num_classes=2).cpu()
+            #  print(y.device, binarized.device)
+            cm += metrics.confusion_matrix_binary_soft_assignment(y[rows, i], binarized[rows, i]).to(self.device, non_blocking=True)
+        self.loss += loss.item()
 
 
 def get_deepfix_train_strategy(args:'TrainOptions'):
@@ -697,7 +727,7 @@ def train_config(args:'TrainOptions') -> TL.TrainConfig:
     return TL.TrainConfig(
         **get_model_opt_loss(
             args.model, args.opt, args.lossfn, args.loss_reg, args.device),
-        **get_dset_loaders_resultfactory(args.dset),
+        **get_dset_loaders_resultfactory(args.dset, args.device),
         device=args.device,
         epochs=args.epochs,
         start_epoch=args.start_epoch,
@@ -787,7 +817,8 @@ def main():
     #      cfg.train(cfg)
     #  print(p.key_averages().table(
     #      sort_by="self_cuda_time_total", row_limit=-1))
+    return cfg
 
 
 if __name__ == "__main__":
-    main()
+    cfg = main()

@@ -14,7 +14,7 @@ python -m simplepytorch.plot_perf $* --mode 0 <<EOF
 # WARNING: the query epoch>N  step implies we are averaging over epochs >N  (like an ensemble approach).
 col = "test_BAcc AVG"
 df = cdfs\
-        .query('epoch > 40')\
+        .query('epoch > 60')\
         .groupby(["run_id", 'filename'])[col]\
         .mean().reset_index()
 
@@ -43,13 +43,16 @@ assert (df.groupby(['Wavelet Level, J', 'Patch Size, P']).count() <= 1).all().al
 #  note:  pivot table implicitly computes the mean when the sanity check fails
 import seaborn as sns
 import os
-ax = sns.heatmap(data=df.pivot_table(col, "Patch Size, P", "Wavelet Level, J"), cmap='RdYlGn', annot=True)
+heatmap_data = df.pivot_table(col, "Patch Size, P", "Wavelet Level, J")
+ax = sns.heatmap(data=heatmap_data, cmap='RdYlGn', annot=True, fmt='.03f', cbar=False)
+ax.set_title('Predictive Performance: Test Balanced Accuracy')
 
 # save the plot to file
 savefp = f'./results/plots/heatmap_perf__levels_vs_patchsize__{ns.runid_regex}.png'
 if os.path.exists(savefp):
     os.remove(savefp)
 ax.figure.savefig(savefp, bbox_inches='tight')
+heatmap_data.to_csv(savefp.replace('.png', '.csv'))
 print(f'save to: {savefp}')
 EOF
 

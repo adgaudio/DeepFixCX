@@ -7,7 +7,7 @@ Code used to setup the environment:
     conda install pytorch torchvision torchaudio cudatoolkit=11.3 -c pytorch
 
     conda install matplotlib numpy pandas scikit-learn pip tqdm pytables ipython seaborn
-    conda install simple-parsing -c conda-forge
+    conda install simple-parsing opencv -c conda-forge
     conda install pywavelets termcolor configargparse munch
     pip install --no-deps simplepytorch
 

@@ -9,10 +9,14 @@ import warnings
 class WaveletPacket2d(T.nn.Module):
     """Compute a multi-level Wavelet Packet Transform or its inverse.
 
-    wavelet:  Any wavelet supported by pywt library.
+    wavelet:  Any wavelet supported by pywt library, or a string like
+        "kaiming_normal_,N" to denote any initialization function in T.nn.init
+        to be applied to a tensor of size N or of size NxN.  If using a pytorch
+        initialization function, you probably want to define adaptive!=0 too.
     levels:  How many wavelet levels to compute the transform for.
       Pass an integer or the string 'max'.
     inverse:  If True, compute an inverse wavelet packet transform.
+        Assumes that adaptive=0 and wavelet is one supported by pywt library
     adaptive: a value in {0,1,2}.  Determines whether to the 2d filters or 1d
         lo and hi pass filters mother wavelet are learnable (requires_grad=True)
       - If adaptive=0, no learning anything.  Just do wavelet transform.
@@ -27,20 +31,17 @@ class WaveletPacket2d(T.nn.Module):
     def __init__(self, wavelet:str, levels:Union[int,str],
                  inverse:bool=False, adaptive:int=0):
         super().__init__()
-        if inverse:
-            lo, hi = pywt.Wavelet(wavelet).filter_bank[2:]
-            # swap the filters.  Using the deconstruction filters for
-            # reconstruction is important in a wavelet packet transform.
-            hi = hi[::-1]
-            lo = lo[::-1]
-        else:
-            lo, hi = pywt.Wavelet(wavelet).filter_bank[:2]
-        lo, hi = T.tensor(lo, dtype=T.float), T.tensor(hi, dtype=T.float)
+        lo, hi, init_fn = self._get_1d_lo_and_hi(wavelet, inverse)
+
         if adaptive == 1:
+            if init_fn:
+                lo, hi = init_fn(lo), init_fn(hi)
             self.lo, self.hi = T.nn.Parameter(lo), T.nn.Parameter(hi)
         elif adaptive == 0 or adaptive == 2:
             self.lo, self.hi = lo, hi
             filters = self.compute_filters_2d(lo, hi)
+            if init_fn:
+                filters = init_fn(filters)
             if adaptive == 0:
                 self.register_buffer('filters', filters)
             else:
@@ -58,6 +59,28 @@ class WaveletPacket2d(T.nn.Module):
             dilation=1,
             bias=None
         )
+
+    @staticmethod
+    def _get_1d_lo_and_hi(wavelet, inverse):
+        if wavelet in pywt.wavelist(kind='discrete'):
+            init_fn = None
+            if inverse:
+                lo, hi = pywt.Wavelet(wavelet).filter_bank[2:]
+                # swap the filters.  Using the deconstruction filters for
+                # reconstruction is important in a wavelet packet transform.
+                hi = hi[::-1]
+                lo = lo[::-1]
+            else:
+                lo, hi = pywt.Wavelet(wavelet).filter_bank[:2]
+        else:  # assume it's a pytorch initialized vector like 'kaiming_normal:N' or 'normal:N'
+            _init_fn_name, filter_size = wavelet.split(',', 1)
+            filter_size = int(filter_size)
+            lo, hi = np.zeros(filter_size, dtype='float32'), np.zeros(filter_size, dtype='float32')
+            # lo and hi will be initialized later, so use zeros instead of
+            # empty to ensure that initialization is called.
+            init_fn = getattr(T.nn.init, _init_fn_name)
+        lo, hi = T.tensor(lo, dtype=T.float), T.tensor(hi, dtype=T.float)
+        return lo, hi, init_fn
 
     @staticmethod
     def compute_filters_2d(lo, hi):
@@ -240,12 +263,12 @@ if __name__ == "__main__":
     P.plot_img_grid(res4.reshape(-1,*res4.shape[-2:]))
     print(res4.shape)
     assert res4[0,0].abs().sum() > 1
-    assert res4[0,1].abs().sum() == 100**2/4
+    assert T.allclose(res4[0,1].abs().sum(), T.tensor(100**2/4))
 
     # test inverse wavelet packet transform is exact
     def test_inverse():
         #  im = T.tensor(skimage.data.camera() / 255.).unsqueeze(0).unsqueeze(0).float()
-        J=2
+      for J in [2,3]:
         for wave in pywt.wavelist(kind='discrete'):
             if len(pywt.Wavelet(wave).dec_hi)*J >= 96//2:
                 continue

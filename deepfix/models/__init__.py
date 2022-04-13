@@ -4,3 +4,4 @@ from .waveletmlp import (
     DeepFixEnd2End, DeepFixMLP,
     DeepFixCompression, InvalidWaveletParametersError
 )
+from .unetd import UnetD
