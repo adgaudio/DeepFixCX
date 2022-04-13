@@ -29,7 +29,9 @@ for fp in fps:
     data2[model_name] = pd.read_csv(fp)['seconds_training_epoch'].mean()
 df2 = pd.Series(data2, name='TrainingTime')
 
-df1.loc['ResNet18']/df1
-df2.loc['ResNet18']/df2
-df1.loc['Densenet121']/df1
-df2.loc['Densenet121']/df2
+print(df1.to_string())
+print(df2.to_string())
+#  df1.loc['ResNet18']/df1
+#  df2.loc['ResNet18']/df2
+#  df1.loc['Densenet121']/df1
+#  df2.loc['Densenet121']/df2

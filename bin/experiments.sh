@@ -541,9 +541,10 @@ for level in range(1, 9):
 EOF
 }
 
-timings() {
+timings_e2e_table() {
+  # data for the end-to-end timing table.
 python <<EOF
-for J,P,batch_size in [ (2,19,1000),(1,1,1350), (1,160,800), (8,1,600), (5,5,1350) ]:
+for J,P,batch_size in [ (6,5,1000), (2,19,1000),(1,1,1350), (1,160,800), (8,1,600), (5,5,1350) ]:
     model = f"deepfix_v1:14:{J}:{P}:0:db1"
     print(f'''${V}.timing.DeepFix.J={J}.P={P}  env batch_size={batch_size} num_workers=6  python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg deepfixmlp:.1 --model {model} --epochs 6 --start_epoch 1''')
 EOF
@@ -553,11 +554,34 @@ ${V}.timing.Densenet121                        env batch_size=10 num_workers=6  
 EOF
 }
 
+timings_2_table() {
+  # data for the timings table for encoder
+  python<<EOF
+for J,P in [(6,5), (0,0), (2,19), (1,1), (1,160)]:
+  for dev in ['cpu','cuda']:
+    print(f"""${V}.timing2.{J}.{P}.{dev} env batch_size=1000 num_workers=10 python bin/table_timing_encoder_decoder.py -J {J} -P {P} --device {dev}""")
+EOF
+}
+
+filesizes_table() {
+  # data to report on-disk compression performance
+python <<EOF
+for J,P in [(6,5), (0,0), (2,19), (1,1), (1,160)]:
+  for fmt in ['jpg','png']:
+    print(f"""python bin/make_compressed_dataset.py -J {J} -P {P} --read_from_dirpath ./data/CheXpert-v1.0-small/  --compressed_img_format {fmt} --dsets valid""")
+for J,P in [(6,5), (0,0), (2,19), (1,1), (1,160)]:
+  for fmt in ['jpg','png']:
+    print(f"""echo {J} {P} {fmt} \$(find data/CheXpert-v1.0-small.compressed_{fmt}.J={J}.P={P}/valid -type f| parallel du -b |  datamash mean 1)""")
+# the train set
+for fmt in ['jpg','png']:
+  print(f"""python bin/make_compressed_dataset.py -J 2 -P 19 --read_from_dirpath ./data/CheXpert-v1.0-small/  --compressed_img_format {fmt} --dsets train""")
+EOF
+}
+
 plots() {
   # compression ratio
   python ./bin/plot_compression_ratio.py --patch_sizes 1 3 5 9 19 37 79 115 160
   python ./bin/plot_compression_ratio.py --patch_sizes 1 2 3 4 5 6 7 8 --input_size 64 64
-  k
 
   # predictive performance (after running C21 (or C16))
   # C21 | run_gpus 1
@@ -588,6 +612,9 @@ plots() {
   # visualize the 4-d cube with scatter matrix (after running above plots)
   # not used
   # python ./bin/plot_3d.py
+
+  # make a privatized and compressed chexpert dataset on the disk
+  # python bin/make_compressed_dataset.py -J 2 -P 19 --centercrop 320 320 --compressed_img_format png --read_from_dirpath ./data/CheXpert-v1.0-small/
 }
 
 
@@ -640,6 +667,8 @@ plots() {
 # C18 | run_gpus 1
 # export batch_size=100
 # C19 | run_gpus 1
-timings | run_gpus 1
+# timings_e2e_table | run_gpus 1
+timings_2_table | run_gpus 1
+# filesizes_table | parallel -j 1
 # C24 | run_gpus 1
 # C8 | run_gpus 1
