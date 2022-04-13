@@ -211,7 +211,7 @@ class DeepFixCompression(T.nn.Module):
         `tensor.clamp(0,1)`, or do nothing.
         Args:
             deepfix_embedding:  The output of DeepFixCompression.forward(...), of shape (B, ...)
-            orig_img_CHW:  a tuple like (H, W) denoting spatial height and spatial width of original input image.
+            orig_img_HW:  a tuple like (H, W) denoting spatial height and spatial width of original input image.
             wavelet: the value passed to DeepFixCompression
             J: the wavelet level passed to DeepFixCompression
             P: the patch size passed to DeepFixCompression
