@@ -24,6 +24,7 @@ from deepfix.models import get_effnetv2, get_resnet, get_densenet, get_efficient
 from deepfix.models.ghaarconv import convert_conv2d_to_gHaarConv2d
 from deepfix.init_from_distribution import init_from_beta, reset_optimizer
 from deepfix import deepfix_strategies as dfs
+from deepfix.models.qthline import QTHlineClassifier
 import pytorch_wavelets as pyw
 
 
@@ -53,165 +54,10 @@ MODELS = {
         lambda pretrain, in_ch, out_ch: get_efficientnetv1('efficientnet-b0', pretrain, int(in_ch), int(out_ch))),
     ('efficientnet-b1', str, str, str): (
         lambda pretrain, in_ch, out_ch: get_efficientnetv1('efficientnet-b1', pretrain, int(in_ch), int(out_ch))),
-    ('waveletres18', str, str, str): lambda pretrain, in_ch, out_ch: R(
-        pretrain, int(in_ch), int(out_ch)),
-    ('waveletmlp', str, str, str, str, str, str, str): (
-        lambda mlp_channels, in_ch, out_ch, wavelet_levels, patch_size, in_ch_mul, mlp_depth: get_DeepFixEnd2End(
-            int(in_ch), int(out_ch),
-            in_ch_multiplier=int(in_ch_mul), wavelet='db1',
-            wavelet_levels=int(wavelet_levels), wavelet_patch_size=int(patch_size),
-            mlp_depth=int(mlp_depth), mlp_channels=int(mlp_channels),
-            mlp_fix_weights='none', mlp_activation=None,
-            normalization=('none', ), mlp_attn='VecAttn')
-        ),
-    ('waveletmlpV2', str, str, str, str, str, str): (
-        lambda in_ch, out_ch, wavelet, wavelet_levels, patch_size, patch_features: get_DeepFixEnd2End(
-            int(in_ch), int(out_ch),
-            in_ch_multiplier=1, wavelet=wavelet,
-            wavelet_levels=int(wavelet_levels), wavelet_patch_size=int(patch_size),
-            mlp_depth=2, mlp_channels=300,
-            mlp_fix_weights='none', mlp_activation=None,
-            patch_features=patch_features,
-            normalization=('none', ), mlp_attn='VecAttn')
-        ),
-    ('waveletmlp_bn', str, str, str, str, str, str, str, str): (
-        lambda in_ch, out_ch, wavelet, wavelet_levels, patch_size, patch_features, zero_mean, normalization: get_DeepFixEnd2End(
-            int(in_ch), int(out_ch),
-            in_ch_multiplier=1, wavelet=wavelet,
-            wavelet_levels=int(wavelet_levels), wavelet_patch_size=int(patch_size),
-            mlp_depth=1, mlp_channels=300,
-            mlp_fix_weights='none', mlp_activation=None,
-            patch_features=patch_features,
-            zero_mean=bool(int(zero_mean)),
-            normalization=parse_normalization(normalization, wavelet, wavelet_levels, patch_size, patch_features, zero_mean),
-            mlp_attn='VecAttn', )
-        ),
-    ('attn_test', str, str, str, str): (
-        lambda attn, out_ch, wavelet_levels, patch_size: get_DeepFixEnd2End(
-            1, int(out_ch), in_ch_multiplier=1, wavelet='coif2',
-            wavelet_levels=int(wavelet_levels), wavelet_patch_size=int(patch_size),
-            patch_features='l1',
-            mlp_depth=1, mlp_channels=300, mlp_fix_weights='none', mlp_activation=None,
-            zero_mean=False, normalization=parse_normalization('0mean,chexpert_small', 'coif2', wavelet_levels, patch_size, 'l1', '0'),
-            mlp_attn=attn,)
-    ),
-    ('deepfix_v1', str, str, str): (
-        lambda out_ch, wavelet_levels, patch_size: get_DeepFixEnd2End(
-            1, int(out_ch), in_ch_multiplier=1, wavelet='coif2',
-            wavelet_levels=int(wavelet_levels), wavelet_patch_size=int(patch_size),
-            patch_features='l1',
-            mlp_depth=1, mlp_channels=300, mlp_fix_weights='none', mlp_activation=None,
-            mlp_attn='VecAttn',
-            zero_mean=False, normalization=parse_normalization('0mean,chexpert_small', 'coif2', wavelet_levels, patch_size, 'l1', '0'))
-    ),
-    # adaptive, placing unet before deepfix encoder
-    ('adeepfix_v1', str, str, str): (
-        lambda out_ch, wavelet_levels, patch_size: T.nn.Sequential(
-            UnetD(channels=(1,3,6,12,24,48,96), depthwise_channel_multiplier=4,),
-            get_DeepFixEnd2End(
-                1, int(out_ch), in_ch_multiplier=1, wavelet='db1',
-                wavelet_levels=int(wavelet_levels), wavelet_patch_size=int(patch_size),
-                patch_features='l1',
-                mlp_depth=1, mlp_channels=300, mlp_fix_weights='none', mlp_activation=None,
-                mlp_attn='VecAttn',
-                zero_mean=False, normalization=parse_normalization('0mean,chexpert_small', 'db1', wavelet_levels, patch_size, 'l1', '0'))
-        )
-    ),
-    # adaptive wavelet packet version:
-    ('deepfix_v1', str, str, str, str): (
-        lambda out_ch, wavelet_levels, patch_size, adaptive: get_DeepFixEnd2End(
-            1, int(out_ch), in_ch_multiplier=1, wavelet='coif2',
-            wavelet_levels=int(wavelet_levels), wavelet_patch_size=int(patch_size),
-            patch_features='l1',
-            mlp_depth=1, mlp_channels=300, mlp_fix_weights='none', mlp_activation=None,
-            mlp_attn='VecAttn',
-            zero_mean=False, normalization=parse_normalization('0mean,chexpert_small', 'coif2', wavelet_levels, patch_size, 'l1', '0'),
-            adaptive=int(adaptive)
-        )
-    ),
-    # adaptive wavelet packet version varying wavelet initialization:
-    ('deepfix_v1', str, str, str, str, str): (
-        lambda out_ch, wavelet_levels, patch_size, adaptive, wavelet: get_DeepFixEnd2End(
-            1, int(out_ch), in_ch_multiplier=1, wavelet=wavelet,
-            wavelet_levels=int(wavelet_levels), wavelet_patch_size=int(patch_size),
-            patch_features='l1',
-            mlp_depth=1, mlp_channels=300, mlp_fix_weights='none', mlp_activation=None,
-            mlp_attn='VecAttn',
-            zero_mean=False, normalization=parse_normalization('0mean,chexpert_small', wavelet, wavelet_levels, patch_size, 'l1', '0'),
-            adaptive=int(adaptive)
-        )
-    ),
-    # adaptive wavelet packet, supporting adaptive=1 or adaptive=2, different wavelets (including pytorch init like 'normal_:2'), and varying normalization
-    ('deepfix_v1', str, str, str, str, str, str): (
-        lambda out_ch, wavelet_levels, patch_size, adaptive, wavelet, normalization: get_DeepFixEnd2End(
-            1, int(out_ch), in_ch_multiplier=1, wavelet=wavelet,
-            wavelet_levels=int(wavelet_levels), wavelet_patch_size=int(patch_size),
-            patch_features='l1',
-            mlp_depth=1, mlp_channels=300, mlp_fix_weights='none', mlp_activation=None,
-            mlp_attn='VecAttn',
-            zero_mean=False, normalization=parse_normalization(normalization, wavelet, wavelet_levels, patch_size, 'l1', '0'),
-            adaptive=int(adaptive)
-        )
-    ),
-    # adaptive wavelet packet, supporting pytorch initialization and custom normalization
-    ('deepfix_v2', str, str, str, str, str, str, str, str): (
-        lambda in_ch, out_ch, wavelet, wavelet_levels, patch_size, patch_features, backbone, pretraining: get_DeepFixEnd2End_v2(
-            int(in_ch), int(out_ch),
-            in_ch_multiplier=1, wavelet=wavelet,
-            wavelet_levels=int(wavelet_levels), wavelet_patch_size=int(patch_size),
-            patch_features=patch_features,
-            backbone=backbone, backbone_pretraining=pretraining,)
-        ),
-
-    #  ('waveletres18v2', str, str, str): lambda pretrain, in_ch, out_ch: (
-        #  DeepFixCompression(levels=8, wavelet='coif1', patch_size=1),
-        #  R2(pretrain, int(in_ch), int(out_ch))),
+    ('hline', ):
+        lambda _: QTHlineClassifier(list(range(100,300,5)), 320, 'RELU', None)
 }
 
-
-class R(T.nn.Module):
-    def __init__(self, pretrain, in_ch, out_ch):
-        super().__init__()
-        self.r = get_resnet('resnet18', pretrain, in_ch, out_ch,)
-        self.dwt = pyw.DWT(J=8, wave='coif1', mode='zero')
-
-    @staticmethod
-    def wavelet_coefficients_as_tensorimage(approx, detail, normalize=False):
-        B,C = approx.shape[:2]
-        fixed_dims = approx.shape[:-2] # num images in minibatch, num channels, etc
-        output_shape = fixed_dims + (
-            detail[0].shape[-2]*2,  # input img height
-            detail[0].shape[-1]*2)  # input img width
-        im = T.zeros(output_shape, device=approx.device, dtype=approx.dtype)
-        if normalize:
-            norm11 = lambda x: (x / max(x.min()*-1, x.max()))  # into [-1,+1] preserving sign
-            #  approx = norm11(approx)
-        im[..., :approx.shape[-2], :approx.shape[-1]] = approx if approx is not None else 0
-        for level in detail:
-            lh, hl, hh = level.unbind(-3)
-            h,w = lh.shape[-2:]
-            if normalize:
-                lh, hl, hh = [norm11(x) for x in [lh, hl, hh]]
-            #  im[:h, :w] = approx
-            im[..., 0:h, w:w+w] = lh  # horizontal
-            im[..., h:h+h, :w] = hl  # vertical
-            im[..., h:h+h, w:w+w] = hh  # diagonal
-        return im
-
-    def forward(self, x):
-        x = self.wavelet_coefficients_as_tensorimage(*self.dwt(x))
-        return self.r(x)
-
-
-class R2(T.nn.Module):
-    def __init__(self, pretrain, in_ch, out_ch):
-        super().__init__()
-        self.r = get_resnet('resnet18', pretrain, in_ch, out_ch,)
-
-    def forward(self, x):
-        B,C,H = x.shape
-        x = x.unsqueeze(-1).repeat(1,1,1,H)
-        return self.r(x)
 
 
 class LossCheXpertUignore(T.nn.Module):
