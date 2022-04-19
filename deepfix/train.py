@@ -24,7 +24,7 @@ from deepfix.models import get_effnetv2, get_resnet, get_densenet, get_efficient
 from deepfix.models.ghaarconv import convert_conv2d_to_gHaarConv2d
 from deepfix.init_from_distribution import init_from_beta, reset_optimizer
 from deepfix import deepfix_strategies as dfs
-from deepfix.models.qthline import QTHlineClassifier
+from deepfix.models.qthline import QTLineClassifier, HLine, RLine
 import pytorch_wavelets as pyw
 
 
@@ -55,7 +55,9 @@ MODELS = {
     ('efficientnet-b1', str, str, str): (
         lambda pretrain, in_ch, out_ch: get_efficientnetv1('efficientnet-b1', pretrain, int(in_ch), int(out_ch))),
     ('hline', ):
-        lambda _: QTHlineClassifier(list(range(100,300,2)), 320, 'RELU', None)
+        lambda _: QTLineClassifier(HLine(list(range(100,300,5)), 320), 'SELU', None),
+    ('rline', ):
+        lambda _: QTLineClassifier(RLine((320,320), seed=4), 'SELU', None),
 }
 
 
