@@ -55,7 +55,7 @@ MODELS = {
     ('efficientnet-b1', str, str, str): (
         lambda pretrain, in_ch, out_ch: get_efficientnetv1('efficientnet-b1', pretrain, int(in_ch), int(out_ch))),
     ('hline', ):
-        lambda _: QTHlineClassifier(list(range(100,300,5)), 320, 'RELU', None)
+        lambda _: QTHlineClassifier(list(range(100,300,2)), 320, 'RELU', None)
 }
 
 
