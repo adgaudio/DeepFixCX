@@ -1,4 +1,6 @@
 import torch as T
+import numpy as np
+from typing import Union
 import cv2
 import torch.nn as nn
 
@@ -83,7 +85,7 @@ class MlpClassifier(T.nn.Module):
 
 
 class QTHlineClassifier(T.nn.Module):
-    def __init__(self,lines,image_width,mlp_activation,threshold):
+    def __init__(self,lines:Union[HLine,RLine],image_width,mlp_activation,threshold):
         """
         Args:
             lines: list of row indices in img.
