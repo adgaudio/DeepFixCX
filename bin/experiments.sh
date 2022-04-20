@@ -475,7 +475,7 @@ for level in [5,8,1]:  #range(1, 9):
 EOF
 }
 C21() {
-  # Main predictive experiment, all patch sizes and wavelet levels
+  # Main predictive experiment, all patch sizes and wavelet levels, trained on diagnostic classes
   # with db1 (since coif2 has large filters, and edge artifacts might be problematic)
   python <<EOF
 # for level in [1,5,8]:
@@ -520,7 +520,7 @@ EOF
 }
 
 C24() {
-  # Main predictive experiment, all patch sizes and wavelet levels
+  # Main predictive experiment, all patch sizes and wavelet levels, trained on only the 5 leaderboard classes
   # version V+0:  with db1, with deepfixmlp:1, with leaderboard classes
   # version V+1:  with db1, deepfixmlp:0, leaderboard
   local V=$((V+1))
