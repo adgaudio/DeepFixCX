@@ -44,6 +44,11 @@ def plot_haar_wavelet_filters():
     sns.heatmap(np.outer(lo, hi), ax=axs[0,1], **kws)
     sns.heatmap(np.outer(hi, lo), ax=axs[1,0], **kws)
     sns.heatmap(np.outer(hi, hi), ax=axs[1,1], **kws)
+    kws = dict(color='lightgrey', fontsize=15, ha='center', va='center')
+    axs[0,0].text(1,1,"$A$", **kws)
+    axs[0,1].text(1,1,"$V$", **kws)
+    axs[1,0].text(1,1,"$H$", **kws)
+    axs[1,1].text(1,1,"$D$", **kws)
     axs[0,0].set_ylabel(
         r'$\left[ \frac{1}{\sqrt{2}}, \frac{1}{\sqrt{2}} \right]$', fontsize=23, rotation=-90, va='top')
     axs[1,0].set_ylabel(
@@ -62,7 +67,7 @@ def plot_haar_wavelet_filters():
 
 
 if __name__ == "__main__":
-    plot_wavelet_packet_transform()
+    #  plot_wavelet_packet_transform()
     plot_haar_wavelet_filters()
     plt.show()
     plt.pause(5)
