@@ -3,6 +3,7 @@ import numpy as np
 from typing import Union, List
 import cv2
 import torch.nn as nn
+from deepfix.models.api import get_efficientnetv1
 
 
 class HLine(T.nn.Module):
@@ -24,13 +25,15 @@ class HLine(T.nn.Module):
 
 
 class RLine(T.nn.Module):
-    def __init__(self, img_HW, nlines=25,
+    def __init__(self, img_HW, nlines=25, zero_top_frac:int=0,
+                 heart_roi:bool=False,
                  initialization='inscribed_circle', seed=None):
         super().__init__()
         if initialization == 'inscribed_circle':
             #  seed 0
             center_HW = img_HW[0]/2, img_HW[1]/2
-            radius = min(img_HW[0], img_HW[1])/2
+            #  radius = min(img_HW[0], img_HW[1])/2
+            radius = max(img_HW[0], img_HW[1])
             # For each line, randomly choose two (x,y) endpoint coords
             # by sampling uniformly from the perimeter of a circle
             # --> generate random points in N(0,1)
@@ -52,6 +55,17 @@ class RLine(T.nn.Module):
             [cv2.line(arr, tuple(p1), tuple(p2), 1) for p1,p2 in x]
         else:
             raise NotImplementedError()
+        if zero_top_frac:
+            arr[:int(zero_top_frac * arr.shape[0])] = 0
+        if heart_roi:
+            # load image
+            roi = T.tensor(plt.imread('data/cardiomegaly_mask.jpg'))
+            # resize image.
+            roi = T.nn.functional.interpolate(
+                roi.unsqueeze_(0).unsqueeze_(0), size=(320,320),
+                mode='nearest').squeeze()
+            arr[roi < 100] = 0
+
         self.out_size = arr.sum()
         self.arr = T.tensor(arr, dtype=T.bool).unsqueeze_(0).unsqueeze_(0)
 
@@ -71,33 +85,25 @@ class QuadTree(T.nn.Module):
 
 
 class MlpClassifier(T.nn.Module):
-    def __init__(self, activation, input_size):
+    def __init__(self, input_size, activation_fn=T.nn.SELU):
         super().__init__()
-
-        if activation == 'CELU':
-            activation_fn = nn.CELU()
-        elif activation == 'SELU':
-            activation_fn = nn.SELU()
-        elif activation == 'Tanh':
-            activation_fn = nn.Tanh()
-        elif activation == 'RELU':
-            activation_fn = nn.ReLU()
-
-        layers = [nn.Flatten()]
-        layers += [nn.Linear(input_size,300)]
-        layers += [nn.BatchNorm1d(300)]
-        layers += [activation_fn]
-        layers += [nn.Linear(300,1)]
-        layers += [nn.Sigmoid()]
-        self.mlp = T.nn.Sequential(*layers)
-
+        self.mlp = T.nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(input_size,300),
+            nn.BatchNorm1d(300),
+            activation_fn(),
+            nn.Linear(300,300),
+            nn.BatchNorm1d(300),
+            activation_fn(),
+            nn.Linear(300,1),
+        )
     def forward(self,x):
         op = self.mlp(x)
         return op
 
 
 class QTLineClassifier(T.nn.Module):
-    def __init__(self,lines:Union[HLine,RLine], mlp_activation, threshold):
+    def __init__(self,lines:Union[HLine,RLine], threshold):
         """
         Args:
             lines: a pytorch module that extracts lines or points from data.
@@ -112,8 +118,7 @@ class QTLineClassifier(T.nn.Module):
         else:
             self.quadtree=None
 
-        self.mlp = MlpClassifier(
-            activation=mlp_activation, input_size=lines.out_size)
+        self.mlp = MlpClassifier(input_size=lines.out_size)
 
     def forward(self, x):
         if self.quadtree is not None:

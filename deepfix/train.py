@@ -55,9 +55,23 @@ MODELS = {
     ('efficientnet-b1', str, str, str): (
         lambda pretrain, in_ch, out_ch: get_efficientnetv1('efficientnet-b1', pretrain, int(in_ch), int(out_ch))),
     ('hline', ):
-        lambda _: QTLineClassifier(HLine(list(range(100,300,5)), 320), 'SELU', None),
+        lambda _: QTLineClassifier(HLine(list(range(100,300,5)), 320), None),
     ('rline', ):
-        lambda _: QTLineClassifier(RLine((320,320), seed=4), 'SELU', None),
+        lambda _: QTLineClassifier(RLine((320,320), nlines=77, seed=0), None),
+    ('rline1', ):
+        lambda _: QTLineClassifier(RLine((320,320), nlines=77, seed=1), None),
+    ('rline2', ):
+        lambda _: QTLineClassifier(RLine((320,320), nlines=77, seed=2), None),
+    ('rline3', ):
+        lambda _: QTLineClassifier(RLine((320,320), nlines=77, seed=3), None),
+    ('rline3f', ):
+        lambda _: QTLineClassifier(RLine((320,320), nlines=77, zero_top_frac=1/3, seed=3), None),
+    ('rline2_200', ):
+        lambda _: QTLineClassifier(RLine((320,320), nlines=200, zero_top_frac=1/3, seed=1), None),
+    ('rline_200heart', ):
+        lambda _: QTLineClassifier(RLine((320,320), nlines=200, zero_top_frac=1/3, seed=1), None),
+    ('rline_200heart2', ):
+        lambda _: QTLineClassifier(RLine((320,320), nlines=200, zero_top_frac=0, seed=1), None),
 }
 
 
