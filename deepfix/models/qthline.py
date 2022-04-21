@@ -1,4 +1,5 @@
 import torch as T
+from matplotlib import pyplot as plt
 import numpy as np
 from typing import Union, List
 import cv2
@@ -27,7 +28,8 @@ class HLine(T.nn.Module):
 class RLine(T.nn.Module):
     def __init__(self, img_HW, nlines=25, zero_top_frac:int=0,
                  heart_roi:bool=False,
-                 initialization='inscribed_circle', seed=None):
+                 initialization='inscribed_circle', seed=None,
+                 hlines:List[int]=()):
         super().__init__()
         if initialization == 'inscribed_circle':
             #  seed 0
@@ -57,6 +59,8 @@ class RLine(T.nn.Module):
             raise NotImplementedError()
         if zero_top_frac:
             arr[:int(zero_top_frac * arr.shape[0])] = 0
+        if hlines:
+            arr[hlines] = 1
         if heart_roi:
             # load image
             roi = T.tensor(plt.imread('data/cardiomegaly_mask.jpg'))
@@ -89,10 +93,10 @@ class MlpClassifier(T.nn.Module):
         super().__init__()
         self.mlp = T.nn.Sequential(
             nn.Flatten(),
-            nn.Linear(input_size,300),
-            nn.BatchNorm1d(300),
+            nn.Linear(input_size,3200),
+            nn.BatchNorm1d(3200),
             activation_fn(),
-            nn.Linear(300,300),
+            nn.Linear(3200,300),
             nn.BatchNorm1d(300),
             activation_fn(),
             nn.Linear(300,1),

@@ -56,6 +56,8 @@ MODELS = {
         lambda pretrain, in_ch, out_ch: get_efficientnetv1('efficientnet-b1', pretrain, int(in_ch), int(out_ch))),
     ('hline', ):
         lambda _: QTLineClassifier(HLine(list(range(100,300,5)), 320), None),
+    ('hline_10', ):
+        lambda _: QTLineClassifier(HLine(list(range(100,300,10)), 320), None),
     ('rline', ):
         lambda _: QTLineClassifier(RLine((320,320), nlines=77, seed=0), None),
     ('rline1', ):
@@ -69,9 +71,11 @@ MODELS = {
     ('rline2_200', ):
         lambda _: QTLineClassifier(RLine((320,320), nlines=200, zero_top_frac=1/3, seed=1), None),
     ('rline_200heart', ):
-        lambda _: QTLineClassifier(RLine((320,320), nlines=200, zero_top_frac=1/3, seed=1), None),
+        lambda _: QTLineClassifier(RLine((320,320), nlines=200, zero_top_frac=1/3, seed=1, heart_roi=True), None),
     ('rline_200heart2', ):
-        lambda _: QTLineClassifier(RLine((320,320), nlines=200, zero_top_frac=0, seed=1), None),
+        lambda _: QTLineClassifier(RLine((320,320), nlines=200, zero_top_frac=0, seed=1, heart_roi=True), None),
+    ('rhline', ):
+        lambda _: QTLineClassifier(RLine((320,320), nlines=200, zero_top_frac=0, seed=1, heart_roi=True, hlines=list(range(100,300,10))), None),
 }
 
 
@@ -595,6 +599,7 @@ def train_config(args:'TrainOptions') -> TL.TrainConfig:
         start_epoch=args.start_epoch,
         train_one_epoch=get_deepfix_train_strategy(args),
         experiment_id=args.experiment_id,
+        checkpoint_if=TL.CheckpointBestOrLast(metric='val_BAcc Cardiomegaly', mode='max')
     )
 
 
