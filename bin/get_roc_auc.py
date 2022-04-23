@@ -91,20 +91,20 @@ if __name__ == "__main__":
         'runid_regex', type=re.compile,
         help='regular expression matching the experiment id')
     par.add_argument('--device', default='cuda')
-    par.add_argument('--epochs', default=80, type=int)
+    par.add_argument('--checkpoint_fname', default='epoch_80.pth')
     par.add_argument('--overwrite', action='store_true',
                      help="Don't re-use existing results.  Re-compute them.")
     args = par.parse_args()
 
-    fps = glob.glob(f'results/*/checkpoints/epoch_{args.epochs}.pth')
-    assert len(fps), 'no results at ./results/*/checkpoints/epoch_{args.epochs}.pth'
+    fps = glob.glob(f'results/*/checkpoints/{args.checkpoint_fname}')
+    assert len(fps), 'no results at ./results/*/checkpoints/{args.checkpoint_fname}.pth'
     fps = [x for x in fps if re.search(args.runid_regex, x)]
     assert len(fps), "didn't find any results"
 
     results = []
     for fp in fps:
         print(fp)
-        csv_fp = f'{dirname(dirname(fp))}/roc_auc.csv'
+        csv_fp = f'{dirname(dirname(fp))}/roc_auc_{args.checkpoint_fname}.csv'
         if os.path.exists(csv_fp) and not args.overwrite:
             print(f'loading from file: {csv_fp}')
             df = pd.read_csv(csv_fp)
@@ -131,7 +131,7 @@ if __name__ == "__main__":
             experiment_id = basename(dirname(dirname(fp)))
             # save the results to experiments directory
             df = pd.DataFrame(
-                res_dct, index=pd.Index([(experiment_id, args.epochs)], name=('run_id', 'epoch')))
+                res_dct, index=pd.Index([(experiment_id, args.checkpoint_fname)], name=('run_id', 'checkpoint')))
             df.to_csv(csv_fp)
             pd.Series(class_thresholds).to_csv(f'{dirname(dirname(fp))}/class_thresholds.csv')
         # aggregated results
@@ -140,7 +140,7 @@ if __name__ == "__main__":
     print(df.to_string())
 
     os.makedirs('./results/plots/roc_auc', exist_ok=True)
-    df.to_csv(f'./results/plots/roc_auc/test_{args.runid_regex.pattern}.csv')
+    df.to_csv(f'./results/plots/roc_auc/test_{args.runid_regex.pattern}_{args.checkpoint_fname}.csv')
 
     #  ax = df.plot.barh(legend=False)
     #  ax.figure.legend(loc='center left', bbox_to_anchor=(1.0, 0.5))
