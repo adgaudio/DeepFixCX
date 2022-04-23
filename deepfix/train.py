@@ -659,12 +659,12 @@ def get_dset_loaders_resultfactory(dset_spec:str, device:str) -> dict:
         #  dct['result_factory'] = lambda: TL.MultiLabelBinaryClassification(
                 #  class_names, binarize_fn=lambda yh: (T.sigmoid(yh)>.5).long())
         dct['result_factory'] = lambda: TL.MultiClassClassification(
-                len(class_names), binarize_fn=lambda yh: yh.softmax(1).argmax(1))
+                len(class_names), binarize_fn=lambda yh,_: yh.softmax(1).argmax(1))
     elif any(dset_spec.startswith(x) for x in {
             'chexpert:', 'chexpert_small:',
             'chexpert_small15k:', 'chexpert15k:'}):
         dct['result_factory'] = lambda: CheXpertMultiLabelBinaryClassification(
-            class_names, binarize_fn=lambda yh: (yh.sigmoid()>.5).long(), report_avg=True, device=device)
+            class_names, binarize_fn=lambda yh, th: (yh.sigmoid()>th).long(), report_avg=True, device=device)
     else:
         raise NotImplementedError(f"I don't know how to create the result factory for {dset_spec}")
     return dct
@@ -676,7 +676,7 @@ class CheXpertMultiLabelBinaryClassification(TL.MultiLabelBinaryClassification):
         self.num_samples += yhat.shape[0]
         assert yhat.shape == y.shape
         assert yhat.ndim == 2 and yhat.shape[1] == len(self._cms), "sanity check: model outputs expected prediction shape"
-        binarized = self._binarize_fn(yhat)
+        binarized = self._binarize_fn(yhat, .5)
         assert binarized.dtype == T.long, 'sanity check binarize fn'
         assert binarized.shape == y.shape, 'sanity check binarize fn'
         ignore = (y != 2)  # ignore uncertainty labels
