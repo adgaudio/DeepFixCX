@@ -668,7 +668,24 @@ plots() {
 # export batch_size=100
 # C19 | run_gpus 1
 # timings_e2e_table | run_gpus 1
-timings_2_table | run_gpus 1
+# timings_2_table | run_gpus 1
 # filesizes_table | parallel -j 1
 # C24 | run_gpus 1
 # C8 | run_gpus 1
+
+E6() {
+  # Main predictive experiment, all patch sizes and wavelet levels, trained on only the 5 leaderboard classes
+  python <<EOF
+args = ' --opt SGD:lr=0.001 --epochs 300 --dset intel_mobileodt:train+additional:val:test:v1 --lossfn CrossEntropyLoss '
+args += ' --loss_reg none '  # deepfixmlp:1 # no regularization for now.
+for level in [1,5,8]:
+    for patchsize in 1,5,160:
+# for level in range(1, 9):
+#     for patchsize in 1,3,5,9,19,37,79,115,160:
+        if patchsize <= 320 / 2**level:
+            model = f"deepfix_cervical:{level}:{patchsize}"
+            print( f"""${V}.E6.J={level}.P={patchsize} env num_workers=12 batch_size=6000 python deepfix/train.py --model {model} {args}""")
+EOF
+}
+
+E6 | run_gpus 1

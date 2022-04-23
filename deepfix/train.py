@@ -162,6 +162,14 @@ MODELS = {
             patch_features=patch_features,
             backbone=backbone, backbone_pretraining=pretraining,)
         ),
+    ('deepfix_cervical', str, str): (lambda J, P:
+        get_DeepFixEnd2End(
+            in_channels=3, out_channels=3, in_ch_multiplier=1, wavelet='db1',
+            wavelet_levels=int(J), wavelet_patch_size=int(P), patch_features='l1',
+            mlp_depth=1, mlp_channels=300, mlp_activation=None,
+            mlp_fix_weights='none',
+            zero_mean=False, normalization=('batchnorm', ), mlp_attn='Identity',
+            adaptive=0)),
 
     #  ('waveletres18v2', str, str, str): lambda pretrain, in_ch, out_ch: (
         #  DeepFixCompression(levels=8, wavelet='coif1', patch_size=1),
