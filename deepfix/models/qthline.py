@@ -5,6 +5,7 @@ from typing import Union, List
 import cv2
 import torch.nn as nn
 from deepfix.models.api import get_efficientnetv1
+from deepfix.models.quadtree import QT
 
 
 class HLine(T.nn.Module):
@@ -66,10 +67,12 @@ class RLine(T.nn.Module):
             roi = T.tensor(plt.imread('data/cardiomegaly_mask.jpg'))
             # resize image.
             roi = T.nn.functional.interpolate(
-                roi.unsqueeze_(0).unsqueeze_(0), size=(320,320),
+                roi.unsqueeze_(0).unsqueeze_(0), size=img_HW,
                 mode='nearest').squeeze()
-            arr[roi < 100] = 0
-
+            if arr.sum() == 0:  # there must be no lines.  include the inner region.
+                arr[roi >= 100] = 1
+            else:  # zero out the lines outside the region.
+                arr[roi < 100] = 0
         self.out_size = arr.sum()
         self.arr = T.tensor(arr, dtype=T.bool).unsqueeze_(0).unsqueeze_(0)
 
@@ -77,15 +80,6 @@ class RLine(T.nn.Module):
         assert x.shape[-2:] == self.arr.shape[-2:]
         return x[self.arr.repeat(x.shape[0], x.shape[1],1,1)]\
                 .reshape(x.shape[0], x.shape[1], -1)
-
-
-class QuadTree(T.nn.Module):
-    def __init__(self, threshold):
-        super().__init()
-        self.threshold = threshold
-
-    def forward(self, x):
-        return self.quadtree_compress(x, self.threshold)
 
 
 class MlpClassifier(T.nn.Module):
@@ -107,25 +101,20 @@ class MlpClassifier(T.nn.Module):
 
 
 class QTLineClassifier(T.nn.Module):
-    def __init__(self,lines:Union[HLine,RLine], threshold):
+    def __init__(self,lines:Union[HLine,RLine], quadtree:QT):
         """
         Args:
             lines: a pytorch module that extracts lines or points from data.
             threshold:  value of variance to choose
         """
         super().__init__()
-
-        self.lines_fn=lines
-
-        if threshold is not None:
-            self.quadtree=QuadTree(threshold)
-        else:
-            self.quadtree=None
-
+        self.lines_fn = lines
+        self.quadtree = quadtree
         self.mlp = MlpClassifier(input_size=lines.out_size)
 
     def forward(self, x):
-        if self.quadtree is not None:
-            x = self.quadtree(x)
-        x = self.lines_fn(x)
+        with T.no_grad():
+            if self.quadtree is not None:
+                x = self.quadtree(x)
+            x = self.lines_fn(x)
         return self.mlp(x)

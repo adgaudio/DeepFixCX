@@ -25,6 +25,7 @@ from deepfix.models.ghaarconv import convert_conv2d_to_gHaarConv2d
 from deepfix.init_from_distribution import init_from_beta, reset_optimizer
 from deepfix import deepfix_strategies as dfs
 from deepfix.models.qthline import QTLineClassifier, HLine, RLine
+from deepfix.models.quadtree import QT
 import pytorch_wavelets as pyw
 
 
@@ -59,7 +60,7 @@ MODELS = {
     ('hline_10', ):
         lambda _: QTLineClassifier(HLine(list(range(100,300,10)), 320), None),
     ('rline', ):
-        lambda _: QTLineClassifier(RLine((320,320), nlines=77, seed=0), None),
+        lambda _: QTLineClassifier(RLine((320,320), nlines=200, seed=1), None),
     ('rline1', ):
         lambda _: QTLineClassifier(RLine((320,320), nlines=77, seed=1), None),
     ('rline2', ):
@@ -76,6 +77,18 @@ MODELS = {
         lambda _: QTLineClassifier(RLine((320,320), nlines=200, zero_top_frac=0, seed=1, heart_roi=True), None),
     ('rhline', ):
         lambda _: QTLineClassifier(RLine((320,320), nlines=200, zero_top_frac=0, seed=1, heart_roi=True, hlines=list(range(100,300,10))), None),
+    ('qrhline', ):
+        lambda _: QTLineClassifier(
+            RLine((320,320), nlines=200, zero_top_frac=0, seed=1, heart_roi=True, hlines=list(range(100,300,10))),
+            QT(30, 9, split_mode='entropy')
+            ),
+    ('qrhline_fast', ):
+        lambda _: QTLineClassifier(
+            RLine((320,320), nlines=200, zero_top_frac=0, seed=1, heart_roi=True, hlines=list(range(100,300,10))),
+            QT(200, 9, split_mode='entropy')
+            ),
+    ('heart', ):
+        lambda _: QTLineClassifier(RLine((320,320), nlines=0, zero_top_frac=0, seed=1, heart_roi=True, hlines=[]), None),
 }
 
 
