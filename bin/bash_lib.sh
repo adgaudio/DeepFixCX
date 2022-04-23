@@ -363,7 +363,14 @@ function run_gpus() {
   # use redis database as a queuing mechanism.  you can specify how to connect to redis with RUN_GPUS_REDIS_CLI 
   local num_tasks_per_gpu="${1:-1}"
   local redis="${RUN_GPUS_REDIS_CLI:-redis-cli -n 1}"
-  local num_gpus=$(nvidia-smi pmon -c 1|grep -v \# | awk '{print $1}' | sort -u | wc -l)
+  if [ -z ${CUDA_VISIBLE_DEVICES:-} ] ; then
+    local num_gpus=$(nvidia-smi -L | wc -l)
+    local gpu_idxs=$(nvidia-smi pmon -c 1|grep -v \# | awk '{print $1}' | sort -u)
+  else
+    local num_gpus=$(echo $CUDA_VISIBLE_DEVICES | tr -d ',' | wc -m )
+    ((num_gpus--))
+    local gpu_idxs=$(echo $CUDA_VISIBLE_DEVICES | tr -s ',' '\n')
+  fi
   local Q="`mktemp -u -p run_gpus`"
 
   # trap "$(echo $redis DEL "$Q" "$Q/numstarted") > /dev/null" EXIT
@@ -381,14 +388,15 @@ EOF
     local maxjobs=$(( $maxjobs + 1 ))
   done
   # --> start the consumers
-  for gpu_idx in `nvidia-smi pmon -c 1|grep -v \# | awk '{print $1}' | sort -u` ; do
+  while read -r gpu_idx ; do
     for i in $(seq 1 $num_tasks_per_gpu) ; do
       # TODO: not ideal that we have multiple consumers on same queue because they're all competing for same elements
       # in future, should have additional consumers randomly sample from the queue
       # or have a better queuing mechanism
       sleep $(bc -l <<< "scale=4 ; ${RANDOM}/32767/10")
       consumergpu_redis $gpu_idx "$redis" "$Q" $maxjobs &
-  done ; done
+    done
+  done <<<$gpu_idxs
   wait
   $redis DEL "$Q" "$Q/numstarted" >/dev/null
 }
