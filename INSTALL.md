@@ -9,6 +9,7 @@ Code used to setup the environment:
     conda install matplotlib numpy pandas scikit-learn pip tqdm pytables ipython seaborn
     conda install simple-parsing opencv -c conda-forge
     conda install pywavelets termcolor configargparse munch
+    conda install -c conda-forge ray-tune  ray-default
     pip install --no-deps simplepytorch
 
     pip install adabound
