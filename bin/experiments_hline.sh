@@ -65,10 +65,29 @@ HL3() {
 for n,opt in enumerate(["SGD:lr=0.0005:momentum=.7:nesterov=1:weight_decay=1e-6", ]):
   for mdl in ['hline_10', 'rhline', 'rline', 'heart', 'qrhline', 'qrhline_fast']:
     print(f''' $V.HL3.opt{n}.{mdl}.    env batch_size=2048 num_workers=6 python deepfix/train.py --dset chexpert_small:.9:.1:Cardiomegaly --model {mdl} --opt {opt} --lossfn chexpert_uignore --epochs 50 ''')
+  # some tests usig the sum
+  for mdl in ['sum', 'heart+sum', 'rhline+heart+sum', 'rhline+sum']:
+    print(f''' $V.HL3.opt{n}.{mdl}.    env batch_size=2048 num_workers=6 python deepfix/train.py --dset chexpert_small:.9:.1:Cardiomegaly --model {mdl} --opt {opt} --lossfn chexpert_uignore --epochs 50 ''')
+for n,opt in enumerate(["SGD:lr=0.0005:momentum=.7:nesterov=1:weight_decay=1e-6", "Adam:lr=0.001"]):
+  for mdl in ['median+rhline+heart', ]:
+    print(f''' $V.HL3.opt{n}.{mdl}.    env batch_size=340 num_workers=6 python deepfix/train.py --dset chexpert_small:.9:.1:Cardiomegaly --model {mdl} --opt {opt} --lossfn chexpert_uignore --epochs 50 ''')
 EOF
-echo $V.HL3.densenet env batch_size=30 num_workers=6 python deepfix/train.py --dset chexpert_small:.9:.1:Cardiomegaly --model densenet121:untrained:1:1 --opt Adam:lr=0.001 --lossfn chexpert_uignore  --epochs 50
+echo $V.HL3.median    env batch_size=480 num_workers=6 python deepfix/train.py --dset chexpert_small:.9:.1:Cardiomegaly --model median                    --opt Adam:lr=0.001 --lossfn chexpert_uignore  --epochs 50
+echo $V.HL3.densenet  env batch_size=30  num_workers=6 python deepfix/train.py --dset chexpert_small:.9:.1:Cardiomegaly --model densenet121:untrained:1:1 --opt Adam:lr=0.001 --lossfn chexpert_uignore  --epochs 50
 }
+
+HL4() {
+  # tuner, SGD
+  run $V.HL4 env num_workers=6 batch_size=800 python deepfix/train_tuner.py  --dset chexpert_small:.9:.1:Cardiomegaly --lossfn chexpert_uignore #--resume True
+}
+HL5() {
+  # tuner, Adam
+  run $V.HL5 env num_workers=6 batch_size=800 python deepfix/train_tuner.py  --dset chexpert_small:.9:.1:Cardiomegaly --lossfn chexpert_uignore --opt Adam:lr=tune
+}
+
+
 
 # HL1 | run_gpus 1
 # HL2 | run_gpus 3
-HL3 | run_gpus 1
+# HL3 | run_gpus 1
+HL5

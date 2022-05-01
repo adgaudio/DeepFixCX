@@ -4,8 +4,10 @@ import numpy as np
 from typing import Union, List
 import cv2
 import torch.nn as nn
-from deepfix.models.api import get_efficientnetv1
+#  from deepfix.models.api import get_efficientnetv1
 from deepfix.models.quadtree import QT
+from deepfix.models.median_pooling import MedianPool2d
+from deepfix.models import get_densenet
 
 
 class HLine(T.nn.Module):
@@ -30,8 +32,9 @@ class RLine(T.nn.Module):
     def __init__(self, img_HW, nlines=25, zero_top_frac:int=0,
                  heart_roi:bool=False,
                  initialization='inscribed_circle', seed=None,
-                 hlines:List[int]=()):
+                 hlines:List[int]=(), sum_aggregate=False):
         super().__init__()
+        self.sum_aggregate = sum_aggregate
         if initialization == 'inscribed_circle':
             #  seed 0
             center_HW = img_HW[0]/2, img_HW[1]/2
@@ -73,13 +76,35 @@ class RLine(T.nn.Module):
                 arr[roi >= 100] = 1
             else:  # zero out the lines outside the region.
                 arr[roi < 100] = 0
-        self.out_size = arr.sum()
+        if arr.sum() == 0:
+            arr = np.ones_like(arr)
+        if self.sum_aggregate:
+            self.out_size = arr.shape[-2] + arr.shape[-1]
+        else:
+            self.out_size = arr.sum()
         self.arr = T.tensor(arr, dtype=T.bool).unsqueeze_(0).unsqueeze_(0)
 
     def forward(self, x):
-        assert x.shape[-2:] == self.arr.shape[-2:]
-        return x[self.arr.repeat(x.shape[0], x.shape[1],1,1)]\
-                .reshape(x.shape[0], x.shape[1], -1)
+        assert x.shape[-2:] == self.arr.shape[-2:], f'expected spatial dims {self.arr.shape[-2:]} but got {x.shape[-2:]}'
+        if self.sum_aggregate:
+            z1 = x.sum(-2), x.sum(-1)
+            x[(~self.arr).repeat(x.shape[0], x.shape[1],1,1)] = 0
+            z2 = x.sum(-2), x.sum(-1)
+            return T.cat([x.sum(-2), x.sum(-1)], -1)
+        else:
+            B, C = x.shape[:2]
+            x = x[self.arr.repeat(x.shape[0], x.shape[1],1,1)]
+            return x.reshape(B, C, -1)
+
+
+class MedianPoolDenseNet(T.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.fn = T.nn.Sequential(
+            MedianPool2d(kernel_size=12, stride=4),
+            get_densenet('densenet121', 'untrained', 1, 1))
+    def forward(self, x):
+        return self.fn(x)
 
 
 class MlpClassifier(T.nn.Module):
@@ -101,7 +126,7 @@ class MlpClassifier(T.nn.Module):
 
 
 class QTLineClassifier(T.nn.Module):
-    def __init__(self,lines:Union[HLine,RLine], quadtree:QT):
+    def __init__(self,lines:Union[HLine,RLine], quadtree:Union[T.nn.Module,QT]):
         """
         Args:
             lines: a pytorch module that extracts lines or points from data.
