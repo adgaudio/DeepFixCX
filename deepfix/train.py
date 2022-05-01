@@ -336,7 +336,7 @@ def get_dset_chexpert(train_frac=.8, val_frac=.2, small=False,
     if labels == 'identity':
         class_names = list(range(num_identities))
         get_ylabels = lambda dct: \
-            (D.CheXpert.format_labels(dct, labels=['index']) % num_identities).long()
+            (D.CheXpert.format_labels(dct, labels=['index'], as_tensor=True) % num_identities).long()
     else:
         if labels == 'diagnostic':
             class_names = D.CheXpert.LABELS_DIAGNOSTIC
@@ -349,7 +349,7 @@ def get_dset_chexpert(train_frac=.8, val_frac=.2, small=False,
             if k in D.CheXpert.LABELS_DIAGNOSTIC:
                 _label_cleanup_dct[k][np.nan] = 0  # remap missing value to negative
         get_ylabels = lambda dct: \
-            D.CheXpert.format_labels(dct, labels=class_names).float()
+            D.CheXpert.format_labels(dct, labels=class_names, as_tensor=True).float()
     kws = dict(
         getitem_transform=lambda dct: (dct['image'], get_ylabels(dct)),
         label_cleanup_dct=_label_cleanup_dct,
@@ -595,6 +595,10 @@ class CheXpertMultiLabelBinaryClassification(TL.MultiLabelBinaryClassification):
                 continue  # don't update a confusion matrix if all data for this class is ignored
             #  print(y.device, binarized.device)
             cm += metrics.confusion_matrix_binary_soft_assignment(y[rows, i], binarized[rows, i]).to(self.device, non_blocking=True)
+            if 'y' in self.metrics or 'ROC_AUC' in self.metrics:
+                self._ydata[kls].append(y[rows, i].to(self.device, non_blocking=True))
+            if 'yhat' in self.metrics or 'ROC_AUC' in self.metrics:
+                self._yhatdata[kls].append(yhat[rows, i].to(self.device, non_blocking=True))
         self.loss += loss.item()
 
 
@@ -607,7 +611,7 @@ def train_config(args:'TrainOptions') -> TL.TrainConfig:
         epochs=args.epochs,
         start_epoch=args.start_epoch,
         experiment_id=args.experiment_id,
-        checkpoint_if=TL.CheckpointBestOrLast(metric='val_BAcc Cardiomegaly', mode='max')
+        checkpoint_if=TL.CheckpointIf(metric='val_ROC_AUC AVG', mode='max')
     )
 
 
