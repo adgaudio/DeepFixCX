@@ -20,13 +20,13 @@ import numpy as np
 import torch as T
 import torchvision.transforms as tvt
 
-from deepfix.models import get_effnetv2, get_resnet, get_densenet, get_efficientnetv1, get_DeepFixEnd2End, get_DeepFixEnd2End_v2, DeepFixMLP, UnetD
+from deepfix.models import get_effnetv2, get_resnet, get_densenet, get_efficientnetv1, DeepFixMLP
 from deepfix.models.ghaarconv import convert_conv2d_to_gHaarConv2d
 from deepfix.init_from_distribution import init_from_beta, reset_optimizer
 from deepfix import deepfix_strategies as dfs
-from deepfix.models.qthline import QTLineClassifier, HLine, RLine
+from deepfix.models.qthline import QTLineClassifier, HLine, RLine, MedianPoolDenseNet, MlpClassifier
 from deepfix.models.quadtree import QT
-import pytorch_wavelets as pyw
+from deepfix.models.median_pooling import MedianPool2d
 
 
 def parse_normalization(normalization, wavelet, wavelet_levels, wavelet_patch_size, patch_features, zero_mean):
@@ -89,8 +89,28 @@ MODELS = {
             ),
     ('heart', ):
         lambda _: QTLineClassifier(RLine((320,320), nlines=0, zero_top_frac=0, seed=1, heart_roi=True, hlines=[]), None),
+    ('median', ): lambda _: MedianPoolDenseNet(),
+    ('median+rhline+heart', ): lambda _: QTLineClassifier(
+        RLine((160,160), nlines=200, zero_top_frac=0, seed=1, heart_roi=True, hlines=list(range(50,150,5))),
+        quadtree=T.nn.Sequential(
+            MedianPool2d(kernel_size=12, stride=2, same=True),
+            #  T.nn.UpsamplingNearest2d((320,320))),
+        )),
+    ('sum', ): lambda _: QTLineClassifier(
+        RLine((320,320), nlines=0, zero_top_frac=0, seed=1, heart_roi=False, hlines=[], sum_aggregate=True), None),
+    ('heart+sum', ): lambda _: QTLineClassifier(
+        RLine((320,320), nlines=0, zero_top_frac=0, seed=1, heart_roi=True, hlines=[], sum_aggregate=True), None),
+    ('rhline+heart+sum', ): lambda _: QTLineClassifier(
+        RLine((320,320), nlines=200, zero_top_frac=0, seed=1, heart_roi=True, hlines=list(range(100,300,10)), sum_aggregate=True), None),
+    ('rhline+sum', ): lambda _: QTLineClassifier(
+        RLine((320,320), nlines=200, zero_top_frac=0, seed=1, heart_roi=False, hlines=list(range(100,300,10)), sum_aggregate=True), None),
 }
-
+class Lambda(T.nn.Module):
+    def __init__(self, fn):
+        super().__init__()
+        self.fn = fn
+    def forward(self, x):
+        return self.fn(x)
 
 
 class LossCheXpertUignore(T.nn.Module):
@@ -101,6 +121,15 @@ class LossCheXpertUignore(T.nn.Module):
     def forward(self, yhat, y):
         ignore = (y != 2)  # ignore uncertainty labels
         return self.bce(yhat[ignore], y[ignore])
+
+class MSELossCheXpertUignore(T.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.mse = T.nn.MSELoss()
+
+    def forward(self, yhat, y):
+        ignore = (y != 2)  # ignore uncertainty labels
+        return self.mse(yhat[ignore], y[ignore])
 
 
 def loss_intelmobileodt(yhat, y):
@@ -451,6 +480,7 @@ LOSS_FNS = {
     ('CrossEntropyLoss', ): lambda _: T.nn.CrossEntropyLoss(),
     ('CE_intelmobileodt', ): lambda _: loss_intelmobileodt,
     ('chexpert_uignore', ): lambda _: LossCheXpertUignore(),
+    ('chexpert_uignore_age', ): lambda _: MSELossCheXpertUignoreAge(),
 }
 
 DSETS = {
@@ -568,40 +598,6 @@ class CheXpertMultiLabelBinaryClassification(TL.MultiLabelBinaryClassification):
         self.loss += loss.item()
 
 
-def get_deepfix_train_strategy(args:'TrainOptions'):
-    deepfix_spec = args.deepfix
-    if deepfix_spec == 'off':
-        return TL.train_one_epoch
-    elif deepfix_spec.startswith('reinit:'):
-        _, N, P, R = deepfix_spec.split(':')
-        return dfs.DeepFix_TrainOneEpoch(int(N), float(P), int(R), TL.train_one_epoch)
-    elif deepfix_spec.startswith('dhist:'):
-        fp = deepfix_spec.split(':', 1)[1]
-        assert exists(fp), f'histogram file not found: {fp}'
-        return dfs.DeepFix_DHist(fp)
-    elif deepfix_spec.startswith('dfhist:'):
-        fp = deepfix_spec.split(':', 1)[1]
-        assert exists(fp), f'histogram file not found: {fp}'
-        return dfs.DeepFix_DHist(fp, fixed=True)
-    elif deepfix_spec == 'fixed':
-        return dfs.DeepFix_DHist('', fixed=True, init_with_hist=False)
-    elif deepfix_spec.startswith('beta:'):
-        alpha, beta = deepfix_spec.split(':')[1:]
-        return dfs.DeepFix_LambdaInit(
-            lambda cfg: init_from_beta(cfg.model, float(alpha), float(beta)))
-    elif deepfix_spec.startswith('ghaarconv2d:'):
-        ignore_layers = deepfix_spec.split(':')[1].split(',')
-        return dfs.DeepFix_LambdaInit(
-            lambda cfg: (
-                print(f'initialize {deepfix_spec}'),
-                convert_conv2d_to_gHaarConv2d(cfg.model, ignore_layers=ignore_layers),
-                reset_optimizer(args.opt, cfg.model),
-                print(cfg.model)
-            ))
-    else:
-        raise NotImplementedError(deepfix_spec)
-
-
 def train_config(args:'TrainOptions') -> TL.TrainConfig:
     return TL.TrainConfig(
         **get_model_opt_loss(
@@ -610,7 +606,6 @@ def train_config(args:'TrainOptions') -> TL.TrainConfig:
         device=args.device,
         epochs=args.epochs,
         start_epoch=args.start_epoch,
-        train_one_epoch=get_deepfix_train_strategy(args),
         experiment_id=args.experiment_id,
         checkpoint_if=TL.CheckpointBestOrLast(metric='val_BAcc Cardiomegaly', mode='max')
     )
@@ -650,19 +645,7 @@ class TrainOptions:
 
     loss_reg:str = 'none'  # Optionally add a regularizer to the loss.  loss + reg.  Accepted values:  "none", "deepfixmlp:X" where X is a positive float denoting the lambda in l1 regularizer
     model:str = 'resnet18:imagenet:3:3'  # Model specification adheres to the template "model_name:pretraining:in_ch:out_ch"
-    deepfix:str = 'off'
-    """
-    DeepFix Re-initialization Method.  Options:
-        "off" or "reinit:N:P:R" or "d[f]hist:path_to_histogram.pth"
-         or "beta:A:B" for A,B as (float) parameters of the beta distribution
-        'ghaarconv2d:layer1,layer2' Replaces all spatial convolutions with GHaarConv2d layer except the specified layers
-    """
     experiment_id:str = os.environ.get('run_id', 'debugging')
-    prune:str = 'off'
-
-    def execute(self):
-        cfg = train_config(self)
-        cfg.train(cfg)
 
 
 def main():
@@ -671,19 +654,6 @@ def main():
     args = p.parse_args().TrainOptions
     print(args)
     cfg = train_config(args)
-
-    if args.prune != 'off':
-        assert args.prune.startswith('ChannelPrune:')
-        raise NotImplementedError('code is a bit hardcoded, so it is not available without hacking on it.')
-        print(args.prune)
-        from explainfix import channelprune
-        from deepfix.weight_saliency import costfn_multiclass
-        a = sum([x.numel() for x in cfg.model.parameters()])
-        channelprune(cfg.model, pct=5, grad_cost_fn=costfn_multiclass,
-                     loader=cfg.train_loader, device=cfg.device, num_minibatches=10)
-        b = sum([x.numel() for x in cfg.model.parameters()])
-        assert a/b != 1
-        print(f'done channelpruning.  {a/b}')
 
     cfg.train(cfg)
     #  import IPython ; IPython.embed() ; import sys ; sys.exit()
