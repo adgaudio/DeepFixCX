@@ -84,10 +84,45 @@ HL5() {
   # tuner, Adam
   run $V.HL5 env num_workers=6 batch_size=800 python deepfix/train_tuner.py  --dset chexpert_small:.9:.1:Cardiomegaly --lossfn chexpert_uignore --opt Adam:lr=tune
 }
+HL6() {
+  # compare rhline algo with tuned rhline algo.  run for more epochs to see if double descent curve happens.  increase batch size to see if perf increases.
+  python <<EOF
+for n,opt in enumerate(["Adam:lr=0.001", ]):
+  for mdl in ['rhline', 'rhline_opt']:
+    print(f''' $V.HL6.{mdl}.    env batch_size=2048 num_workers=6 python deepfix/train.py --dset chexpert_small:.9:.1:Cardiomegaly --model {mdl} --opt {opt} --lossfn chexpert_uignore --epochs 200 ''')
+EOF
+}
+HL7() {
+  # compare rhline algo with tuned rhline algo.  run for more epochs to see if double descent curve happens.  increase batch size to see if perf increases.
+  python <<EOF
+for n,opt in enumerate(["SGD:lr=0.0005:momentum=.7:nesterov=1:weight_decay=1e-6"]):
+  mdl = 'rhline+densenet'
+  print(f''' $V.HL7.{mdl}.    env batch_size=35 num_workers=6 python deepfix/train.py --dset chexpert_small:.9:.1:Cardiomegaly --model {mdl} --opt {opt} --lossfn chexpert_uignore --epochs 500 ''')
+  for mdl in ['rhline+densenet', 'rhline', 'rhline_opt']:
+    print(f''' $V.HL7.{mdl}.    env batch_size=2048 num_workers=6 python deepfix/train.py --dset chexpert_small:.9:.1:Cardiomegaly --model {mdl} --opt {opt} --lossfn chexpert_uignore --epochs 500 ''')
+EOF
+}
+
+HL8() {
+  # re-do all the results.  rename the models
+  python <<EOF
+opt = "Adam:lr=0.001"
+for mdl in ['rline+heart', 'rhline+heart', 'hline+heart', 'rhline', 'hline', 'rline', 'rline+heart_s2', 'heart', 'rline+heart_s3', ]:
+  print(f''' $V.HL8.{mdl}.    env batch_size=1000 num_workers=6 python deepfix/train.py --dset chexpert_small15k:.9:.1:Cardiomegaly --model {mdl} --opt {opt} --lossfn chexpert_uignore --epochs 500 ''')
+EOF
+# TODO: add median pooling to the best of these.
+# TODO: later add densenet and densenet + best model of these
+  # mdl = 'rhline+densenet'
+  # print(f''' $V.HL8.{mdl}.    env batch_size=35 num_workers=6 python deepfix/train.py --dset chexpert_small15k:.9:.1:Cardiomegaly --model {mdl} --opt {opt} --lossfn chexpert_uignore --epochs 500 ''')
+}
 
 
 
 # HL1 | run_gpus 1
 # HL2 | run_gpus 3
 # HL3 | run_gpus 1
-HL5
+# HL5
+# HL6 | run_gpus 1
+# HL7 | run_gpus 1
+#
+HL8 | run_gpus 2

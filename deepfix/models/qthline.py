@@ -32,9 +32,11 @@ class RLine(T.nn.Module):
     def __init__(self, img_HW, nlines=25, zero_top_frac:int=0,
                  heart_roi:bool=False,
                  initialization='inscribed_circle', seed=None,
-                 hlines:List[int]=(), sum_aggregate=False):
+                 hlines:List[int]=(), sum_aggregate=False, ret_img=False):
         super().__init__()
         self.sum_aggregate = sum_aggregate
+        self.ret_img = ret_img
+        assert sum_aggregate + ret_img <= 1
         if initialization == 'inscribed_circle':
             #  seed 0
             center_HW = img_HW[0]/2, img_HW[1]/2
@@ -91,6 +93,9 @@ class RLine(T.nn.Module):
             x[(~self.arr).repeat(x.shape[0], x.shape[1],1,1)] = 0
             z2 = x.sum(-2), x.sum(-1)
             return T.cat([x.sum(-2), x.sum(-1)], -1)
+        elif self.ret_img:
+            x[~(self.arr.repeat(x.shape[0], x.shape[1],1,1))] = 0
+            return x
         else:
             B, C = x.shape[:2]
             x = x[self.arr.repeat(x.shape[0], x.shape[1],1,1)]

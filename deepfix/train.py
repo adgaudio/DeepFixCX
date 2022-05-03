@@ -6,7 +6,6 @@ I wish a machine could automate setting up decent baseline models and datasets.
 """
 #  import json
 import os
-from os.path import exists
 import pampy
 from simple_parsing import ArgumentParser
 from simplepytorch import datasets as D
@@ -21,10 +20,8 @@ import torch as T
 import torchvision.transforms as tvt
 
 from deepfix.models import get_effnetv2, get_resnet, get_densenet, get_efficientnetv1, DeepFixMLP
-from deepfix.models.ghaarconv import convert_conv2d_to_gHaarConv2d
-from deepfix.init_from_distribution import init_from_beta, reset_optimizer
-from deepfix import deepfix_strategies as dfs
-from deepfix.models.qthline import QTLineClassifier, HLine, RLine, MedianPoolDenseNet, MlpClassifier
+from deepfix.init_from_distribution import reset_optimizer
+from deepfix.models.qthline import QTLineClassifier, HLine, RLine, MedianPoolDenseNet
 from deepfix.models.quadtree import QT
 from deepfix.models.median_pooling import MedianPool2d
 
@@ -55,12 +52,12 @@ MODELS = {
         lambda pretrain, in_ch, out_ch: get_efficientnetv1('efficientnet-b0', pretrain, int(in_ch), int(out_ch))),
     ('efficientnet-b1', str, str, str): (
         lambda pretrain, in_ch, out_ch: get_efficientnetv1('efficientnet-b1', pretrain, int(in_ch), int(out_ch))),
-    ('hline', ):
-        lambda _: QTLineClassifier(HLine(list(range(100,300,5)), 320), None),
+    #  ('hline', ):
+        #  lambda _: QTLineClassifier(HLine(list(range(100,300,5)), 320), None),
     ('hline_10', ):
         lambda _: QTLineClassifier(HLine(list(range(100,300,10)), 320), None),
-    ('rline', ):
-        lambda _: QTLineClassifier(RLine((320,320), nlines=200, seed=1), None),
+    #  ('rline', ):
+        #  lambda _: QTLineClassifier(RLine((320,320), nlines=200, seed=1), None),
     ('rline1', ):
         lambda _: QTLineClassifier(RLine((320,320), nlines=77, seed=1), None),
     ('rline2', ):
@@ -75,8 +72,8 @@ MODELS = {
         lambda _: QTLineClassifier(RLine((320,320), nlines=200, zero_top_frac=1/3, seed=1, heart_roi=True), None),
     ('rline_200heart2', ):
         lambda _: QTLineClassifier(RLine((320,320), nlines=200, zero_top_frac=0, seed=1, heart_roi=True), None),
-    ('rhline', ):
-        lambda _: QTLineClassifier(RLine((320,320), nlines=200, zero_top_frac=0, seed=1, heart_roi=True, hlines=list(range(100,300,10))), None),
+    ('rhline_opt', ):
+        lambda _: QTLineClassifier(RLine((320,320), nlines=150, zero_top_frac=0, seed=1, heart_roi=True, hlines=list(range(80,295,6))), None),
     ('qrhline', ):
         lambda _: QTLineClassifier(
             RLine((320,320), nlines=200, zero_top_frac=0, seed=1, heart_roi=True, hlines=list(range(100,300,10))),
@@ -87,11 +84,9 @@ MODELS = {
             RLine((320,320), nlines=200, zero_top_frac=0, seed=1, heart_roi=True, hlines=list(range(100,300,10))),
             QT(200, 9, split_mode='entropy')
             ),
-    ('heart', ):
-        lambda _: QTLineClassifier(RLine((320,320), nlines=0, zero_top_frac=0, seed=1, heart_roi=True, hlines=[]), None),
     ('median', ): lambda _: MedianPoolDenseNet(),
     ('median+rhline+heart', ): lambda _: QTLineClassifier(
-        RLine((160,160), nlines=200, zero_top_frac=0, seed=1, heart_roi=True, hlines=list(range(50,150,5))),
+        RLine((160,160), nlines=200, zero_top_frac=0, seed=1, heart_roi=True, hlines=list(range(100,300,10))),
         quadtree=T.nn.Sequential(
             MedianPool2d(kernel_size=12, stride=2, same=True),
             #  T.nn.UpsamplingNearest2d((320,320))),
@@ -104,13 +99,24 @@ MODELS = {
         RLine((320,320), nlines=200, zero_top_frac=0, seed=1, heart_roi=True, hlines=list(range(100,300,10)), sum_aggregate=True), None),
     ('rhline+sum', ): lambda _: QTLineClassifier(
         RLine((320,320), nlines=200, zero_top_frac=0, seed=1, heart_roi=False, hlines=list(range(100,300,10)), sum_aggregate=True), None),
+    ('rhline+densenet', ): lambda _: T.nn.Sequential(
+        RLine((320,320), nlines=200, zero_top_frac=0, seed=1, heart_roi=False, hlines=list(range(100,300,10)), ret_img=True),
+        get_densenet('densenet121', 'untrained', 1, 1)
+    ),
+    ('rhline+heart+densenet', ): lambda _: T.nn.Sequential(
+        RLine((320,320), nlines=200, zero_top_frac=0, seed=1, heart_roi=True, hlines=list(range(100,300,10)), ret_img=True),
+        get_densenet('densenet121', 'untrained', 1, 1)
+    ),
+    ('hline', ): lambda _: QTLineClassifier(RLine((320,320), nlines=0, zero_top_frac=0, seed=1, heart_roi=False, hlines=list(range(100,300,10))), None),
+    ('rline', ): lambda _: QTLineClassifier(RLine((320,320), nlines=200, zero_top_frac=0, seed=1, heart_roi=False, hlines=[]), None),
+    ('heart', ): lambda _: QTLineClassifier(RLine((320,320), nlines=0, zero_top_frac=0, seed=1, heart_roi=True, hlines=[]), None),
+    ('hline+heart', ): lambda _: QTLineClassifier(RLine((320,320), nlines=0, zero_top_frac=0, seed=1, heart_roi=True, hlines=list(range(100,300,10))), None),
+    ('rline+heart', ): lambda _: QTLineClassifier(RLine((320,320), nlines=200, zero_top_frac=0, seed=1, heart_roi=True), None),
+    ('rhline', ): lambda _: QTLineClassifier(RLine((320,320), nlines=200, zero_top_frac=0, seed=1, heart_roi=False, hlines=list(range(100,300,10))), None),
+    ('rhline+heart', ): lambda _: QTLineClassifier(RLine((320,320), nlines=200, zero_top_frac=0, seed=1, heart_roi=True, hlines=list(range(100,300,10))), None),
+    ('rline+heart_s2', ): lambda _: QTLineClassifier(RLine((320,320), nlines=200, zero_top_frac=0, seed=2, heart_roi=True), None),
+    ('rline+heart_s3', ): lambda _: QTLineClassifier(RLine((320,320), nlines=200, zero_top_frac=0, seed=3, heart_roi=True), None),
 }
-class Lambda(T.nn.Module):
-    def __init__(self, fn):
-        super().__init__()
-        self.fn = fn
-    def forward(self, x):
-        return self.fn(x)
 
 
 class LossCheXpertUignore(T.nn.Module):
@@ -480,7 +486,7 @@ LOSS_FNS = {
     ('CrossEntropyLoss', ): lambda _: T.nn.CrossEntropyLoss(),
     ('CE_intelmobileodt', ): lambda _: loss_intelmobileodt,
     ('chexpert_uignore', ): lambda _: LossCheXpertUignore(),
-    ('chexpert_uignore_age', ): lambda _: MSELossCheXpertUignoreAge(),
+    ('chexpert_uignore_mse', ): lambda _: MSELossCheXpertUignore(),
 }
 
 DSETS = {
