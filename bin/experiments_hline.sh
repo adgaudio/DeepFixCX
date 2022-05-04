@@ -107,8 +107,25 @@ HL8() {
   # re-do all the results.  rename the models
   python <<EOF
 opt = "Adam:lr=0.001"
-for mdl in ['rline+heart', 'rhline+heart', 'hline+heart', 'rhline', 'hline', 'rline', 'rline+heart_s2', 'heart', 'rline+heart_s3', ]:
-  print(f''' $V.HL8.{mdl}.    env batch_size=1000 num_workers=6 python deepfix/train.py --dset chexpert_small15k:.9:.1:Cardiomegaly --model {mdl} --opt {opt} --lossfn chexpert_uignore --epochs 500 ''')
+mdls = [
+  'rline+heart', 'rhline+heart', 'hline+heart', 'rhline', 'hline',
+  'rline', 'rline+heart_s2', 'heart', 'rline+heart_s3',
+  ]
+batch_size = 1000
+for mdl in mdls:
+  print(f''' $V.HL8.{mdl}.    env batch_size={batch_size} num_workers=6 python deepfix/train.py --dset chexpert_small15k:.9:.1:Cardiomegaly --model {mdl} --opt {opt} --lossfn chexpert_uignore --epochs 500 ''')
+EOF
+}
+HL8_part2() {
+python <<EOF
+opt = "Adam:lr=0.001"
+# densenet models
+for mdl, batch_size in [
+        ('median+rhline+heart', 100),
+        ('rhline+heart+densenet', 35),
+        ('median+rhline+heart+densenet', 70),
+        ('median+densenet', 70)]:
+  print(f''' $V.HL8.{mdl}.    env batch_size={batch_size} num_workers=6 python deepfix/train.py --dset chexpert_small15k:.9:.1:Cardiomegaly --model {mdl} --opt {opt} --lossfn chexpert_uignore --epochs 300 ''')
 EOF
 # TODO: add median pooling to the best of these.
 # TODO: later add densenet and densenet + best model of these
@@ -125,4 +142,5 @@ EOF
 # HL6 | run_gpus 1
 # HL7 | run_gpus 1
 #
-HL8 | run_gpus 2
+# HL8 | run_gpus 2
+HL8_part2 | run_gpus 1

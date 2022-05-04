@@ -85,12 +85,6 @@ MODELS = {
             QT(200, 9, split_mode='entropy')
             ),
     ('median', ): lambda _: MedianPoolDenseNet(),
-    ('median+rhline+heart', ): lambda _: QTLineClassifier(
-        RLine((160,160), nlines=200, zero_top_frac=0, seed=1, heart_roi=True, hlines=list(range(100,300,10))),
-        quadtree=T.nn.Sequential(
-            MedianPool2d(kernel_size=12, stride=2, same=True),
-            #  T.nn.UpsamplingNearest2d((320,320))),
-        )),
     ('sum', ): lambda _: QTLineClassifier(
         RLine((320,320), nlines=0, zero_top_frac=0, seed=1, heart_roi=False, hlines=[], sum_aggregate=True), None),
     ('heart+sum', ): lambda _: QTLineClassifier(
@@ -103,10 +97,6 @@ MODELS = {
         RLine((320,320), nlines=200, zero_top_frac=0, seed=1, heart_roi=False, hlines=list(range(100,300,10)), ret_img=True),
         get_densenet('densenet121', 'untrained', 1, 1)
     ),
-    ('rhline+heart+densenet', ): lambda _: T.nn.Sequential(
-        RLine((320,320), nlines=200, zero_top_frac=0, seed=1, heart_roi=True, hlines=list(range(100,300,10)), ret_img=True),
-        get_densenet('densenet121', 'untrained', 1, 1)
-    ),
     ('hline', ): lambda _: QTLineClassifier(RLine((320,320), nlines=0, zero_top_frac=0, seed=1, heart_roi=False, hlines=list(range(100,300,10))), None),
     ('rline', ): lambda _: QTLineClassifier(RLine((320,320), nlines=200, zero_top_frac=0, seed=1, heart_roi=False, hlines=[]), None),
     ('heart', ): lambda _: QTLineClassifier(RLine((320,320), nlines=0, zero_top_frac=0, seed=1, heart_roi=True, hlines=[]), None),
@@ -116,6 +106,19 @@ MODELS = {
     ('rhline+heart', ): lambda _: QTLineClassifier(RLine((320,320), nlines=200, zero_top_frac=0, seed=1, heart_roi=True, hlines=list(range(100,300,10))), None),
     ('rline+heart_s2', ): lambda _: QTLineClassifier(RLine((320,320), nlines=200, zero_top_frac=0, seed=2, heart_roi=True), None),
     ('rline+heart_s3', ): lambda _: QTLineClassifier(RLine((320,320), nlines=200, zero_top_frac=0, seed=3, heart_roi=True), None),
+
+    ('median+rhline+heart', ): lambda _: QTLineClassifier(
+        RLine((320//2,320//2), nlines=200, zero_top_frac=0, seed=1, heart_roi=True, hlines=list(range(100//2,300//2,10//2))),
+        quadtree=MedianPool2d(kernel_size=12, stride=2, same=True)),
+    ('median+densenet', ): lambda _: T.nn.Sequential(
+            MedianPool2d(kernel_size=12, stride=2, same=True), get_densenet('densenet121', 'untrained', 1, 1)),
+    ('rhline+heart+densenet', ): lambda _: T.nn.Sequential(
+        RLine((320,320), nlines=200, zero_top_frac=0, seed=1, heart_roi=True, hlines=list(range(100,300,10)), ret_img=True),
+        get_densenet('densenet121', 'untrained', 1, 1)),
+    ('median+rhline+heart+densenet', ): lambda _: T.nn.Sequential(
+        MedianPool2d(kernel_size=12, stride=2, same=True),
+        RLine((320//2,320//2), nlines=200, zero_top_frac=0, seed=1, heart_roi=True, hlines=list(range(100//2,300//2,10//2)), ret_img=True),
+        get_densenet('densenet121', 'untrained', 1, 1)),
 }
 
 
