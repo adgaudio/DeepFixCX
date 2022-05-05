@@ -3,6 +3,36 @@ from matplotlib import pyplot as plt
 import numpy as np
 
 
+# IMR vs ODR
+# see plot_hline_archdiagramfigs
+def clampq(x: T.Tensor, quantiles=(0,.99)):
+    if isinstance(quantiles, (list, tuple)):
+        quantiles = x.new_tensor(quantiles)
+    return x.clamp(*x.quantile(quantiles))
+
+
+def tmpplot_attr():
+    """Quick plot for fig1 that gives saliency attribution image (Fig. 1d)"""
+    fig, ax = plt.subplots(1,1, dpi=300, )
+    import torchvision.transforms as tvt
+    im = T.tensor(plt.imread('./data/CheXpert-v1.0-small/train/patient64533/study1/view1_frontal.jpg')/255, dtype=T.float)
+    im = tvt.CenterCrop((320,320))(im).reshape(1,1,320,320)
+    x = im.to(device)
+    if model.quadtree is not None:
+        repr = model.quadtree(x)
+    else:
+        repr = x
+    repr = model.lines_fn(repr)
+    attr = explainer.attribute(repr.clone().requires_grad_(True), nt_samples=20, nt_samples_batch_size=1)
+    attr = attr.detach()
+    attr_img = attr.new_zeros(x.shape)
+    attr_img[model.lines_fn.arr] = attr
+    attr2 = MedianPool2d(24, stride=1, quantile=.90)(attr_img)
+    ax.imshow(clampq(attr2.squeeze().abs(), (0,.99)).cpu().numpy())
+    ax.axis('off')
+    fig.savefig('tmpplot/attr_rhline.png', bbox_inches='tight')
+tmpplot_attr()
+
 TT_base = 1851
 TT_ours = 99
 ACC_base = .82
@@ -37,7 +67,4 @@ ax.legend(['Baseline DenseNet121', r'$\pm 1$ std', r'$\pm 2$ std', 'RHLine+Heart
 fig.tight_layout()
 fig.savefig('hline_acc_vs_speed.png', bbox_inches='tight')
 
-
-# IMR vs ODR
-# see plot_hline_archdiagramfigs
 
