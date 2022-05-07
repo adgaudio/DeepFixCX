@@ -103,8 +103,14 @@ for n,opt in enumerate(["SGD:lr=0.0005:momentum=.7:nesterov=1:weight_decay=1e-6"
 EOF
 }
 
+#
+# re-do all the results.  rename the models
+# starting from here are the paper results
+#
+
 HL8() {
-  # re-do all the results.  rename the models
+  # HeartSpot MLP models, 500 epochs
+  # each job takes up <6gb gpu ram
   python <<EOF
 opt = "Adam:lr=0.001"
 mdls = [
@@ -117,30 +123,37 @@ for mdl in mdls:
 EOF
 }
 HL8_part2() {
+# HeartSpot models, each job takes up an 11gb gpu
+#
+# MLP model, 500 epochs (this runs on a gpu by itself because median pooling implementation uses up the ram
+python <<EOF
+opt = "Adam:lr=0.001"
+mdl = 'median+rhline+heart'
+batch_size = 110
+print(f''' $V.HL8.{mdl}.    env batch_size={batch_size} num_workers=6 python deepfix/train.py --dset chexpert_small15k:.9:.1:Cardiomegaly --model {mdl} --opt {opt} --lossfn chexpert_uignore --epochs 500 ''')
+EOF
+# Densenet models, 300 epochs
 python <<EOF
 opt = "Adam:lr=0.001"
 # densenet models
 for mdl, batch_size in [
-        ('median+rhline+heart', 100),
-        ('rhline+heart+densenet', 35),
-        ('median+rhline+heart+densenet', 70),
-        ('median+densenet', 70)]:
+        ('hline+densenet', 35), ('rline+densenet', 35), ('heart+densenet', 35),  # are these the right batch sizes?
+        ('rhline+heart+densenet', 35), ('median+rhline+heart+densenet', 70),
+        ('median+densenet', 70),
+        ('densenet121:untrained:1:1', 35)]:
   print(f''' $V.HL8.{mdl}.    env batch_size={batch_size} num_workers=6 python deepfix/train.py --dset chexpert_small15k:.9:.1:Cardiomegaly --model {mdl} --opt {opt} --lossfn chexpert_uignore --epochs 300 ''')
 EOF
-# TODO: add median pooling to the best of these.
-# TODO: later add densenet and densenet + best model of these
-  # mdl = 'rhline+densenet'
-  # print(f''' $V.HL8.{mdl}.    env batch_size=35 num_workers=6 python deepfix/train.py --dset chexpert_small15k:.9:.1:Cardiomegaly --model {mdl} --opt {opt} --lossfn chexpert_uignore --epochs 500 ''')
 }
 
 
 
-# HL1 | run_gpus 1
-# HL2 | run_gpus 3
-# HL3 | run_gpus 1
-# HL5
-# HL6 | run_gpus 1
-# HL7 | run_gpus 1
+# # HL1 | run_gpus 1
+# # HL2 | run_gpus 3
+# # HL3 | run_gpus 1
+# # HL5
+# # HL6 | run_gpus 1
+# # HL7 | run_gpus 1
 #
-# HL8 | run_gpus 2
+# # paper results:
+HL8 | run_gpus 2
 HL8_part2 | run_gpus 1

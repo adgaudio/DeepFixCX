@@ -60,3 +60,29 @@ def plot_img_grid(imgs: Iterable, suptitle:str = '', rows_cols: Tuple = None,
         ax.imshow(zimg, norm=norm, vmin=vmin, vmax=vmax, cmap=cmap)
         ax.set_title(ax_title)
     return fig
+
+
+def arrow_with_text_in_middle(
+        text, left_xy, text_xy, right_xy, arrowprops=None, fontsize='xx-large', **text_kwargs):
+    """Draw matplotlib arrow like   <----  TEXT  ----> 
+    where fontsize controls both the size of arrow and the text
+
+    For one-directional arrow, could also do left_xy=None or right_xy=None,
+    giving:  TEXT ---->    or  <---- TEXT
+    """
+    text_kwargs = dict(
+        horizontalalignment='center', verticalalignment='center', fontsize=fontsize, **text_kwargs)
+    _arrowprops = dict(arrowstyle='->')
+    _arrowprops.update(arrowprops if arrowprops is not None else {})
+    arrowprops = _arrowprops
+    if left_xy:
+        ax.annotate(
+            text, xy=left_xy, xytext=text_xy,
+            arrowprops=arrowprops, **text_kwargs)
+        alpha = 0
+    else:
+        alpha = 1
+    if right_xy:
+        ax.annotate(
+            text, xytext=text_xy, xy=right_xy,
+            arrowprops=arrowprops, alpha=alpha, **text_kwargs)
