@@ -3,6 +3,8 @@ from matplotlib import pyplot as plt
 import seaborn as sns
 import torch as T
 
+from deepfix.plotting import arrow_with_text_in_middle
+
 plt.rcParams.update({"text.usetex": True,})
 
 
@@ -15,18 +17,23 @@ def clampq(x: T.Tensor, quantiles=(0,.99)):
 
 
 
-TT_base = 158  # TODO
-TT_base_std = 1  # TODO
-TT_ours = 16  # TODO
+timecol = 'Training Throughput (Sec/15k Imgs)'
+TT_base = 141  # 15k/sec
+TT_base_std = 0.21
+TT_ours = 16
+#  timecol = 'Training Time'
+#  TT_base = 20521.105421411226
+#  TT_ours = 2824.6117766582643
 ACC_base = .82  # TODO: update this
-ACC_base_std=.02
+ACC_base_std=.01  # TODO: update this
 # TODO: the numbers here.
 # note: the order in which values appear affects the shade of their color.
 df = pd.DataFrame.from_records({
     #  'ODR': df['On-Disk Compression Ratio'],
     #  'IMR': df['In-Memory Compression Ratio'],
     'ROC AUC': pd.Series({
-        'Median+(RH)Line+Heart (MLP)': 0.82,  # TODO
+        'Median+(RH)Line+Heart (MLP)': 0.77,
+        'HLine (DenseNet)': .84,
         'Median+(RH)Line+Heart (DenseNet)': 0.82,
         '(RH)Line+Heart (MLP)': 0.78,
         'RLine (MLP)': 0.77,
@@ -34,11 +41,11 @@ df = pd.DataFrame.from_records({
         'Heart (MLP)': 0.72,
         '(RH)Line+Heart (DenseNet)': 0.82,
         'RLine (DenseNet)': 0.79,
-        'HLine (DenseNet)': 0,  # TODO
         'Heart (DenseNet)': 0.83,
     }),
-    'Training Time': pd.Series({  # TODO
-        'Median+(RH)Line+Heart (MLP)': 94.44,  # TODO
+    'Training Throughput (Sec/15k Imgs)': pd.Series({
+        'Median+(RH)Line+Heart (MLP)': 94,
+        'HLine (DenseNet)': 155,
         'Median+(RH)Line+Heart (DenseNet)': 128,
         '(RH)Line+Heart (MLP)': 94,
         'RLine (MLP)': 20,
@@ -46,11 +53,23 @@ df = pd.DataFrame.from_records({
         'Heart (MLP)': 22,
         '(RH)Line+Heart (DenseNet)': 154,
         'RLine (DenseNet)': 158,
-        'HLine (DenseNet)': 0,  # TODO
         'Heart (DenseNet)': 159,
+        }),
+    'Training Time': pd.Series({
+        'Median+(RH)Line+Heart (MLP)': 20843.88001555479,
+        'HLine (DenseNet)': 21542.090708569816,
+        'Median+(RH)Line+Heart (DenseNet)': 13468.848903872273,
+        '(RH)Line+Heart (MLP)': 2824.6117766582643,
+        'RLine (MLP)': 3289.5340505003714,
+        'HLine (MLP)': 3188.83208707591,
+        'Heart (MLP)': 3188.757367484832,
+        '(RH)Line+Heart (DenseNet)': 20546.70023594248,
+        'RLine (DenseNet)': 20003.923889087047,
+        'Heart (DenseNet)': 19128.628174996607,
         }),
     'color': pd.Series({
         'Median+(RH)Line+Heart (MLP)': 'black',
+        'HLine (DenseNet)': plt.cm.Set1(4),
         'Median+(RH)Line+Heart (DenseNet)': plt.cm.Set1(8),
         '(RH)Line+Heart (MLP)': plt.cm.Set2(3),
         'RLine (MLP)': plt.cm.Set2(1),
@@ -58,35 +77,36 @@ df = pd.DataFrame.from_records({
         'Heart (MLP)': plt.cm.Set2(2),
         '(RH)Line+Heart (DenseNet)': plt.cm.Set1(7),
         'RLine (DenseNet)': plt.cm.Set1(5),
-        'HLine (DenseNet)': plt.cm.Set1(4),
         'Heart (DenseNet)': plt.cm.Set1(6),
     }),
 })
-df = df.append(pd.DataFrame({
+df = pd.concat([df, pd.DataFrame({
      'ROC AUC': ACC_base,
-     'Training Time': TT_base,
+     'Training Throughput (Sec/15k Imgs)': TT_base,
      'IMR': 1,
      'ODR': 1,
      'color': 'Gray',
-     }, index=pd.Index(['DenseNet121 (baseline)'], name='Model'))
-)
+     }, index=pd.Index(['DenseNet121 (baseline)'], name='Model'))])
 df.index.name = "Model"
 
 # TODO get perf from the cdfs:
-#  y = cdfs.loc[
-#      cdfs.groupby('run_id')['val_ROC_AUC Cardiomegaly'].idxmax()
-#  ]['test_ROC_AUC Cardiomegaly'].sort_values().reset_index('epoch', drop=True)
-#  y2 = cdfs.groupby('run_id')['seconds_training_epoch'].mean()
-#  y2
-#  y.index = y.index\
-#          .str.replace('\+densenet.', lambda x: ' (DenseNet)')\
-#          .str.replace('5.HL8.', lambda x: '')\
-#          .str.replace("heart", lambda x: 'Heart')\
-#          .str.replace('rline', lambda x: 'RLine')\
-#          .str.replace('hline', lambda x: 'HLine')\
-#          .str.replace('rhline', lambda x: '(RH)Line')\
-#          .str.replace('median', lambda x: 'Median')\
-#          .str.rstrip('.')
+# run in terminal:
+#  $ simplepytorch_plot "5.HL8"  -c ROC_AUC  --mode1-subplots
+# then get the data:
+#  z = cdfs.query('epoch <=300')
+#  y = z.loc[z.groupby('run_id')['val_ROC_AUC Cardiomegaly'].idxmax()]['test_ROC_AUC Cardiomegaly'].sort_values()
+#  sec = cdfs.groupby('run_id')['seconds_training_epoch'].mean()
+#  timings = (y.reset_index('epoch')['epoch'] * sec).sort_values().rename('timing')
+#  x = pd.concat([y.reset_index('epoch', drop=True), timings], axis=1)
+#  x.index = x.index\
+        #  .str.replace('\+densenet.', lambda x: ' (DenseNet)')\
+        #  .str.replace('5.HL8.', lambda x: '')\
+        #  .str.replace("heart", lambda x: 'Heart')\
+        #  .str.replace('rhline', lambda x: '(RH)Line')\
+        #  .str.replace('rline', lambda x: 'RLine')\
+        #  .str.replace('hline', lambda x: 'HLine')\
+        #  .str.replace('median', lambda x: 'Median')\
+        #  .str.rstrip('.')
 
 
 # Acc vs Speed
@@ -96,42 +116,22 @@ ax.set_ylim(.5, 1.)
         #  horizontalalignment='center', verticalalignment='center',
         #  transform=ax.transAxes, fontsize=26)
 
-def arrow_with_text_in_middle(
-        text, left_xy, text_xy, right_xy, arrowprops=None, fontsize='xx-large', **text_kwargs):
-    """Draw arrow like   <----  TEXT  ---->  where fontsize controls the size of arrow"""
-    text_kwargs = dict(
-        horizontalalignment='center', verticalalignment='center', fontsize=fontsize, **text_kwargs)
-    _arrowprops = dict(arrowstyle='->')
-    _arrowprops.update(arrowprops if arrowprops is not None else {})
-    arrowprops = _arrowprops
-    if left_xy:
-        ax.annotate(
-            text, xy=left_xy, xytext=text_xy,
-            arrowprops=arrowprops, **text_kwargs)
-        alpha = 0
-    else:
-        alpha = 1
-    if right_xy:
-        ax.annotate(
-            text, xytext=text_xy, xy=right_xy,
-            arrowprops=arrowprops, alpha=alpha, **text_kwargs)
-
 arrow_with_text_in_middle(
-    f'{TT_base / TT_ours:.02g}$x$ Faster',
-    left_xy=(16,.90), text_xy=(90, .90), right_xy=(TT_base,.90),
-    arrowprops={'lw': 1}, fontsize=26,
+    f'{TT_base / TT_ours:.01g}$x$ Faster',
+    left_xy=(TT_ours,.90), text_xy=((TT_base+TT_ours)/2, .90), right_xy=(TT_base,.90),
+    arrowstyle=('->', '-'), arrowprops={'lw': 1}, fontsize=26, ax=ax
 )
 
 
-#  df.set_index('model').plot.scatter('Training Time', 'ROC AUC', ax=ax, s=84, c='color')
-ax.hlines(y=ACC_base, xmin=0, xmax=TT_base, linestyles='solid', colors='gray', linewidth=1, alpha=1)
-sns.scatterplot(x='Training Time', y='ROC AUC', hue='Model', data=df.reset_index().loc[df.index.str.contains('MLP')], s=24*4, ax=ax, legend=None, palette='Blues_r')
-sns.scatterplot(x='Training Time', y='ROC AUC', hue='Model', data=df.reset_index().loc[df.index.str.contains('DenseNet')], s=24*4, ax=ax, legend=None, palette='Greens_r')
+#  df.set_index('model').plot.scatter(timecol, 'ROC AUC', ax=ax, s=84, c='color')
+ax.hlines(y=ACC_base, xmin=0, xmax=df[timecol].max(), linestyles='solid', colors='gray', linewidth=1, alpha=1)
+sns.scatterplot(x=timecol, y='ROC AUC', hue='Model', data=df.reset_index().loc[df.index.str.contains('MLP')], s=24*4, ax=ax, legend=None, palette='Blues_r')
+sns.scatterplot(x=timecol, y='ROC AUC', hue='Model', data=df.reset_index().loc[df.index.str.contains('DenseNet')], s=24*4, ax=ax, legend=None, palette='Greens_r')
 ax.legend(['Baseline DenseNet121 $\pm$ 2 std', r'\textit{HeartSpot} with MLP', r'\textit{HeartSpot} with DenseNet121'], loc='lower center', ncol=1)
 #  ax.scatter(TT_base, ACC_base, c='Gray', s=60*2, label='Baseline DenseNet121')
 ax.vlines(TT_base, .5, ACC_base, colors='gray', linewidth=1, label='Baseline DenseNet121')
 ax.vlines([TT_base-TT_base_std*2, TT_base+TT_base_std*2], .5, ACC_base, colors='gray', linewidth=.5, linestyles='dashed', alpha=.6, label='Baseline DenseNet121')
 #  ax.hlines(y=[ACC_base-ACC_base_std, ACC_base+ACC_base_std], xmin=0, xmax=TT_base, linestyles='dashed', colors='gray', linewidth=.5, alpha=.6)
-ax.hlines(y=[ACC_base-ACC_base_std*2, ACC_base+ACC_base_std*2], xmin=0, xmax=TT_base, linestyles='dashed', colors='gray', linewidth=.5, alpha=.6)
+ax.hlines(y=[ACC_base-ACC_base_std*2, ACC_base+ACC_base_std*2], xmin=0, xmax=df[timecol].max(), linestyles='dashed', colors='gray', linewidth=.5, alpha=.6)
 #  fig.tight_layout()
 fig.savefig('hline_acc_vs_speed.png', bbox_inches='tight')

@@ -115,7 +115,9 @@ HL8() {
 opt = "Adam:lr=0.001"
 mdls = [
   'rline+heart', 'rhline+heart', 'hline+heart', 'rhline', 'hline',
-  'rline', 'rline+heart_s2', 'heart', 'rline+heart_s3',
+  'rline', 'heart',
+
+  'rline+heart_s3', 'rline+heart_s2',   # extra methods
   ]
 batch_size = 1000
 for mdl in mdls:
@@ -128,9 +130,11 @@ HL8_part2() {
 # MLP model, 500 epochs (this runs on a gpu by itself because median pooling implementation uses up the ram
 python <<EOF
 opt = "Adam:lr=0.001"
-mdl = 'median+rhline+heart'
-batch_size = 110
-print(f''' $V.HL8.{mdl}.    env batch_size={batch_size} num_workers=6 python deepfix/train.py --dset chexpert_small15k:.9:.1:Cardiomegaly --model {mdl} --opt {opt} --lossfn chexpert_uignore --epochs 500 ''')
+for mdl, batch_size in [
+        ('median+rhline+heart', 110),
+        ('medians1+rhline+heart', 28)  # extra method
+        ]:
+    print(f''' $V.HL8.{mdl}.    env batch_size={batch_size} num_workers=6 python deepfix/train.py --dset chexpert_small15k:.9:.1:Cardiomegaly --model {mdl} --opt {opt} --lossfn chexpert_uignore --epochs 500 ''')
 EOF
 # Densenet models, 300 epochs
 python <<EOF
@@ -140,8 +144,25 @@ for mdl, batch_size in [
         ('hline+densenet', 35), ('rline+densenet', 35), ('heart+densenet', 35),  # are these the right batch sizes?
         ('rhline+heart+densenet', 35), ('median+rhline+heart+densenet', 70),
         ('median+densenet', 70),
-        ('densenet121:untrained:1:1', 35)]:
+        ('densenet121:untrained:1:1', 35),
+
+        ('median+hline+densenet', 35),  # extra method
+        # ('hline+heart+densenet', 35)  # extra method
+        ]:
   print(f''' $V.HL8.{mdl}.    env batch_size={batch_size} num_workers=6 python deepfix/train.py --dset chexpert_small15k:.9:.1:Cardiomegaly --model {mdl} --opt {opt} --lossfn chexpert_uignore --epochs 300 ''')
+EOF
+}
+HL8b() {
+  # baselines
+  python <<EOF
+opt = "Adam:lr=0.001"
+for mdl, batch_size in [('densenet121:untrained:1:1', 35),]:
+  print(f''' 1.$V.HL8b.{mdl}.    env batch_size={batch_size} num_workers=6 python deepfix/train.py --dset chexpert_small15k:.9:.1:Cardiomegaly --model {mdl} --opt {opt} --lossfn chexpert_uignore --epochs 300 ''')
+  print(f''' 2.$V.HL8b.{mdl}.    env batch_size={batch_size} num_workers=6 python deepfix/train.py --dset chexpert_small15k:.9:.1:Cardiomegaly --model {mdl} --opt {opt} --lossfn chexpert_uignore --epochs 300 ''')
+  print(f''' 3.$V.HL8b.{mdl}.    env batch_size={batch_size} num_workers=6 python deepfix/train.py --dset chexpert_small15k:.9:.1:Cardiomegaly --model {mdl} --opt {opt} --lossfn chexpert_uignore --epochs 300 ''')
+  print(f''' 4.$V.HL8b.{mdl}.    env batch_size={batch_size} num_workers=6 python deepfix/train.py --dset chexpert_small15k:.9:.1:Cardiomegaly --model {mdl} --opt {opt} --lossfn chexpert_uignore --epochs 300 ''')
+  print(f''' 5.$V.HL8b.{mdl}.    env batch_size={batch_size} num_workers=6 python deepfix/train.py --dset chexpert_small15k:.9:.1:Cardiomegaly --model {mdl} --opt {opt} --lossfn chexpert_uignore --epochs 300 ''')
+  print(f''' 6.$V.HL8b.{mdl}.    env batch_size={batch_size} num_workers=6 python deepfix/train.py --dset chexpert_small15k:.9:.1:Cardiomegaly --model {mdl} --opt {opt} --lossfn chexpert_uignore --epochs 300 ''')
 EOF
 }
 
@@ -157,3 +178,4 @@ EOF
 # # paper results:
 HL8 | run_gpus 2
 HL8_part2 | run_gpus 1
+HL8b() | run_gpus 1

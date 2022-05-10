@@ -17,23 +17,11 @@ device = 'cuda'
 
 # our model
 dct = T.load(
-    #  'results/1.HL1.rline_200heart2/checkpoints/epoch_100.pth', map_location=device)
     'results/5.HL8.hline+densenet./checkpoints/best.pth', map_location=device)
 print(dct.keys())
-model_name = 'RLine+Heart'
+model_name = 'HLine'
 model = dct['model']
-# TODO: remove temp hack for backwards compatibility with old models
-model.lines_fn.sum_aggregate = False
-model.lines_fn.ret_img = False
-# baseline model
-#  densenet = T.load('results/1.HL1.densenet/checkpoints/epoch_100.pth', map_location=device)['model']
-#
-# explainer
-#  explainer = captum.attr.NoiseTunnel(captum.attr.InputXGradient(model.mlp))#, True))
-#  explainer = captum.attr.NoiseTunnel(captum.attr.DeepLift(model.mlp))#, True))
-explainer = captum.attr.NoiseTunnel(captum.attr.IntegratedGradients(model.mlp))
-#  explainer2 = captum.attr.NoiseTunnel(captum.attr.IntegratedGradients(densenet.cpu()))
-#  explainer2 = captum.attr.IntegratedGradients(densenet)
+explainer = captum.attr.NoiseTunnel(captum.attr.IntegratedGradients(model[-1]))
 
 
 for i in [0,6,1,3]:
@@ -41,35 +29,22 @@ for i in [0,6,1,3]:
     print(i, y)
 
     x = x.unsqueeze_(0).float().to(device, non_blocking=True)
-    #
     # make the privatized representation
-    if model.quadtree is not None:
-        repr = model.quadtree(x)
-    else:
-        repr = x
-    repr = model.lines_fn(repr)
-    #
-    # get an explanation from it
-    #  _img_baseline2 = T.nn.functional.interpolate(MedianPool2d(12, stride=1)(x), x.shape[-2:])
-    #  _img_baseline1 = model.lines_fn(_img_baseline2)
-    #  attr = explainer.attribute(repr, baselines=_img_baseline1)#, nt_samples_batch_size=2)
-    #  attr = attr.detach()
-    #  attr2 = explainer2.attribute(x.clone(), baselines=_img_baseline2)#, nt_samples_batch_size=2)
-    #  attr2 = attr2.detach()
+    repr = model[:-1](repr)
+    # get attribution from the cardiomegaly detector (densenet)
     attr = explainer.attribute(repr.clone().requires_grad_(True), nt_samples=20, nt_samples_batch_size=1)
     attr = attr.detach()
-    #  attr2 = explainer2.attribute(x.clone().requires_grad_(True))#, nt_samples=20, nt_samples_batch_size=1)
-    #  attr2 = attr2.detach()
-    # --> reconstruct back to an image
+    # --> reconstruct back to an image, assuming RLine is in -2 position of Sequential.
     attr_img = attr.new_zeros(x.shape)
-    attr_img[model.lines_fn.arr] = attr
+    heartpot_spatial_prior_mask = model[-2].lines_fn.arr
+    attr_img[heartpot_spatial_prior_mask] = attr
     attr2 = MedianPool2d(24, stride=1, quantile=.90)(attr_img)
     # --> recon img
     recon_img = repr.new_zeros(x.shape)
-    recon_img[model.lines_fn.arr] = repr
+    recon_img[heartpot_spatial_prior_mask] = repr
     #
     # get prediction
-    yhat_model = model.mlp(repr).sigmoid().item()
+    yhat_model = model[-1](repr).sigmoid().item()
     #  yhat_densenet = densenet(x).sigmoid().item()
 
     fig, axs = plt.subplots(1,4, dpi=200, figsize=(4*3,3))

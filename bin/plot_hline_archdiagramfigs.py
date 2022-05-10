@@ -28,6 +28,9 @@ heart = QTLineClassifier(RLine((320,320), nlines=0, zero_top_frac=0, seed=1, hea
 mrh = QTLineClassifier(
         RLine((320//2,320//2), nlines=200, zero_top_frac=0, seed=1, heart_roi=True, hlines=list(range(100//2,300//2,10//2))),
         quadtree=MedianPool2d(kernel_size=12, stride=2, same=True))
+mh = QTLineClassifier(
+        RLine((320//2,320//2), nlines=0, zero_top_frac=0, seed=1, heart_roi=False, hlines=list(range(100//2,300//2,10//2))),
+        quadtree=MedianPool2d(kernel_size=12, stride=2, same=True))
 # if we used stride=1, the median pooling gives only minimal odr improvement and same imr as `rh`.
 #  mrh = QTLineClassifier(
 #          RLine((320,320), nlines=200, zero_top_frac=0, seed=1, heart_roi=True, hlines=list(range(100,300,10))),
@@ -44,7 +47,7 @@ assert cv2.imwrite('tmp.jpg', (im.squeeze()*255).round().numpy().astype('uint8')
 #  f.close()
 # ... write the HeartSpot compressed img.
 odr_imr = []
-for i,qtlclassifier in enumerate((h,r,heart,rh,mrh)):
+for i,qtlclassifier in enumerate((h,r,heart,rh,mrh,mh)):
     print(i)
     if qtlclassifier.quadtree:
         z = qtlclassifier.quadtree(im)
@@ -80,124 +83,127 @@ for i,qtlclassifier in enumerate((h,r,heart,rh,mrh)):
     print(odr_imr[-1])
 df = pd.DataFrame(odr_imr)
 df['Model'].replace({0: 'HLine (Ours)', 1: 'RLine (Ours)', 2: 'Heart (Ours)', 3: '(RH)Line+Heart (Ours)',
-                     4: 'Median+(RH)Line+Heart (Ours)'}, inplace=True)
-fig, ax = plt.subplots(figsize=(4,2.5), dpi=200)
+                     4: 'Median+(RH)Line+Heart (Ours)', 5: 'Median+HLine (Ours)'}, inplace=True)
+fig, ax = plt.subplots(figsize=(4,2.5), dpi=300)
 ax.scatter(1, 1, c='Gray', s=40*2, label='Baseline DenseNet121')
 sns.scatterplot(x='On-Disk Compression Ratio', y='In-Memory Compression Ratio', hue='Model', data=df, s=24*4, ax=ax, legend=None, palette='tab10')
 #  ax.hlines(1, 0.1, 1, colors='gray', linewidth=1, label='Baseline DenseNet121')
 #  ax.vlines(1, 0, 1, colors='gray', linewidth=1, label=None)
-mdl = 'Median+(RH)Line+Heart (Ours)'
-xytext=(
-    df.set_index('Model').loc[mdl, 'On-Disk Compression Ratio'],
-    df.set_index('Model').loc[mdl, 'In-Memory Compression Ratio'],
-)
-ax.scatter(*xytext, color=plt.cm.tab10(4), s=40*2, label=r'\textit{HeartSpot} '+mdl.replace(' (Ours)', ''))
+for mdl, color in ('Median+(RH)Line+Heart (Ours)', plt.cm.tab10(4)), ('Median+HLine (Ours)', plt.cm.tab10(0)):
+    xytext=(
+        df.set_index('Model').loc[mdl, 'On-Disk Compression Ratio'],
+        df.set_index('Model').loc[mdl, 'In-Memory Compression Ratio'],
+    )
+    ax.scatter(*xytext, color=color, s=40*2, label=r'\textit{HeartSpot} '+mdl.replace(' (Ours)', ''))
 ax.legend(loc='lower right', ncol=1)
 ax.annotate("", xytext=(1, 1), xy=xytext, arrowprops=dict(arrowstyle='->', lw=1), fontsize=26)
-ax.text(.05, .70, '$14x$ Fewer Pixels\n$5x$ Smaller Filesize',
+
+#  (1/df.set_index('Model')
+inv_odr, inv_imr = (1/df.set_index('Model')).loc[mdl].round(0)
+ax.text(.05, .70, f'${inv_imr:.02g}x$ Fewer Pixels\n${inv_odr:.02g}x$ Smaller Filesize',
         bbox={'alpha': .7, 'color': 'white'},
         horizontalalignment='left', verticalalignment='center',
         transform=ax.transAxes, fontsize=26)
-fig.savefig('hline_imr_vs_odr.png', bbox_inches='tight')
+fig.savefig('hline_imr_vs_odr.png', pad_inches=0, bbox_inches='tight')
 df.set_index('Model').to_csv('hline_odr_imr.csv')
 print(df.set_index('Model').round(2)*100)
 print((1/df.set_index('Model')).round(2))
 
-import sys ; sys.exit()
+#  import sys ; sys.exit()
 
 
 
 ### pictures for main architecture diagram figure.
 
-fig, ax = plt.subplots(dpi=300, figsize=(4,4), clear=True)
+fig, ax = plt.subplots(1,1, dpi=300, figsize=(4,4), clear=True)
 
 os.makedirs('tmpplot', exist_ok=True)
 #
-ax = plt.gca()
+#  ax = plt.gca()
 ax.axis('off')
 ax.imshow(im.squeeze(), cmap='Greys_r')
-plt.savefig('tmpplot/img_centercropped.png', dpi=300, bbox_inches='tight')
+fig.savefig('tmpplot/img_centercropped.png', pad_inches=0, bbox_inches='tight')
 
 # median
-ax = plt.gca()
+#  ax = plt.gca()
 ax.axis('off')
 ax.imshow(MedianPool2d(kernel_size=12, stride=2, same=True)(im).squeeze(), cmap='Greys_r')
-plt.savefig('tmpplot/img_medianpool.png', dpi=300, bbox_inches='tight')
+fig.savefig('tmpplot/img_medianpool.png', pad_inches=0, bbox_inches='tight')
 
 # hlines
 # ... mask
-ax = plt.gca()
+#  ax = plt.gca()
 ax.axis('off')
 z = np.zeros_like(im.squeeze().numpy())
-z[h.lines_fn.lines] = 1
-ax.imshow(z, cmap='copper')
-plt.savefig('tmpplot/mask_hline.png', dpi=300, bbox_inches='tight')
+z[h.lines_fn.arr.squeeze()] = 1
+ax.imshow(z, cmap='copper', aspect=.75)
+fig.savefig('tmpplot/mask_hline.png', pad_inches=0, bbox_inches='tight')
 # ... im
 ax.imshow(im.squeeze(), cmap='Greys_r')
 z = np.zeros_like(im.squeeze().numpy())
-z[h.lines_fn.lines] = im.squeeze()[h.lines_fn.lines]
-ax.imshow(z**2, alpha=1, cmap='Greys_r')
-plt.savefig('tmpplot/img_hline.png', dpi=300, bbox_inches='tight')
+z[h.lines_fn.arr.squeeze()] = im.squeeze()[h.lines_fn.arr.squeeze()]
+ax.imshow(z**2, alpha=1, cmap='Greys_r', aspect=.75)
+fig.savefig('tmpplot/img_hline.png', pad_inches=0, bbox_inches='tight')
 
 # rlines plot
 # ... mask
-ax = plt.gca()
+#  ax = plt.gca()
 ax.axis('off')
-ax.imshow(r.lines_fn.arr.squeeze(), cmap='copper')
-plt.savefig('tmpplot/mask_rline.png', dpi=300, bbox_inches='tight')
+ax.imshow(r.lines_fn.arr.squeeze(), cmap='copper', aspect=.75)
+fig.savefig('tmpplot/mask_rline.png', pad_inches=0, bbox_inches='tight')
 # ... img
-ax.cla() ; ax.axis('off')
+#  ax.cla() ; ax.axis('off')
 #  ax.imshow(im.squeeze(), cmap='Greys_r')
 z = np.zeros_like(im.numpy()).squeeze()
 z[r.lines_fn.arr.squeeze()] = im.squeeze()[r.lines_fn.arr.squeeze()]
-ax.imshow(z.squeeze()**2, cmap='Greys_r')
-plt.savefig('tmpplot/img_rline.png', dpi=300, bbox_inches='tight')
+ax.imshow(z.squeeze()**2, cmap='Greys_r', aspect=.75)
+fig.savefig('tmpplot/img_rline.png', pad_inches=0, bbox_inches='tight')
 
 # heart plot
 # ... mask
-ax = plt.gca()
+#  ax = plt.gca()
 ax.axis('off')
-ax.imshow(heart.lines_fn.arr.squeeze(), cmap='copper')
-plt.savefig('tmpplot/mask_heart.png', dpi=300, bbox_inches='tight')
+ax.imshow(heart.lines_fn.arr.squeeze(), cmap='copper', aspect=.75)
+fig.savefig('tmpplot/mask_heart.png', pad_inches=0, bbox_inches='tight')
 # ... img
-ax = plt.gca() ; ax.cla() ; ax.axis('off')
+#  ax = plt.gca() ; ax.cla() ; ax.axis('off')
 #  ax.imshow(im.squeeze(), cmap='Greys_r')
 z = np.zeros_like(im.numpy()).squeeze()
 z[heart.lines_fn.arr.squeeze()] = im.squeeze()[heart.lines_fn.arr.squeeze()]
-ax.imshow(z.squeeze()**2, cmap='Greys_r')
-plt.savefig('tmpplot/img_heart.png', dpi=300, bbox_inches='tight')
+ax.imshow(z.squeeze()**2, cmap='Greys_r', aspect=.75)
+fig.savefig('tmpplot/img_heart.png', pad_inches=0, bbox_inches='tight')
 
 # rhlines
 # ... mask
-ax = plt.gca()
+#  ax = plt.gca()
 ax.axis('off')
-ax.imshow(rh.lines_fn.arr.squeeze(), cmap='copper')
-plt.savefig('tmpplot/mask_rhline.png', dpi=300, bbox_inches='tight')
+ax.imshow(rh.lines_fn.arr.squeeze(), cmap='copper', aspect=.75)
+fig.savefig('tmpplot/mask_rhline.png', pad_inches=0, bbox_inches='tight')
 # ... img
-ax = plt.gca() ; ax.cla() ; ax.axis('off')
+#  ax = plt.gca() ; ax.cla() ; ax.axis('off')
 #  ax.imshow(im.squeeze(), cmap='Greys_r')
 z = np.zeros_like(im.numpy()).squeeze()
 z[rh.lines_fn.arr.squeeze()] = im.squeeze()[rh.lines_fn.arr.squeeze()]
-ax.imshow(z.squeeze()**2, cmap='Greys_r')
-plt.savefig('tmpplot/img_rhline.png', dpi=300, bbox_inches='tight')
+ax.imshow(z.squeeze()**2, cmap='Greys_r', aspect=.75)
+fig.savefig('tmpplot/img_rhline.png', pad_inches=0, bbox_inches='tight')
 
 # qrhlines
 # ... mask
-ax = plt.gca()
+#  ax = plt.gca()
 ax.axis('off')
-ax.imshow(qrh.lines_fn.arr.squeeze(), cmap='copper')
-plt.savefig('tmpplot/mask_qrhline.png', dpi=300, bbox_inches='tight')
+ax.imshow(qrh.lines_fn.arr.squeeze(), cmap='copper', aspect=.75)
+fig.savefig('tmpplot/mask_qrhline.png', pad_inches=0, bbox_inches='tight')
 # ... img
-ax = plt.gca() ; ax.cla() ; ax.axis('off')
+#  ax = plt.gca() ; ax.cla() ; ax.axis('off')
 #  ax.imshow(im.squeeze(), cmap='Greys_r')
 z = np.zeros_like(im.numpy()).squeeze()
 z[qrh.lines_fn.arr.squeeze()] = qrh.quadtree(im).squeeze()[qrh.lines_fn.arr.squeeze()]
-ax.imshow(z.squeeze()**2, cmap='Greys_r')
-plt.savefig('tmpplot/img_qrhline.png', dpi=300, bbox_inches='tight')
+ax.imshow(z.squeeze()**2, cmap='Greys_r', aspect=.75)
+fig.savefig('tmpplot/img_qrhline.png', pad_inches=0, bbox_inches='tight')
 
-ax = plt.gca() ; plt.cla() ; ax.axis('off')
-ax.imshow(qrh.quadtree(im).squeeze(), cmap='Greys_r')
-plt.savefig('tmpplot/img_qtree.png', dpi=300, bbox_inches='tight')
+#  ax = plt.gca() ; plt.cla() ; ax.axis('off')
+ax.imshow(qrh.quadtree(im).squeeze(), cmap='Greys_r', aspect=.75)
+fig.savefig('tmpplot/img_qtree.png', pad_inches=0, bbox_inches='tight')
 
 
 # table on in-memory compression ratio

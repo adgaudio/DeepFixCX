@@ -127,9 +127,19 @@ MODELS = {
         MedianPool2d(kernel_size=12, stride=2, same=True),
         RLine((320//2,320//2), nlines=200, zero_top_frac=0, seed=1, heart_roi=True, hlines=list(range(100//2,300//2,10//2)), ret_img=True),
         get_densenet('densenet121', 'untrained', 1, 1)),
-    # baselines
+    # extra models
+    ('median+hline+densenet', ): lambda _: T.nn.Sequential(
+        MedianPool2d(kernel_size=12, stride=2, same=True),
+        RLine((320//2,320//2), nlines=0, zero_top_frac=0, seed=1, heart_roi=False, hlines=list(range(100//2,300//2,10//2)), ret_img=True),
+        get_densenet('densenet121', 'untrained', 1, 1)),
+    ('medians1+rhline+heart', ): lambda _: QTLineClassifier(
+        RLine((320,320), nlines=200, zero_top_frac=0, seed=1, heart_roi=True, hlines=list(range(100,300,10))),
+        quadtree=MedianPool2d(kernel_size=12, stride=1, same=True)),
     ('median+densenet', ): lambda _: T.nn.Sequential(
         MedianPool2d(kernel_size=12, stride=2, same=True), get_densenet('densenet121', 'untrained', 1, 1)),
+    ('hline+heart+densenet', ): lambda _: T.nn.Sequential(
+        RLine((320,320), nlines=0, zero_top_frac=0, seed=1, heart_roi=True, hlines=list(range(100,300,10)), ret_img=True),
+        get_densenet('densenet121', 'untrained', 1, 1)),
 }
 
 
