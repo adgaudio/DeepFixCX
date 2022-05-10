@@ -1,7 +1,7 @@
 from matplotlib import pyplot as plt
 import torch as T
 import numpy as np
-from typing import Tuple, Iterable
+from typing import Tuple, Iterable, Optional, Dict
 
 
 def tolist(val, N):
@@ -63,26 +63,33 @@ def plot_img_grid(imgs: Iterable, suptitle:str = '', rows_cols: Tuple = None,
 
 
 def arrow_with_text_in_middle(
-        text, left_xy, text_xy, right_xy, arrowprops=None, fontsize='xx-large', **text_kwargs):
-    """Draw matplotlib arrow like   <----  TEXT  ----> 
-    where fontsize controls both the size of arrow and the text
+        text, left_xy, text_xy, right_xy, arrowstyle=('->', '->'),
+        arrowprops:Optional[Dict]=None, fontsize='xx-large', ax=None,
+        **text_kwargs):
+    """Draw arrow like   <----  TEXT  ---->  where
+         - fontsize controls both the size of arrow and the text
+         - arrowstyle defines the arrow on left and right sides.
+           NOTE:  cannot pass 'arrowstyle' as a key in arrowprops.
 
     For one-directional arrow, could also do left_xy=None or right_xy=None,
     giving:  TEXT ---->    or  <---- TEXT
+    For an arrow like <---- TEXT ----  you can define arrowstyle=('->', '-')
     """
     text_kwargs = dict(
         horizontalalignment='center', verticalalignment='center', fontsize=fontsize, **text_kwargs)
-    _arrowprops = dict(arrowstyle='->')
-    _arrowprops.update(arrowprops if arrowprops is not None else {})
-    arrowprops = _arrowprops
+    if arrowprops is None:
+        arrowprops = {}
+    if ax is None:
+        ax = plt
     if left_xy:
         ax.annotate(
             text, xy=left_xy, xytext=text_xy,
-            arrowprops=arrowprops, **text_kwargs)
+            arrowprops={'arrowstyle': arrowstyle[0], **arrowprops}, **text_kwargs)
         alpha = 0
     else:
         alpha = 1
     if right_xy:
         ax.annotate(
             text, xytext=text_xy, xy=right_xy,
-            arrowprops=arrowprops, alpha=alpha, **text_kwargs)
+            arrowprops={'arrowstyle': arrowstyle[1], **arrowprops},
+            alpha=alpha, **text_kwargs)
