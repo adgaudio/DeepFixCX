@@ -147,7 +147,7 @@ for mdl, batch_size in [
         ('densenet121:untrained:1:1', 35),
 
         ('median+hline+densenet', 35),  # extra method
-        # ('hline+heart+densenet', 35)  # extra method
+        ('median+hline+heart+densenet', 35)  # extra method
         ]:
   print(f''' $V.HL8.{mdl}.    env batch_size={batch_size} num_workers=6 python deepfix/train.py --dset chexpert_small15k:.9:.1:Cardiomegaly --model {mdl} --opt {opt} --lossfn chexpert_uignore --epochs 300 ''')
 EOF
@@ -177,5 +177,5 @@ EOF
 #
 # # paper results:
 HL8 | run_gpus 2
-HL8_part2 | run_gpus 1
-HL8b() | run_gpus 1
+( HL8_part2 ; HL8b ) | run_gpus 1
+# HL8b() | run_gpus 1

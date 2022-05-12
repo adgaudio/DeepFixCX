@@ -34,6 +34,7 @@ df = pd.DataFrame.from_records({
     'ROC AUC': pd.Series({
         'Median+(RH)Line+Heart (MLP)': 0.77,
         'HLine (DenseNet)': .84,
+        'Median+HLine (DenseNet)': .84,
         'Median+(RH)Line+Heart (DenseNet)': 0.82,
         '(RH)Line+Heart (MLP)': 0.78,
         'RLine (MLP)': 0.77,
@@ -46,6 +47,7 @@ df = pd.DataFrame.from_records({
     'Training Throughput (Sec/15k Imgs)': pd.Series({
         'Median+(RH)Line+Heart (MLP)': 94,
         'HLine (DenseNet)': 155,
+        'Median+HLine (DenseNet)': 136,
         'Median+(RH)Line+Heart (DenseNet)': 128,
         '(RH)Line+Heart (MLP)': 94,
         'RLine (MLP)': 20,
@@ -58,6 +60,7 @@ df = pd.DataFrame.from_records({
     'Training Time': pd.Series({
         'Median+(RH)Line+Heart (MLP)': 20843.88001555479,
         'HLine (DenseNet)': 21542.090708569816,
+        'Median+HLine (DenseNet)': 14389.657654,
         'Median+(RH)Line+Heart (DenseNet)': 13468.848903872273,
         '(RH)Line+Heart (MLP)': 2824.6117766582643,
         'RLine (MLP)': 3289.5340505003714,
@@ -70,6 +73,7 @@ df = pd.DataFrame.from_records({
     'color': pd.Series({
         'Median+(RH)Line+Heart (MLP)': 'black',
         'HLine (DenseNet)': plt.cm.Set1(4),
+        'HLine (DenseNet)': plt.cm.Set1(9),
         'Median+(RH)Line+Heart (DenseNet)': plt.cm.Set1(8),
         '(RH)Line+Heart (MLP)': plt.cm.Set2(3),
         'RLine (MLP)': plt.cm.Set2(1),
@@ -119,7 +123,7 @@ ax.set_ylim(.5, 1.)
 arrow_with_text_in_middle(
     f'{TT_base / TT_ours:.01g}$x$ Faster',
     left_xy=(TT_ours,.90), text_xy=((TT_base+TT_ours)/2, .90), right_xy=(TT_base,.90),
-    arrowstyle=('->', '-'), arrowprops={'lw': 1}, fontsize=26, ax=ax
+    arrowprops={'lw': 2}, fontsize=24, ax=ax
 )
 
 

@@ -17,8 +17,8 @@ device = 'cuda'
 
 # our model
 dct = T.load(
-    #  'results/1.HL1.rline_200heart2/checkpoints/epoch_100.pth', map_location=device)
-    'results/5.HL8.hline+densenet./checkpoints/best.pth', map_location=device)
+    'results/1.HL1.rline_200heart2/checkpoints/epoch_100.pth', map_location=device)
+    #  'results/5.HL8.hline+densenet./checkpoints/best.pth', map_location=device)
 print(dct.keys())
 model_name = 'RLine+Heart'
 model = dct['model']
@@ -81,13 +81,18 @@ for i in [0,6,1,3]:
     ax2.set_title('Privatized Image')
     ax2.imshow(recon_img.squeeze().cpu().numpy(), cmap='Greys')
     ax3.set_title('Attribution')
-    ax3.imshow(attr_img.squeeze().abs().cpu().numpy())
-    ax4.set_title('Attribution after MedianPool')
+    ax3.imshow(attr_img.squeeze().abs().cpu().numpy(), cmap='Blues', vmin=0)
+    #  captum.attr.visualization.visualize_image_attr(
+        #  T.nn.functional.interpolate(attr_img, (320,320)).squeeze().unsqueeze(-1).cpu().numpy(),
+        #  x.squeeze().unsqueeze(-1).cpu().numpy(),
+        #  outlier_perc=0.0001, alpha_overlay=.8,
+        #  method='blended_heat_map', plt_fig_axis=(None, ax3))
+    ax4.set_title('Attribution after QuantilePool')
     captum.attr.visualization.visualize_image_attr(
         T.nn.functional.interpolate(attr2, (320,320)).squeeze().unsqueeze(-1).cpu().numpy(),
         x.squeeze().unsqueeze(-1).cpu().numpy(),
         outlier_perc=0.0001, alpha_overlay=.8,
-        method='blended_heat_map', plt_fig_axis=(fig, ax4))
+        method='blended_heat_map', plt_fig_axis=(None, ax4))
     fig.tight_layout()
     plt.show(block=False)
     fig.savefig(f'saliency_{i}.png', bbox_inches='tight')

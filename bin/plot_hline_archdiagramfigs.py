@@ -85,26 +85,47 @@ df = pd.DataFrame(odr_imr)
 df['Model'].replace({0: 'HLine (Ours)', 1: 'RLine (Ours)', 2: 'Heart (Ours)', 3: '(RH)Line+Heart (Ours)',
                      4: 'Median+(RH)Line+Heart (Ours)', 5: 'Median+HLine (Ours)'}, inplace=True)
 fig, ax = plt.subplots(figsize=(4,2.5), dpi=300)
-ax.scatter(1, 1, c='Gray', s=40*2, label='Baseline DenseNet121')
+ax.scatter(1, 1, c='Gray', s=40*2, label='No Compression Baseline')
 sns.scatterplot(x='On-Disk Compression Ratio', y='In-Memory Compression Ratio', hue='Model', data=df, s=24*4, ax=ax, legend=None, palette='tab10')
 #  ax.hlines(1, 0.1, 1, colors='gray', linewidth=1, label='Baseline DenseNet121')
 #  ax.vlines(1, 0, 1, colors='gray', linewidth=1, label=None)
-for mdl, color in ('Median+(RH)Line+Heart (Ours)', plt.cm.tab10(4)), ('Median+HLine (Ours)', plt.cm.tab10(0)):
+for mdl, color in [('Median+HLine (Ours)', plt.cm.tab10(5)), ]:  #('Median+(RH)Line+Heart (Ours)', plt.cm.tab10(4)), 
     xytext=(
         df.set_index('Model').loc[mdl, 'On-Disk Compression Ratio'],
         df.set_index('Model').loc[mdl, 'In-Memory Compression Ratio'],
     )
     ax.scatter(*xytext, color=color, s=40*2, label=r'\textit{HeartSpot} '+mdl.replace(' (Ours)', ''))
 ax.legend(loc='lower right', ncol=1)
-ax.annotate("", xytext=(1, 1), xy=xytext, arrowprops=dict(arrowstyle='->', lw=1), fontsize=26)
-
-#  (1/df.set_index('Model')
 inv_odr, inv_imr = (1/df.set_index('Model')).loc[mdl].round(0)
-ax.text(.05, .70, f'${inv_imr:.02g}x$ Fewer Pixels\n${inv_odr:.02g}x$ Smaller Filesize',
-        bbox={'alpha': .7, 'color': 'white'},
-        horizontalalignment='left', verticalalignment='center',
-        transform=ax.transAxes, fontsize=26)
-fig.savefig('hline_imr_vs_odr.png', pad_inches=0, bbox_inches='tight')
+#  ax.annotate("", xytext=(1, 1), xy=xytext, arrowprops=dict(arrowstyle='->', lw=4), fontsize=26)
+#  ax.text(.05, .70, f'${inv_imr:.02g}x$ Fewer Pixels\n${inv_odr:.02g}x$ Smaller Filesize',
+#          bbox={'alpha': .6, 'color': 'white'},
+#          horizontalalignment='left', verticalalignment='center',
+#          transform=ax.transAxes, fontsize=26)
+
+
+from deepfix.plotting import arrow_with_text_in_middle
+#  arrow_with_text_in_middle(
+#      ' ',
+#      left_xy=(xytext[0], 1), text_xy=(1,1), right_xy=None, arrowprops={'lw': 2}, fontsize=24, ax=ax)
+arrow_with_text_in_middle(
+    f'${inv_imr:.02g}x$ Fewer Pixels',
+    left_xy=(xytext[0], 1), right_xy=(1,1), arrowprops={'lw': 2}, fontsize=24, ax=ax)
+#  ax.annotate(" ", xytext=(1, 1), xy=(xytext[0],1), arrowprops=dict(arrowstyle='<->', lw=2), fontsize=26, ha='center', va='center')
+#  ax.text(
+    #  .6, .8, f'${inv_imr:.02g}x$ Fewer Pixels', ha='center', va='center', fontsize=26)
+arrow_with_text_in_middle(
+    f' ',
+    left_xy=(xytext[0], 1), right_xy=xytext, arrowprops={'lw': 2}, fontsize=24, ax=ax,
+    )
+ax.text(
+    .5, .5, f'${inv_odr:.02g}x$ Smaller Filesize',
+    ha='center', va='center', fontsize=24,
+)
+#${inv_odr:.02g}x$ Smaller Filesize',
+ax.set_ylim(0, 1.14)
+
+fig.savefig('hline_imr_vs_odr.png', bbox_inches='tight')
 df.set_index('Model').to_csv('hline_odr_imr.csv')
 print(df.set_index('Model').round(2)*100)
 print((1/df.set_index('Model')).round(2))

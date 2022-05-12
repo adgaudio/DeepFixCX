@@ -17,11 +17,11 @@ device = 'cuda'
 
 # our model
 dct = T.load(
-    'results/5.HL8.hline+densenet./checkpoints/best.pth', map_location=device)
+    'results/5.HL8.median+hline+densenet./checkpoints/best.pth', map_location=device)
 print(dct.keys())
 model_name = 'HLine'
 model = dct['model']
-explainer = captum.attr.NoiseTunnel(captum.attr.IntegratedGradients(model[-1]))
+explainer = captum.attr.Saliency(model[-1])
 
 
 for i in [0,6,1,3]:
@@ -30,21 +30,22 @@ for i in [0,6,1,3]:
 
     x = x.unsqueeze_(0).float().to(device, non_blocking=True)
     # make the privatized representation
-    repr = model[:-1](repr)
+    repr = model[:-1](x)
     # get attribution from the cardiomegaly detector (densenet)
-    attr = explainer.attribute(repr.clone().requires_grad_(True), nt_samples=20, nt_samples_batch_size=1)
+    attr = explainer.attribute(repr.clone().requires_grad_(True)) #, nt_samples=20, nt_samples_batch_size=1)
     attr = attr.detach()
     # --> reconstruct back to an image, assuming RLine is in -2 position of Sequential.
-    attr_img = attr.new_zeros(x.shape)
-    heartpot_spatial_prior_mask = model[-2].lines_fn.arr
-    attr_img[heartpot_spatial_prior_mask] = attr
-    attr2 = MedianPool2d(24, stride=1, quantile=.90)(attr_img)
+    attr_img = attr.clone()
+    heartpot_spatial_prior_mask = model[-2].arr
+    attr2 = MedianPool2d(24, stride=1, quantile=.95)(attr_img)
     # --> recon img
-    recon_img = repr.new_zeros(x.shape)
-    recon_img[heartpot_spatial_prior_mask] = repr
+    recon_img = repr.new_zeros(repr.shape)
+    recon_img[heartpot_spatial_prior_mask] = repr[heartpot_spatial_prior_mask]
+
     #
     # get prediction
-    yhat_model = model[-1](repr).sigmoid().item()
+    #  with T.no_grad():
+        #  yhat_model = model[-1](repr).sigmoid().item()
     #  yhat_densenet = densenet(x).sigmoid().item()
 
     fig, axs = plt.subplots(1,4, dpi=200, figsize=(4*3,3))
@@ -56,14 +57,21 @@ for i in [0,6,1,3]:
     ax2.set_title('Privatized Image')
     ax2.imshow(recon_img.squeeze().cpu().numpy(), cmap='Greys')
     ax3.set_title('Attribution')
-    ax3.imshow(attr_img.squeeze().abs().cpu().numpy())
-    ax4.set_title('Attribution after MedianPool')
+    #  ax3.imshow(attr_img.squeeze().abs().cpu().numpy(), cmap='Blues', vmin=0)
+    ax3.imshow(attr_img.squeeze().cpu().numpy(), cmap='Blues')
+    #  captum.attr.visualization.visualize_image_attr(
+        #  T.nn.functional.interpolate(attr_img, (320,320)).squeeze().unsqueeze(-1).cpu().numpy(),
+        #  x.squeeze().unsqueeze(-1).cpu().numpy(),
+        #  outlier_perc=0.0001, alpha_overlay=.8,
+        #  method='blended_heat_map', plt_fig_axis=(None, ax3))
+    ax4.set_title('Attribution after QuantilePool')
     captum.attr.visualization.visualize_image_attr(
         T.nn.functional.interpolate(attr2, (320,320)).squeeze().unsqueeze(-1).cpu().numpy(),
         x.squeeze().unsqueeze(-1).cpu().numpy(),
         outlier_perc=0.0001, alpha_overlay=.8,
-        method='blended_heat_map', plt_fig_axis=(fig, ax4))
+        method='blended_heat_map', plt_fig_axis=(None, ax4))
     fig.tight_layout()
+
     plt.show(block=False)
     fig.savefig(f'saliency_{i}.png', bbox_inches='tight')
     #  break
