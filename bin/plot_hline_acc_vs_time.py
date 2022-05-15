@@ -18,31 +18,31 @@ def clampq(x: T.Tensor, quantiles=(0,.99)):
 
 
 timecol = 'Training Throughput (Sec/15k Imgs)'
-TT_base = 141  # 15k/sec
-TT_base_std = 0.21
+TT_base = 143  # 15k/sec
+TT_base_std = 4
 TT_ours = 16
 #  timecol = 'Training Time'
 #  TT_base = 20521.105421411226
 #  TT_ours = 2824.6117766582643
-ACC_base = .82  # TODO: update this
-ACC_base_std=.01  # TODO: update this
+ACC_base = .829  # TODO: update this
+ACC_base_std=.017  # TODO: update this
 # TODO: the numbers here.
 # note: the order in which values appear affects the shade of their color.
 df = pd.DataFrame.from_records({
     #  'ODR': df['On-Disk Compression Ratio'],
     #  'IMR': df['In-Memory Compression Ratio'],
     'ROC AUC': pd.Series({
-        'Median+(RH)Line+Heart (MLP)': 0.77,
-        'HLine (DenseNet)': .84,
-        'Median+HLine (DenseNet)': .84,
-        'Median+(RH)Line+Heart (DenseNet)': 0.82,
-        '(RH)Line+Heart (MLP)': 0.78,
-        'RLine (MLP)': 0.77,
-        'HLine (MLP)': 0.72,
-        'Heart (MLP)': 0.72,
-        '(RH)Line+Heart (DenseNet)': 0.82,
-        'RLine (DenseNet)': 0.79,
-        'Heart (DenseNet)': 0.83,
+        'Median+(RH)Line+Heart (MLP)': 0.771,
+        'HLine (DenseNet)': .842,
+        'Median+HLine (DenseNet)': .837,
+        'Median+(RH)Line+Heart (DenseNet)': 0.816,
+        '(RH)Line+Heart (MLP)': 0.781,
+        'RLine (MLP)': 0.772,
+        'HLine (MLP)': 0.722,
+        'Heart (MLP)': 0.722,
+        '(RH)Line+Heart (DenseNet)': 0.819,
+        'RLine (DenseNet)': 0.794,
+        'Heart (DenseNet)': 0.829,
     }),
     'Training Throughput (Sec/15k Imgs)': pd.Series({
         'Median+(RH)Line+Heart (MLP)': 94,

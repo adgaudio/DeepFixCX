@@ -123,7 +123,8 @@ ax.text(
     ha='center', va='center', fontsize=24,
 )
 #${inv_odr:.02g}x$ Smaller Filesize',
-ax.set_ylim(0, 1.14)
+ax.set_ylim(-.1, 1.14)
+ax.set_xlim(-.0, 1.04)
 
 fig.savefig('hline_imr_vs_odr.png', bbox_inches='tight')
 df.set_index('Model').to_csv('hline_odr_imr.csv')
