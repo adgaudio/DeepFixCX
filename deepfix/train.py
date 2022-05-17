@@ -6,7 +6,6 @@ I wish a machine could automate setting up decent baseline models and datasets.
 """
 #  import json
 import os
-from os.path import exists
 import pampy
 from simple_parsing import ArgumentParser
 from simplepytorch import datasets as D
@@ -21,10 +20,6 @@ import torch as T
 import torchvision.transforms as tvt
 
 from deepfix.models import get_effnetv2, get_resnet, get_densenet, get_efficientnetv1, get_DeepFixEnd2End, get_DeepFixEnd2End_v2, DeepFixMLP, UnetD
-from deepfix.models.ghaarconv import convert_conv2d_to_gHaarConv2d
-from deepfix.init_from_distribution import init_from_beta, reset_optimizer
-from deepfix import deepfix_strategies as dfs
-import pytorch_wavelets as pyw
 
 
 def parse_normalization(normalization, wavelet, wavelet_levels, wavelet_patch_size, patch_features, zero_mean):
@@ -53,8 +48,6 @@ MODELS = {
         lambda pretrain, in_ch, out_ch: get_efficientnetv1('efficientnet-b0', pretrain, int(in_ch), int(out_ch))),
     ('efficientnet-b1', str, str, str): (
         lambda pretrain, in_ch, out_ch: get_efficientnetv1('efficientnet-b1', pretrain, int(in_ch), int(out_ch))),
-    ('waveletres18', str, str, str): lambda pretrain, in_ch, out_ch: R(
-        pretrain, int(in_ch), int(out_ch)),
     ('waveletmlp', str, str, str, str, str, str, str): (
         lambda mlp_channels, in_ch, out_ch, wavelet_levels, patch_size, in_ch_mul, mlp_depth: get_DeepFixEnd2End(
             int(in_ch), int(out_ch),
@@ -162,8 +155,7 @@ MODELS = {
             patch_features=patch_features,
             backbone=backbone, backbone_pretraining=pretraining,)
         ),
-    ('deepfix_cervical', str, str): (lambda J, P:
-        get_DeepFixEnd2End(
+    ('deepfix_cervical', str, str): (lambda J, P: get_DeepFixEnd2End(
             in_channels=3, out_channels=3, in_ch_multiplier=1, wavelet='db1',
             wavelet_levels=int(J), wavelet_patch_size=int(P), patch_features='l1',
             mlp_depth=1, mlp_channels=300, mlp_activation=None,
@@ -175,51 +167,6 @@ MODELS = {
         #  DeepFixCompression(levels=8, wavelet='coif1', patch_size=1),
         #  R2(pretrain, int(in_ch), int(out_ch))),
 }
-
-
-class R(T.nn.Module):
-    def __init__(self, pretrain, in_ch, out_ch):
-        super().__init__()
-        self.r = get_resnet('resnet18', pretrain, in_ch, out_ch,)
-        self.dwt = pyw.DWT(J=8, wave='coif1', mode='zero')
-
-    @staticmethod
-    def wavelet_coefficients_as_tensorimage(approx, detail, normalize=False):
-        B,C = approx.shape[:2]
-        fixed_dims = approx.shape[:-2] # num images in minibatch, num channels, etc
-        output_shape = fixed_dims + (
-            detail[0].shape[-2]*2,  # input img height
-            detail[0].shape[-1]*2)  # input img width
-        im = T.zeros(output_shape, device=approx.device, dtype=approx.dtype)
-        if normalize:
-            norm11 = lambda x: (x / max(x.min()*-1, x.max()))  # into [-1,+1] preserving sign
-            #  approx = norm11(approx)
-        im[..., :approx.shape[-2], :approx.shape[-1]] = approx if approx is not None else 0
-        for level in detail:
-            lh, hl, hh = level.unbind(-3)
-            h,w = lh.shape[-2:]
-            if normalize:
-                lh, hl, hh = [norm11(x) for x in [lh, hl, hh]]
-            #  im[:h, :w] = approx
-            im[..., 0:h, w:w+w] = lh  # horizontal
-            im[..., h:h+h, :w] = hl  # vertical
-            im[..., h:h+h, w:w+w] = hh  # diagonal
-        return im
-
-    def forward(self, x):
-        x = self.wavelet_coefficients_as_tensorimage(*self.dwt(x))
-        return self.r(x)
-
-
-class R2(T.nn.Module):
-    def __init__(self, pretrain, in_ch, out_ch):
-        super().__init__()
-        self.r = get_resnet('resnet18', pretrain, in_ch, out_ch,)
-
-    def forward(self, x):
-        B,C,H = x.shape
-        x = x.unsqueeze(-1).repeat(1,1,1,H)
-        return self.r(x)
 
 
 class LossCheXpertUignore(T.nn.Module):
@@ -258,23 +205,6 @@ def onehot(y, nclasses):
     return T.zeros((y.numel(), nclasses), dtype=y.dtype, device=y.device)\
             .scatter_(1, y.unsqueeze(1), 1)
 
-
-def _upsample_pad_minibatch_imgs_to_same_size(batch, target_is_segmentation_mask=False):
-    """a collate function for a dataloader of (x,y) samples.  """
-    shapes = [item[0].shape for item in batch]
-    H = max(h for c,h,w in shapes)
-    W = max(w for c,h,w in shapes)
-    X, Y = [], []
-    for item in batch:
-        h,w = item[0].shape[1:]
-        dh, dw = (H-h), (W-w)
-        padding = (dw//2, dw-dw//2, dh//2, dh-dh//2, )
-        X.append(T.nn.functional.pad(item[0], padding))
-        if target_is_segmentation_mask:
-            Y.append(T.nn.functional.pad(item[1], padding))
-        else:
-            Y.append(item[1])
-    return T.stack(X), T.stack(Y)
 
 class RandomSampler(T.utils.data.Sampler):
     """Randomly sample without replacement a subset of N samples from a dataset
@@ -435,9 +365,9 @@ def get_dset_chexpert(train_frac=.8, val_frac=.2, small=False,
     _label_cleanup_dct = dict(D.CheXpert.LABEL_CLEANUP_DICT)
     if labels == 'identity':
         class_names = list(range(num_identities))
-        get_ylabels = lambda dct: \
-            (D.CheXpert.format_labels(dct, labels=['index'], as_tensor=True) % num_identities
-).long()
+        get_ylabels = lambda dct: (
+            D.CheXpert.format_labels(dct, labels=['index'], as_tensor=True) % num_identities
+        ).long()
     else:
         if labels == 'diagnostic':
             class_names = D.CheXpert.LABELS_DIAGNOSTIC
@@ -600,7 +530,6 @@ DSETS = {
     # chexpert_small:.1:.1:diagnostic  # all 14 classes
     # chexpert_small:.1:.1:leaderboard  # only 5 classes
     # chexpert_small:.1:.1:Cardiomegaly,Pneumonia,Pleural_Effusion  # only the defined classes
-    #  'Atelectasis', 'Cardiomegaly', 'Consolidation', 'Edema', 'Pleural Effusion', ...
     ('chexpert_small15k', str, str, str): (
         lambda train_frac, val_frac, labels: get_dset_chexpert(
             float(train_frac), float(val_frac), small=True, labels=labels, epoch_size=15000)),
@@ -612,6 +541,18 @@ DSETS = {
 
 def match(spec:str, dct:dict):
     return pampy.match(spec.split(':'), *(x for y in dct.items() for x in y))
+
+
+def reset_optimizer(opt_spec:str, model:T.nn.Module) -> T.optim.Optimizer:
+    spec = opt_spec.split(':')
+    if opt_spec.startswith('AdaBound'):
+        import adabound  # trying this out.
+        kls = adabound.AdaBound
+    else:
+        kls = getattr(T.optim, spec[0])
+    params = [(x,float(y)) for x,y in [kv.split('=') for kv in spec[1:]]]
+    optimizer = kls(model.parameters(), **dict(params))
+    return optimizer
 
 
 def get_model_opt_loss(
@@ -702,40 +643,6 @@ class CheXpertMultiLabelBinaryClassification(TL.MultiLabelBinaryClassification):
         self.loss += loss.item()
 
 
-def get_deepfix_train_strategy(args:'TrainOptions'):
-    deepfix_spec = args.deepfix
-    if deepfix_spec == 'off':
-        return TL.train_one_epoch
-    elif deepfix_spec.startswith('reinit:'):
-        _, N, P, R = deepfix_spec.split(':')
-        return dfs.DeepFix_TrainOneEpoch(int(N), float(P), int(R), TL.train_one_epoch)
-    elif deepfix_spec.startswith('dhist:'):
-        fp = deepfix_spec.split(':', 1)[1]
-        assert exists(fp), f'histogram file not found: {fp}'
-        return dfs.DeepFix_DHist(fp)
-    elif deepfix_spec.startswith('dfhist:'):
-        fp = deepfix_spec.split(':', 1)[1]
-        assert exists(fp), f'histogram file not found: {fp}'
-        return dfs.DeepFix_DHist(fp, fixed=True)
-    elif deepfix_spec == 'fixed':
-        return dfs.DeepFix_DHist('', fixed=True, init_with_hist=False)
-    elif deepfix_spec.startswith('beta:'):
-        alpha, beta = deepfix_spec.split(':')[1:]
-        return dfs.DeepFix_LambdaInit(
-            lambda cfg: init_from_beta(cfg.model, float(alpha), float(beta)))
-    elif deepfix_spec.startswith('ghaarconv2d:'):
-        ignore_layers = deepfix_spec.split(':')[1].split(',')
-        return dfs.DeepFix_LambdaInit(
-            lambda cfg: (
-                print(f'initialize {deepfix_spec}'),
-                convert_conv2d_to_gHaarConv2d(cfg.model, ignore_layers=ignore_layers),
-                reset_optimizer(args.opt, cfg.model),
-                print(cfg.model)
-            ))
-    else:
-        raise NotImplementedError(deepfix_spec)
-
-
 def train_config(args:'TrainOptions') -> TL.TrainConfig:
     return TL.TrainConfig(
         **get_model_opt_loss(
@@ -744,7 +651,6 @@ def train_config(args:'TrainOptions') -> TL.TrainConfig:
         device=args.device,
         epochs=args.epochs,
         start_epoch=args.start_epoch,
-        train_one_epoch=get_deepfix_train_strategy(args),
         experiment_id=args.experiment_id,
         checkpoint_if=TL.CheckpointIf(metric='val_ROC_AUC AVG', mode='max'),
     )
@@ -784,19 +690,8 @@ class TrainOptions:
 
     loss_reg:str = 'none'  # Optionally add a regularizer to the loss.  loss + reg.  Accepted values:  "none", "deepfixmlp:X" where X is a positive float denoting the lambda in l1 regularizer
     model:str = 'resnet18:imagenet:3:3'  # Model specification adheres to the template "model_name:pretraining:in_ch:out_ch"
-    deepfix:str = 'off'
-    """
-    DeepFix Re-initialization Method.  Options:
-        "off" or "reinit:N:P:R" or "d[f]hist:path_to_histogram.pth"
-         or "beta:A:B" for A,B as (float) parameters of the beta distribution
-        'ghaarconv2d:layer1,layer2' Replaces all spatial convolutions with GHaarConv2d layer except the specified layers
-    """
     experiment_id:str = os.environ.get('run_id', 'debugging')
     prune:str = 'off'
-
-    def execute(self):
-        cfg = train_config(self)
-        cfg.train(cfg)
 
 
 def main():
@@ -806,31 +701,8 @@ def main():
     print(args)
     cfg = train_config(args)
 
-    if args.prune != 'off':
-        assert args.prune.startswith('ChannelPrune:')
-        raise NotImplementedError('code is a bit hardcoded, so it is not available without hacking on it.')
-        print(args.prune)
-        from explainfix import channelprune
-        from deepfix.weight_saliency import costfn_multiclass
-        a = sum([x.numel() for x in cfg.model.parameters()])
-        channelprune(cfg.model, pct=5, grad_cost_fn=costfn_multiclass,
-                     loader=cfg.train_loader, device=cfg.device, num_minibatches=10)
-        b = sum([x.numel() for x in cfg.model.parameters()])
-        assert a/b != 1
-        print(f'done channelpruning.  {a/b}')
-
     cfg.train(cfg)
     #  import IPython ; IPython.embed() ; import sys ; sys.exit()
-
-    #  with T.profiler.profile(
-    #      activities=[
-    #          T.profiler.ProfilerActivity.CPU,
-    #          T.profiler.ProfilerActivity.CUDA,
-    #      ], with_modules=True,
-    #  ) as p:
-    #      cfg.train(cfg)
-    #  print(p.key_averages().table(
-    #      sort_by="self_cuda_time_total", row_limit=-1))
     return cfg
 
 
