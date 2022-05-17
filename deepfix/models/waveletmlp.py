@@ -1,6 +1,6 @@
 import torch as T
 import torchvision.transforms as tvt
-from typing import List, Tuple
+from typing import List, Tuple, Optional, Union
 import math
 import warnings
 from itertools import chain
@@ -14,6 +14,11 @@ from deepfix.models.api import get_resnet
 class InvalidWaveletParametersError(Exception): pass
 
 
+def astuple2(x:Union[int,Tuple[int,int]]):
+    if isinstance(x, tuple):
+        return x
+    return (x,x)
+
 class DeepFixCompression(T.nn.Module):
     """Compress the input data via wavelet packet based feature extraction.
     No learning.
@@ -24,9 +29,9 @@ class DeepFixCompression(T.nn.Module):
                  # wavelet params
                  levels:int, wavelet:str,
                  # wavelet spatial feature extraction params
-                 patch_size:int,
+                 patch_size:Union[int,Tuple[int,int]],
                  patch_features:list[str]=['l1'],
-                 how_to_error_if_input_too_small:str='warn',
+                 how_to_error_if_input_too_small:str='raise',
                  zero_mean:bool=False,
                  adaptive:int=0
                  ):
@@ -73,7 +78,7 @@ class DeepFixCompression(T.nn.Module):
         self.wavelet_encoder = WaveletPacket2d(
             wavelet=wavelet, levels=levels, adaptive=adaptive)
         # wavelet feature extractor
-        self.patch_size = patch_size
+        self.patch_size = astuple2(patch_size)
         # for convenience:  determine what the output shape should be
         if levels != 'max':
             D = self.get_n_extracted_features(
@@ -108,12 +113,12 @@ class DeepFixCompression(T.nn.Module):
         #
         _scores = []
         _zero = data_2d.new_tensor(0)
-        p = self.patch_size
-        if h<p or w<p:
+        ph, pw = self.patch_size
+        if h<ph or w<pw:
             msg = (
                 'Input data spatial dimensions are too small for choice'
                 ' of wavelet level and patch size.  This is inefficient.'
-                f' Patch size = {p}'
+                f' Patch size = {(ph, pw)}'
                 f', level = {self.wavelet_encoder.levels}'
                 f', shape_after_wavelet_transform={data_2d.shape}')
             if self.how_to_error_if_input_too_small == 'raise':
@@ -127,8 +132,8 @@ class DeepFixCompression(T.nn.Module):
         # reshape the (H,W) spatial data into a set of patches as needed.
         # zero pad rows and cols so can have a pxp grid
         # this isn't necessary if we have inputs with shape a power of 2 in each dimension.
-        py, px = (p-h%p)%p, (p-w%p)%p  # total num cols and rows to pad
-        assert py in set(range(p)) and px in set(range(p)), 'sanity check: code bug'
+        py, px = (ph-h%ph)%ph, (pw-w%pw)%pw  # total num cols and rows to pad
+        assert py in set(range(ph)) and px in set(range(pw)), 'sanity check: code bug'
         yl = py//2
         yr = py-yl
         xl = px//2
@@ -136,12 +141,12 @@ class DeepFixCompression(T.nn.Module):
         lvl = T.nn.functional.pad(data_2d, (xl, xr, yl, yr))
         # ... unfold into patches, with spatial dimensions of patch last
         _,_,h,w = lvl.shape
-        assert h%p == 0, w%p == 0
+        assert h%ph == 0, w%pw == 0
         lvl = T.nn.functional.unfold(
             lvl,
-            kernel_size=(max(1,h//p), max(1,w//p)),
-            stride=(max(1,h//p),max(1,w//p)))
-        lvl = lvl.reshape(B,C*D,max(1,h//p),max(1,w//p),p*p)
+            kernel_size=(max(1,h//ph), max(1,w//pw)),
+            stride=(max(1,h//ph),max(1,w//pw)))
+        lvl = lvl.reshape(B,C*D,max(1,h//ph),max(1,w//pw),ph*pw)
         lvl = lvl.permute(0,1,4,2,3)  # put the spatial dimensions last.
         data_2d = lvl
         #
@@ -176,7 +181,7 @@ class DeepFixCompression(T.nn.Module):
         return out
 
     @staticmethod
-    def get_n_extracted_features(J:int, P:int, F:int) -> int:
+    def get_n_extracted_features(J:int, P:Union[int,Tuple[int,int]], F:int) -> int:
         """
         Args:
             J: number of wavelet levels
@@ -192,7 +197,8 @@ class DeepFixCompression(T.nn.Module):
         and H < p, then num_patches <= 1 * p.
         """
         d = 2  # num spatial dims is always 2
-        num_patches = P**d
+        Ph, Pw = astuple2(P)
+        num_patches = Ph * Pw
           # assume there are always p patches in each dimension
           # note: num_patches is correct as long as num pixels in each spatial
           # dimension is greater than p.  Otherwise, p**d is an upper bound.
@@ -201,8 +207,8 @@ class DeepFixCompression(T.nn.Module):
         return (num_detail_matrices * num_patches * num_features_per_patch)
 
     @staticmethod
-    def reconstruct(deepfix_embedding: T.Tensor, orig_img_HW:Tuple[int],
-                    wavelet:str, J:int, P:int, restore_orig_size:bool=True) -> T.Tensor:
+    def reconstruct(deepfix_embedding: T.Tensor, orig_img_HW:Tuple[int,int],
+                    wavelet:str, J:int, P:Union[int,Tuple[int,int]], restore_orig_size:bool=True) -> T.Tensor:
         """Use the inverse wavelet transform to reconstruct a deepfix embedding.
         This assumes patch_features is only one feature, like "l1" or "sum".
         It "unpools" the patches by repeating the value of each patch.
@@ -220,25 +226,66 @@ class DeepFixCompression(T.nn.Module):
         Returns:
             Image of shape (B, C, H, W) corresponding to reconstruction of
             original input image.
-
         """
-        H, W = orig_img_HW
+        fn = DeepFixReconstruct(
+            orig_img_HW=orig_img_HW, wavelet=wavelet, J=J, P=P,
+            restore_orig_size=restore_orig_size).to(
+                deepfix_embedding.device, deepfix_embedding.dtype)
+        return fn(deepfix_embedding)
+
+
+class DeepFixReconstruct(T.nn.Module):
+    """Use the inverse wavelet transform to reconstruct a deepfix embedding.
+    This assumes patch_features is only one feature, like "l1" or "sum".
+    It "unpools" the patches by repeating the value of each patch.
+    The pooling function may cause output values outside of [0,1].  You
+    could normalize the output values into [0,1] by clipping them with
+    `tensor.clamp(0,1)`, or do nothing.
+    Args:
+        deepfix_embedding:  The output of DeepFixCompression.forward(...), of shape (B, ...)
+        orig_img_HW:  a tuple like (H, W) denoting spatial height and spatial width of original input image.
+        wavelet: the value passed to DeepFixCompression
+        J: the wavelet level passed to DeepFixCompression
+        P: the patch size passed to DeepFixCompression
+        restore_orig_size: If True, reconstruct to the original input size by
+            unpooling.  Otherwise, reconstruct to some smaller size.
+    Returns:
+        Image of shape (B, C, H, W) corresponding to reconstruction of
+        original input image.
+    """
+    def __init__(self, wavelet:str, J:int, P:Union[int, Tuple[int,int]],
+                 restore_orig_size:bool=True,
+                 orig_img_HW:Optional[Tuple[int,int]]=(None, None),
+                 ):
+        super().__init__()
+        self.restore_orig_size = restore_orig_size
+        self.wavelet, self.J, self.P = wavelet, J, astuple2(P)
+        self.iwp = WaveletPacket2d(levels=J,wavelet=wavelet,inverse=True)
+        self.H, self.W = orig_img_HW
+
+    def forward(self, deepfix_embedding:T.Tensor,
+                orig_img_HW:Optional[Tuple[int,int]]=None):
+        J, (Ph, Pw) = self.J, self.P
+        if orig_img_HW is None:
+            H, W = self.H, self.H
+            assert H is not None
+            assert W is not None
+        else:
+            H, W = orig_img_HW
         B = deepfix_embedding.shape[0]
-        dev = deepfix_embedding.device
-        repY, repX = int(math.ceil(H/2**J/P)), int(math.ceil(W/2**J/P))
-        deepfix_embedding = deepfix_embedding.reshape(B,-1,4**J,P,P)
+        repY, repX = int(math.ceil(H/2**J/Ph)), int(math.ceil(W/2**J/Pw))
+        deepfix_embedding = deepfix_embedding.reshape(B,-1,4**J,Ph,Pw)
         # unpool
-        if restore_orig_size:
+        if self.restore_orig_size:
             deepfix_embedding = deepfix_embedding\
                     .repeat_interleave(repX, dim=-1)\
                     .repeat_interleave(repY, dim=-2)
         # normalize
         deepfix_embedding = deepfix_embedding / (repY*repX)
         # get the reconstruction
-        iwp = WaveletPacket2d(levels=J,wavelet=wavelet,inverse=True).to(
-            dev, deepfix_embedding.dtype)
-        recons = iwp(deepfix_embedding)
-        if restore_orig_size:
+        recons = self.iwp(deepfix_embedding)
+        del deepfix_embedding
+        if self.restore_orig_size:
             # ... restore original size by removing any padding created by deepfix
             recons = tvt.CenterCrop((H, W))(recons)
         return recons
@@ -657,6 +704,35 @@ class MLP(T.nn.Module):
         #  self.fn = fn
     #  def forward(self, x):
         #  return self.fn(x)
+
+
+class DeepFixImg2Img(T.nn.Module):
+    def __init__(self, in_channels, J:int, P:int, wavelet='db1', patch_features='l1',
+                 restore_orig_size:bool=False):
+        super().__init__()
+        self.enc = DeepFixCompression(
+            in_ch=in_channels, in_ch_multiplier=1,
+            # wavelet params
+            levels=J, wavelet=wavelet,
+            # wavelet spatial feature extraction params
+            patch_size=P, patch_features=patch_features.split(','),
+            zero_mean=False, adaptive=0, how_to_error_if_input_too_small='raise'
+        )
+        self.recon = DeepFixReconstruct(
+            wavelet=wavelet, J=J, P=P,
+            restore_orig_size=restore_orig_size)
+
+    def forward(self, x:T.Tensor):
+        orig_img_HW = x.shape[-2:]
+        x = self.enc(x)
+        x = self.recon(x, orig_img_HW=orig_img_HW)
+        #  print(x.shape)
+        #  from matplotlib import pyplot as plt
+        #  plt.figure(0)
+        #  plt.imshow(x[0].permute(1,2,0).cpu().numpy())
+        #  plt.show(block=False)
+        #  plt.pause(.001)
+        return x
 
 
 def get_DeepFixEnd2End(

@@ -19,7 +19,7 @@ import numpy as np
 import torch as T
 import torchvision.transforms as tvt
 
-from deepfix.models import get_effnetv2, get_resnet, get_densenet, get_efficientnetv1, get_DeepFixEnd2End, get_DeepFixEnd2End_v2, DeepFixMLP, UnetD
+from deepfix.models import get_effnetv2, get_resnet, get_densenet, get_efficientnetv1, get_DeepFixEnd2End, get_DeepFixEnd2End_v2, DeepFixMLP, UnetD, DeepFixImg2Img
 
 
 def parse_normalization(normalization, wavelet, wavelet_levels, wavelet_patch_size, patch_features, zero_mean):
@@ -158,10 +158,25 @@ MODELS = {
     ('deepfix_cervical', str, str): (lambda J, P: get_DeepFixEnd2End(
             in_channels=3, out_channels=3, in_ch_multiplier=1, wavelet='db1',
             wavelet_levels=int(J), wavelet_patch_size=int(P), patch_features='l1',
-            mlp_depth=1, mlp_channels=300, mlp_activation=None,
+            mlp_depth=2, mlp_channels=300, mlp_activation=None,
             mlp_fix_weights='none',
             zero_mean=False, normalization=('batchnorm', ), mlp_attn='Identity',
             adaptive=0)),
+
+    ('deepfix_resnet18', str, str, str, str, str): (lambda in_ch, out_ch, J, Ph, Pw: T.nn.Sequential(
+        DeepFixImg2Img(in_channels=int(in_ch), J=int(J), P=(int(Ph), int(Pw)),
+                       wavelet='db1', patch_features='l1',
+                       restore_orig_size=False,
+                       ),
+        get_resnet('resnet18', 'untrained', int(in_ch), int(out_ch)),
+    )),
+    ('deepfix_densenet121', str, str, str, str, str): (lambda in_ch, out_ch, J, Ph, Pw: T.nn.Sequential(
+        DeepFixImg2Img(in_channels=int(in_ch), J=int(J), P=(int(Ph), int(Pw)),
+                       wavelet='db1', patch_features='l1',
+                       restore_orig_size=False,
+                       ),
+        get_densenet('densenet121', 'untrained', int(in_ch), int(out_ch)),
+    )),
 
     #  ('waveletres18v2', str, str, str): lambda pretrain, in_ch, out_ch: (
         #  DeepFixCompression(levels=8, wavelet='coif1', patch_size=1),
@@ -609,12 +624,16 @@ def get_dset_loaders_resultfactory(dset_spec:str, device:str) -> dict:
         #  dct['result_factory'] = lambda: TL.MultiLabelBinaryClassification(
                 #  class_names, binarize_fn=lambda yh: (T.sigmoid(yh)>.5).long())
         dct['result_factory'] = lambda: TL.MultiClassClassification(
-                len(class_names), binarize_fn=lambda yh,_: yh.softmax(1).argmax(1))
+            len(class_names),
+            preprocess_fn=lambda yh: yh.softmax(1),
+            binarize_fn=lambda yh,_: yh.argmax(1))
+        dct['checkpoint_if'] = TL.CheckpointIf(metric='val_ROC_AUC', mode='max')
     elif any(dset_spec.startswith(x) for x in {
             'chexpert:', 'chexpert_small:',
             'chexpert_small15k:', 'chexpert15k:'}):
         dct['result_factory'] = lambda: CheXpertMultiLabelBinaryClassification(
             class_names, binarize_fn=lambda yh, th: (yh.sigmoid()>th).long(), report_avg=True, device=device)
+        dct['checkpoint_if'] = TL.CheckpointIf(metric='val_ROC_AUC AVG', mode='max')
     else:
         raise NotImplementedError(f"I don't know how to create the result factory for {dset_spec}")
     return dct
@@ -644,7 +663,7 @@ class CheXpertMultiLabelBinaryClassification(TL.MultiLabelBinaryClassification):
 
 
 def train_config(args:'TrainOptions') -> TL.TrainConfig:
-    return TL.TrainConfig(
+    dct = dict(
         **get_model_opt_loss(
             args.model, args.opt, args.lossfn, args.loss_reg, args.device),
         **get_dset_loaders_resultfactory(args.dset, args.device),
@@ -652,8 +671,8 @@ def train_config(args:'TrainOptions') -> TL.TrainConfig:
         epochs=args.epochs,
         start_epoch=args.start_epoch,
         experiment_id=args.experiment_id,
-        checkpoint_if=TL.CheckpointIf(metric='val_ROC_AUC AVG', mode='max'),
     )
+    return TL.TrainConfig(**dct)
 
 
 @dc.dataclass

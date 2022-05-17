@@ -541,6 +541,21 @@ for level in range(1, 9):
 EOF
 }
 
+C25() {
+  # Main predictive experiment, DeepFixImg2Img --> DenseNet121
+  # repeat of C21
+  python <<EOF
+# for level in [1,5,8]:
+#     for patchsize in 1,5,160:
+for level in range(1, 9):
+    for patchsize in 1,3,5,9,19,37,79,115,160:
+        if patchsize <= 320 / 2**level:
+            model = f"deepfix_densenet121:1:{level}:{patchsize}:{patchsize}"
+            print( f"${V}.C25.J={level}.P={patchsize} env num_workers=6 batch_size=50 python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --model {model} --epochs 80")
+        # # else skip this unnecessary task because the (level, patchsize) isn't doing compression.  This assumes images are 320x320, our default from chexpert dataset
+EOF
+}
+
 timings_e2e_table() {
   # data for the end-to-end timing table.
 python <<EOF
@@ -673,19 +688,25 @@ plots() {
 # C24 | run_gpus 1
 # C8 | run_gpus 1
 
+# C25 | run_gpus 2
+
 E6() {
   # Main predictive experiment, all patch sizes and wavelet levels, trained on only the 5 leaderboard classes
   python <<EOF
-args = ' --opt SGD:lr=0.001 --epochs 300 --dset intel_mobileodt:train+additional:val:test:v1 --lossfn CrossEntropyLoss '
-args += ' --loss_reg none '  # deepfixmlp:1 # no regularization for now.
-for level in [1,5,8]:
-    for patchsize in 1,5,160:
-# for level in range(1, 9):
-#     for patchsize in 1,3,5,9,19,37,79,115,160:
-        if patchsize <= 320 / 2**level:
-            model = f"deepfix_cervical:{level}:{patchsize}"
+args = ' --opt Adam:lr=0.001 --epochs 300 --dset intel_mobileodt:train+additional:val:test:v1 --lossfn CrossEntropyLoss '
+for level in [1,2,3,4,5,6]:
+    for patchsize in 1,3,5,7,9,11,21,31,41,51,61,75:
+        if patchsize <= 200 / 2**level:
+            # model = f"deepfix_cervical:{level}:{patchsize}"
+            model = f"deepfix_resnet18:3:3:{level}:{patchsize}:{patchsize}"
             print( f"""${V}.E6.J={level}.P={patchsize} env num_workers=12 batch_size=6000 python deepfix/train.py --model {model} {args}""")
 EOF
 }
+# E7() {
+# env num_workers=0 batch_size=2600 python deepfix/train.py --model densenet121:untrained:3:3 --opt SGD:lr=0.001 --epochs 300 --dset intel_mobileodt:train:val:test:v1 --lossfn CrossEntropyLoss  --loss_reg none --start_epoch 1
 
-E6 | run_gpus 1
+# args = ' --opt SGD:lr=0.001 --epochs 300 --dset intel_mobileodt:train+additional:val:test:v1 --lossfn CrossEntropyLoss '
+# args += ' --loss_reg none '  # deepfixmlp:1 # no regularization for now.
+# }
+
+E6 | run_gpus 2
