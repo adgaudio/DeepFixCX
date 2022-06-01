@@ -713,27 +713,25 @@ for level in [1,2,3,4,5,6,7]:
             print( f"""${V}.E6.J={level}.P={patchsize} env num_workers=12 batch_size=6000 python deepfix/train.py --model {model} {args}""")
 EOF
 }
-# E7() {
+E7() {
+args=' --opt Adam:lr=0.001 --epochs 300 --dset intel_mobileodt:train+additional:val:test:v1 --lossfn CrossEntropyLoss '
+    cat <<EOF
+${V}.E7.resnet18 env num_workers=12 batch_size=6000 python deepfix/train.py --dset intel_mobileodt:train+additional:val:test:v1 --model resnet18:untrained:3:3  $args
+EOF
 # env num_workers=0 batch_size=2600 python deepfix/train.py --model densenet121:untrained:3:3 --opt SGD:lr=0.001 --epochs 300 --dset intel_mobileodt:train:val:test:v1 --lossfn CrossEntropyLoss  --loss_reg none --start_epoch 1
+}
 
-# args = ' --opt SGD:lr=0.001 --epochs 300 --dset intel_mobileodt:train+additional:val:test:v1 --lossfn CrossEntropyLoss '
-# args += ' --loss_reg none '  # deepfixmlp:1 # no regularization for now.
-# }
-
-# E6 | run_gpus 2
-# E3 | run_gpus 2
-# plots_intelmobileodt
 
 K0() {
     cat <<EOF
-$V.K0 env num_workers=10 batch_size=200  python deepfix/train.py --model resnet18:imagenet:3:3 --opt Adam:lr=0.001 --epochs 50 --dset kimeye:.9:.1 --lossfn kimeye_ce
+$V.K0 env num_workers=10 batch_size=200  python deepfix/train.py --model resnet18:untrained:3:3 --opt Adam:lr=0.001 --epochs 50 --dset kimeye:.7:.15 --lossfn kimeye_ce
 EOF
 }
 
 K1() {
     # Main experiment for Kim's Eye Hospital Glaucoma dataset
   python <<EOF
-args = ' --opt Adam:lr=0.001 --epochs 50 --dset kimeye:.9:.1 --lossfn kimeye_ce '
+args = ' --opt Adam:lr=0.001 --epochs 50 --dset kimeye:.7:.15 --lossfn kimeye_ce '
 for level in [1,2,3,4,5,6,7]:
     for patchsize in 1,3,5,7,9,11,21,31,41,51,61,75:
         if patchsize <= 200 / 2**level:
@@ -753,7 +751,11 @@ python ./bin/plot_reconstructions.py --dataset kimeye --patch_sizes $patch_sizes
 python bin/plot_ssim_heatmap.py --dataset kimeye --overwrite --patch_sizes $patch_sizes
 }
 
+# E6 | run_gpus 2
+# # E3 | run_gpus 2
 export lockfile_maxsuccesses=6
+( E7 ; E7 ; E7 ; E7 ; E7 ; E7 ) | run_gpus 2
+# plots_intelmobileodt
+
 ( K1 ; K1 ; K1 ; K1 ; K1 ; K1 ; K0 ; K0 ; K0 ; K0 ; K0 ; K0 ) | run_gpus 1
 # plots_kimeye
-

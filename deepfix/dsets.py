@@ -56,7 +56,7 @@ def get_dset_kimeye(*args, **kwargs):
         'val_dset': Subset(dset, idxs_val) if idxs_val is not None else None,
         'test_dset': Subset(dset, idxs_test),
     }
-    print({k: len(v) for k, v in dct.items()}, args.random_state)
+    # print({k: len(v) for k, v in dct.items()}, args.random_state)
     # dataloaders
     dct.update({
         'train_loader': DataLoader(
