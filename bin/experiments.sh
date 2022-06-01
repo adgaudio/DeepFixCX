@@ -66,7 +66,7 @@ python bin/find_distribution_single_model.py --model 'resnet18:imagenet:3:3' --b
 EOF
 }
 I3_part2() {
-  # initialize model from a histogram for each scalar parameter obtained by analyzing untrained models (deepfix dhist method) 
+  # initialize model from a histogram for each scalar parameter obtained by analyzing untrained models (deepfix dhist method)
   # local fpout=./results/${V}.I3
   # mkdir -p "$fpout"
   # find ./histograms -name "hist_*.pth" | parallel echo \
@@ -141,12 +141,12 @@ EOF
 
 E3() {
   # baselines
-  local args=" --epochs 300"
+  local args=' --opt Adam:lr=0.001 --epochs 300 --lossfn CrossEntropyLoss '
   cat <<EOF
-  ${V}.E3.IntelMobileODT_ta.resnet18.baseline.fromscratch python deepfix/train.py --deepfix off --dset intel_mobileodt:train+additional:val:test:v1 --model resnet18:untrained:3:3  $args
-  ${V}.E3.IntelMobileODT_ta.resnet18.baseline.imagenet    python deepfix/train.py --deepfix off --dset intel_mobileodt:train+additional:val:test:v1 --model resnet18:imagenet:3:3  $args
-  ${V}.E3.IntelMobileODT_t.resnet18.baseline.fromscratch python deepfix/train.py --deepfix off --dset intel_mobileodt:train:val:test:v1 --model resnet18:untrained:3:3  $args
-  ${V}.E3.IntelMobileODT_t.resnet18.baseline.imagenet    python deepfix/train.py --deepfix off --dset intel_mobileodt:train:val:test:v1 --model resnet18:imagenet:3:3  $args
+  ${V}.E3.IntelMobileODT_ta.resnet18.baseline.fromscratch python deepfix/train.py --dset intel_mobileodt:train+additional:val:test:v1 --model resnet18:untrained:3:3  $args
+  ${V}.E3.IntelMobileODT_ta.resnet18.baseline.imagenet    python deepfix/train.py --dset intel_mobileodt:train+additional:val:test:v1 --model resnet18:imagenet:3:3  $args
+  ${V}.E3.IntelMobileODT_t.resnet18.baseline.fromscratch python deepfix/train.py --dset intel_mobileodt:train:val:test:v1 --model resnet18:untrained:3:3  $args
+  ${V}.E3.IntelMobileODT_t.resnet18.baseline.imagenet    python deepfix/train.py --dset intel_mobileodt:train:val:test:v1 --model resnet18:imagenet:3:3  $args
 EOF
 }
 E4() {
@@ -352,7 +352,7 @@ for dset in 'chexpert_small','chexpert':
         # for level in range(1, 9):
         #     for patchsize in 1,3,5,9,19,37,79,115,160:
                 if patchsize <= 320 / 2**level:
-                    # run_id:   norm:{dset}:{wavelet}:{level}:{patchsize}:{patch_features}:{zero_mean} 
+                    # run_id:   norm:{dset}:{wavelet}:{level}:{patchsize}:{patch_features}:{zero_mean}
                     print(f"python bin/compute_deepfix_normalization.py --dset {dset} --wavelet {wavelet} --level {level} --patchsize {patchsize} --patch_features {patch_features} --zero_mean {zero_mean}")
                 # else skip this unnecessary norm because the (level, patchsize) isn't doing compression.  This assumes images are 320x320, our default from chexpert dataset
 EOF
@@ -360,7 +360,7 @@ EOF
 
 
 C14() {
-  # varying attention / regularization 
+  # varying attention / regularization
   # conc: perf-wise: VecAttn with 0 regualrization seems best, .1 reg 2nd best, LogSoftmaxVecAttn third
   # conc: but the result that vecattn:0 works better than comparable model in C13 is weird enough that might have optimizer noise here.
   # conc: visually for attn, TODO
@@ -388,7 +388,7 @@ for opt in 'SGD:lr=0.002:momentum=.9', 'SGD:lr=0.003:momentum=.9', 'SGD:lr=0.001
     print(f"""${V}.C15.LogSoftmax.{opt}      python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt {opt} --lossfn chexpert_uignore --loss_reg none             --model attn_test:LogSoftmaxVecAttn:14:{level}:{patch_size}""")
 EOF
 }
-# before running this, let's do the 
+# before running this, let's do the
 # regularization tests
 # optimizer tests
 
@@ -632,6 +632,17 @@ plots() {
   # python bin/make_compressed_dataset.py -J 2 -P 19 --centercrop 320 320 --compressed_img_format png --read_from_dirpath ./data/CheXpert-v1.0-small/
 }
 
+plots_intelmobileodt() {
+    local patch_sizes="1 5 7 11 31 75"
+    # local patch_sizes="1 3 5 7 9 11 21 31 41 51 61 71 75"
+
+python ./bin/plot_reconstructions.py --dataset intelmobileodt --patch_sizes $patch_sizes
+./bin/plot_heatmap_levels_vs_patchsize.sh 2.E6 $patch_sizes
+python ./bin/plot_compression_ratio.py --patch_sizes $patch_sizes --input_shape 200 150
+python bin/plot_ssim_heatmap.py --dataset intelmobileodt --overwrite --patch_sizes $patch_sizes
+# TODO: identity score
+}
+
 
 # I1 | expand 3 | run_gpus echo 5
 # I2 | run_gpus 5
@@ -694,7 +705,7 @@ E6() {
   # Main predictive experiment, all patch sizes and wavelet levels, trained on only the 5 leaderboard classes
   python <<EOF
 args = ' --opt Adam:lr=0.001 --epochs 300 --dset intel_mobileodt:train+additional:val:test:v1 --lossfn CrossEntropyLoss '
-for level in [1,2,3,4,5,6]:
+for level in [1,2,3,4,5,6,7]:
     for patchsize in 1,3,5,7,9,11,21,31,41,51,61,75:
         if patchsize <= 200 / 2**level:
             # model = f"deepfix_cervical:{level}:{patchsize}"
@@ -709,4 +720,40 @@ EOF
 # args += ' --loss_reg none '  # deepfixmlp:1 # no regularization for now.
 # }
 
-E6 | run_gpus 2
+# E6 | run_gpus 2
+# E3 | run_gpus 2
+# plots_intelmobileodt
+
+K0() {
+    cat <<EOF
+$V.K0 env num_workers=10 batch_size=200  python deepfix/train.py --model resnet18:imagenet:3:3 --opt Adam:lr=0.001 --epochs 50 --dset kimeye:.9:.1 --lossfn kimeye_ce
+EOF
+}
+
+K1() {
+    # Main experiment for Kim's Eye Hospital Glaucoma dataset
+  python <<EOF
+args = ' --opt Adam:lr=0.001 --epochs 50 --dset kimeye:.9:.1 --lossfn kimeye_ce '
+for level in [1,2,3,4,5,6,7]:
+    for patchsize in 1,3,5,7,9,11,21,31,41,51,61,75:
+        if patchsize <= 200 / 2**level:
+            model = f"deepfix_resnet18:3:3:{level}:{patchsize}:{patchsize}"
+            print( f"""${V}.K1.J={level}.P={patchsize} env num_workers=10 batch_size=200   python deepfix/train.py --model {model} {args}""")
+EOF
+}
+
+plots_kimeye() {
+    local patch_sizes="1 3 5 7 9 11 15 16 17 21 31 51 75 101"
+    # local patch_sizes="1 3 5 7 9 11 21 31 41 51 61 71 75"
+
+    # todo: fit the
+./bin/plot_heatmap_levels_vs_patchsize.sh 2.K1 $patch_sizes
+python ./bin/plot_compression_ratio.py --patch_sizes $patch_sizes --input_shape 200 150
+python ./bin/plot_reconstructions.py --dataset kimeye --patch_sizes $patch_sizes
+python bin/plot_ssim_heatmap.py --dataset kimeye --overwrite --patch_sizes $patch_sizes
+}
+
+export lockfile_maxsuccesses=6
+( K1 ; K1 ; K1 ; K1 ; K1 ; K1 ; K0 ; K0 ; K0 ; K0 ; K0 ; K0 ) | run_gpus 1
+# plots_kimeye
+
