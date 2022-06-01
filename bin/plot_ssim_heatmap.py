@@ -10,7 +10,7 @@ import torchvision.transforms as tvt
 
 from deepfix.models import DeepFixCompression
 from deepfix.models.wavelet_packet import WaveletPacket2d
-from deepfix.train import get_dset_chexpert
+from deepfix.train import get_dset_chexpert, get_dset_intel_mobileodt
 
 
 p=ap.ArgumentParser()
@@ -19,10 +19,19 @@ p.add_argument('--patch_sizes',nargs='+',type=int,default=tuple([1,3,5,9,19,37,7
 p.add_argument('--wavelet',nargs="+",type=str,default='db1')
 p.add_argument('--device', default='cuda')
 p.add_argument('--overwrite', action='store_true')
+p.add_argument('--dataset', default='chexpert', choices=('chexpert', 'intelmobileodt'))
 args=p.parse_args()
 
 if args.overwrite:
-    dct, _ = get_dset_chexpert(train_frac=.8,val_frac=0.2,small=True)
+    # load image
+    if args.dataset == 'chexpert':
+        dct, _ = get_dset_chexpert(train_frac=.8,val_frac=0.2,small=True)
+    elif args.dataset == 'intelmobileodt':
+        #  --dset intel_mobileodt:train:val:test:v1
+        dct, _ = get_dset_intel_mobileodt(stage_trainval='train', use_val='val', stage_test='test', augment='v1')
+
+    #  data_loader = dct['train_loader']
+    img = dct['test_dset'][1][0]
     data_loader = dct['test_loader']
     ssim_store = []
     for J,P in product(range(1,9), args.patch_sizes):
@@ -67,7 +76,7 @@ if args.overwrite:
     # generate plot
     pivot_table = df.pivot_table('Avg SSIM', 'Patch Size, P', 'Wavelet Level, J')
 else:
-    pivot_table = pd.read_csv(f'results/plots/heatmap_reconstruction_{",".join(args.patch_features)}.csv').set_index('Patch Size, P')#.drop(columns='Unnamed: 0')
+    pivot_table = pd.read_csv(f'results/plots/heatmap_reconstruction_{args.dataset}_{",".join(args.patch_features)}.csv').set_index('Patch Size, P')#.drop(columns='Unnamed: 0')
 fig,axs = plt.subplots(1,1, figsize=(6, 2.5), dpi=300)
 sns.heatmap(
     pivot_table,
@@ -76,7 +85,7 @@ sns.heatmap(
     ax=axs, annot=True, fmt='.03f', cbar=False)
 #  axs.set_title('Privacy: Reconstruction Score')
 # save plot
-save_fp = f'results/plots/heatmap_reconstruction_{",".join(args.patch_features)}.png'
+save_fp = f'results/plots/heatmap_reconstruction_{args.dataset}_{",".join(args.patch_features)}.png'
 fig.savefig(save_fp,bbox_inches='tight', dpi=300)
 pivot_table.to_csv(save_fp.replace('.png', '.csv'))
 print(f'saved to: {save_fp}')
