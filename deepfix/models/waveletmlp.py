@@ -267,11 +267,11 @@ class DeepFixReconstruct(T.nn.Module):
                 orig_img_HW:Optional[Tuple[int,int]]=None):
         J, (Ph, Pw) = self.J, self.P
         if orig_img_HW is None:
-            H, W = self.H, self.H
-            assert H is not None
-            assert W is not None
+            H, W = self.H, self.W
         else:
             H, W = orig_img_HW
+        assert H is not None
+        assert W is not None
         B = deepfix_embedding.shape[0]
         repY, repX = int(math.ceil(H/2**J/Ph)), int(math.ceil(W/2**J/Pw))
         deepfix_embedding = deepfix_embedding.reshape(B,-1,4**J,Ph,Pw)
