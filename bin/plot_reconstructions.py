@@ -9,7 +9,7 @@ import torchvision.transforms as tvt
 
 from deepfix.models import DeepFixCompression
 from deepfix.models.wavelet_packet import WaveletPacket2d
-from deepfix.train import get_dset_chexpert, get_dset_intel_mobileodt
+from deepfix.train import get_dset_chexpert, get_dset_intel_mobileodt, get_dset_kimeye
 
 
 #  rand = np.random.uniform
@@ -21,7 +21,9 @@ p.add_argument('--input_shape',nargs='+',type=int,default=(320,320))
 p.add_argument('--patch_sizes',nargs='+',type=int,default=tuple([1,3,5,9,19,37,79,115,160]))
 p.add_argument('--wavelet',type=str,default='db1')
 p.add_argument('--ssim', action='store_true')
-p.add_argument('--dataset', default='chexpert', choices=['chexpert', 'intelmobileodt'])
+p.add_argument(
+    '--dataset', default='chexpert',
+    choices=['chexpert', 'intelmobileodt', 'kimeye'])
 args=p.parse_args()
 
 # load image
@@ -34,6 +36,10 @@ elif args.dataset == 'intelmobileodt':
     dct, _ = get_dset_intel_mobileodt(stage_trainval='train', use_val='val', stage_test='test', augment='v1')
     #  data_loader = dct['train_loader']
     img = dct['test_dset'][1][0]
+elif args.dataset == 'kimeye':
+    dct, _ = get_dset_kimeye(train_frac=.7, test_frac=.15)
+    img = dct['test_dset'][0][0]
+
 C, H, W = img.shape
 
 maxlevels = int(np.ceil(np.log2(max(H,W))))
@@ -81,6 +87,13 @@ elif args.dataset == 'intelmobileodt':
     #  bigorigimg = img.numpy()
     bigH,bigW = bigorigimg.shape[-2:]
     pady, padx = 90, 175
+elif args.dataset == 'kimeye':
+    y, x = 1200, 1200
+    from scipy import ndimage
+    bigorigimg = ndimage.zoom(img.numpy(), (1,1,1))
+    #  bigorigimg = img.numpy()
+    bigH,bigW = bigorigimg.shape[-2:]
+    pady, padx = 100, 250
 else:
     raise NotImplementedError()
 imgmap[:, y:y+bigH, x:x+bigW] = bigorigimg

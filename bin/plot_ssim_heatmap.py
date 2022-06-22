@@ -10,7 +10,7 @@ import torchvision.transforms as tvt
 
 from deepfix.models import DeepFixCompression
 from deepfix.models.wavelet_packet import WaveletPacket2d
-from deepfix.train import get_dset_chexpert, get_dset_intel_mobileodt
+from deepfix.train import get_dset_chexpert, get_dset_intel_mobileodt, get_dset_kimeye
 
 
 p=ap.ArgumentParser()
@@ -19,7 +19,7 @@ p.add_argument('--patch_sizes',nargs='+',type=int,default=tuple([1,3,5,9,19,37,7
 p.add_argument('--wavelet',nargs="+",type=str,default='db1')
 p.add_argument('--device', default='cuda')
 p.add_argument('--overwrite', action='store_true')
-p.add_argument('--dataset', default='chexpert', choices=('chexpert', 'intelmobileodt'))
+p.add_argument('--dataset', default='chexpert', choices=('chexpert', 'intelmobileodt', 'kimeye'))
 args=p.parse_args()
 
 if args.overwrite:
@@ -29,6 +29,10 @@ if args.overwrite:
     elif args.dataset == 'intelmobileodt':
         #  --dset intel_mobileodt:train:val:test:v1
         dct, _ = get_dset_intel_mobileodt(stage_trainval='train', use_val='val', stage_test='test', augment='v1')
+    elif args.dataset == 'kimeye':
+        dct, _ = get_dset_kimeye(train_frac=.7, test_frac=.15)
+    else:
+        raise NotImplemented(args.dataset)
 
     #  data_loader = dct['train_loader']
     img = dct['test_dset'][1][0]

@@ -220,33 +220,33 @@ done
 
 C8() {
   # baseline
-  local V=3
-  # ${V}.C8.diagnostic.densenet121.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:untrained:1:14 --epochs 80
-  # ${V}.C8.Cardiomegaly.densenet121.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:Cardiomegaly --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:untrained:1:1 --epochs 80
-  # ${V}.C8.Cardiomegaly.resnet18.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:Cardiomegaly --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:untrained:1:1 --epochs 80
+  local V=$((V+2))
+  # ${V}.C8.diagnostic.densenet121.baseline.fromscratch    python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:untrained:1:14 --epochs 80
+  # ${V}.C8.Cardiomegaly.densenet121.baseline.fromscratch    python deepfix/train.py --dset chexpert_small15k:.9:.1:Cardiomegaly --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:untrained:1:1 --epochs 80
+  # ${V}.C8.Cardiomegaly.resnet18.baseline.fromscratch    python deepfix/train.py --dset chexpert_small15k:.9:.1:Cardiomegaly --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:untrained:1:1 --epochs 80
 
   cat <<EOF
-  ${V}.C8.leaderboard.resnet18.baseline.fromscratch    env batch_size=55 num_workers=6    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:leaderboard --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:untrained:1:5 --epochs 80
-  ${V}.C8.leaderboard.resnet18.baseline.imagenet       env batch_size=55 num_workers=6    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:leaderboard --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:imagenet:1:5 --epochs 80
-  ${V}.C8.leaderboard.densenet121.baseline.fromscratch env batch_size=10 num_workers=6    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:leaderboard --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:untrained:1:5 --epochs 80
-  ${V}.C8.leaderboard.densenet121.baseline.imagenet    env batch_size=10 num_workers=6    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:leaderboard --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:imagenet:1:5 --epochs 80
-  ${V}.C8.diagnostic.resnet18.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:untrained:1:14 --epochs 80
-  ${V}.C8.diagnostic.resnet18.baseline.imagenet    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:imagenet:1:14 --epochs 80
-  ${V}.C8.diagnostic.densenet121.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:untrained:1:14 --epochs 80
-  ${V}.C8.diagnostic.densenet121.baseline.imagenet    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:imagenet:1:14 --epochs 80
+  ${V}.C8.leaderboard.resnet18.baseline.fromscratch    env batch_size=55 num_workers=6    python deepfix/train.py --dset chexpert_small15k:.9:.1:leaderboard --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:untrained:1:5 --epochs 80
+  ${V}.C8.leaderboard.resnet18.baseline.imagenet       env batch_size=55 num_workers=6    python deepfix/train.py --dset chexpert_small15k:.9:.1:leaderboard --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:imagenet:1:5 --epochs 80
+  ${V}.C8.leaderboard.densenet121.baseline.fromscratch env batch_size=10 num_workers=6    python deepfix/train.py --dset chexpert_small15k:.9:.1:leaderboard --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:untrained:1:5 --epochs 80
+  ${V}.C8.leaderboard.densenet121.baseline.imagenet    env batch_size=10 num_workers=6    python deepfix/train.py --dset chexpert_small15k:.9:.1:leaderboard --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:imagenet:1:5 --epochs 80
+  ${V}.C8.diagnostic.resnet18.baseline.fromscratch    python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:untrained:1:14 --epochs 80
+  ${V}.C8.diagnostic.resnet18.baseline.imagenet    python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:imagenet:1:14 --epochs 80
+  ${V}.C8.diagnostic.densenet121.baseline.fromscratch    python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:untrained:1:14 --epochs 80
+  ${V}.C8.diagnostic.densenet121.baseline.imagenet    python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:imagenet:1:14 --epochs 80
 EOF
 }
 # I8() {
 #   local num_identities=100
 #   local train_pct=.01
 #   # identity model baselines, 1.0% of training data
-#   # ${V}.I8.Cardiomegaly.densenet121.baseline.fromscratch    python deepfix/train.py --deepfix off --epochs 150 --dset chexpert_small_ID:1000:$train_pct:.01 --opt Adam:lr=0.003 --lossfn chexpert_identity:$num_identities --loss_reg none --model densenet121:untrained:1:1
-#   # ${V}.I8.leaderboard.densenet121.baseline.fromscratch    python deepfix/train.py --deepfix off --epochs 150 --dset chexpert_small_ID:1000:$train_pct:.01 --opt Adam:lr=0.003 --lossfn chexpert_identity:$num_identities --loss_reg none --model densenet121:untrained:1:5
-#   # ${V}.I8.diagnostic.densenet121.baseline.fromscratch    python deepfix/train.py --deepfix off --epochs 150 --dset chexpert_small_ID:$num_identities:$train_pct:.01 --opt Adam:lr=0.003 --lossfn chexpert_identity:$num_identities --loss_reg none --model densenet121:untrained:1:$num_identities
+#   # ${V}.I8.Cardiomegaly.densenet121.baseline.fromscratch    python deepfix/train.py --epochs 150 --dset chexpert_small_ID:1000:$train_pct:.01 --opt Adam:lr=0.003 --lossfn chexpert_identity:$num_identities --loss_reg none --model densenet121:untrained:1:1
+#   # ${V}.I8.leaderboard.densenet121.baseline.fromscratch    python deepfix/train.py --epochs 150 --dset chexpert_small_ID:1000:$train_pct:.01 --opt Adam:lr=0.003 --lossfn chexpert_identity:$num_identities --loss_reg none --model densenet121:untrained:1:5
+#   # ${V}.I8.diagnostic.densenet121.baseline.fromscratch    python deepfix/train.py --epochs 150 --dset chexpert_small_ID:$num_identities:$train_pct:.01 --opt Adam:lr=0.003 --lossfn chexpert_identity:$num_identities --loss_reg none --model densenet121:untrained:1:$num_identities
 #   cat <<EOF
-#   # ${V}.I8.Cardiomegaly.resnet18.baseline.fromscratch    python deepfix/train.py --deepfix off --epochs 150 --dset chexpert_small_ID:1000:$train_pct:.01 --opt Adam:lr=0.003 --lossfn chexpert_identity:$num_identities --loss_reg none --model resnet18:untrained:1:1
-#   # ${V}.I8.leaderboard.resnet18.baseline.fromscratch    python deepfix/train.py --deepfix off --epochs 150 --dset chexpert_small_ID:1000:$train_pct:.01 --opt Adam:lr=0.003 --lossfn chexpert_identity:$num_identities --loss_reg none --model resnet18:untrained:1:5
-#   # ${V}.I8.diagnostic.resnet18.baseline.fromscratch    python deepfix/train.py --deepfix off --epochs 150 --dset chexpert_small_ID:$num_identities:$train_pct:.01 --opt Adam:lr=0.003 --lossfn chexpert_identity:$num_identities --loss_reg none --model resnet18:untrained:1:$num_identities
+#   # ${V}.I8.Cardiomegaly.resnet18.baseline.fromscratch    python deepfix/train.py --epochs 150 --dset chexpert_small_ID:1000:$train_pct:.01 --opt Adam:lr=0.003 --lossfn chexpert_identity:$num_identities --loss_reg none --model resnet18:untrained:1:1
+#   # ${V}.I8.leaderboard.resnet18.baseline.fromscratch    python deepfix/train.py --epochs 150 --dset chexpert_small_ID:1000:$train_pct:.01 --opt Adam:lr=0.003 --lossfn chexpert_identity:$num_identities --loss_reg none --model resnet18:untrained:1:5
+#   # ${V}.I8.diagnostic.resnet18.baseline.fromscratch    python deepfix/train.py --epochs 150 --dset chexpert_small_ID:$num_identities:$train_pct:.01 --opt Adam:lr=0.003 --lossfn chexpert_identity:$num_identities --loss_reg none --model resnet18:untrained:1:$num_identities
 # EOF
 # }
 C9() {
@@ -550,8 +550,8 @@ C25() {
 for level in range(1, 9):
     for patchsize in 1,3,5,9,19,37,79,115,160:
         if patchsize <= 320 / 2**level:
-            model = f"deepfix_densenet121:1:{level}:{patchsize}:{patchsize}"
-            print( f"${V}.C25.J={level}.P={patchsize} env num_workers=6 batch_size=50 python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --model {model} --epochs 80")
+            model = f"deepfix_resnet18:1:14:{level}:{patchsize}:{patchsize}"
+            print( f"${V}.C25.J={level}.P={patchsize} env num_workers=11 batch_size=30 python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --model {model} --epochs 80")
         # # else skip this unnecessary task because the (level, patchsize) isn't doing compression.  This assumes images are 320x320, our default from chexpert dataset
 EOF
 }
@@ -593,13 +593,20 @@ for fmt in ['jpg','png']:
 EOF
 }
 
-plots() {
+plots_chexpert() {
   # compression ratio
   python ./bin/plot_compression_ratio.py --patch_sizes 1 3 5 9 19 37 79 115 160
   python ./bin/plot_compression_ratio.py --patch_sizes 1 2 3 4 5 6 7 8 --input_size 64 64
 
-  # predictive performance (after running C21 (or C16))
+  # predictive performance
+  # C25 is chexpert -> compression with deepfix --> resnet18
+  # C25 | run_gpus 1
+  chexpert=true ./bin/plot_heatmap_levels_vs_patchsize.sh 2.C25 0.85
+  # ... other predictive performances.  these were done before the roc auc was
+  # computed every epoch.  I verified that the approach gives identical result.
+  # C21 is chexpert --> compression with deepfix --> tiny 1 layer MLP
   # C21 | run_gpus 1
+  # C8 is the baselines,  e.g.  chexpert --> resnet18
   # C8 | run_gpus 1
   # --> get ROC AUC and BAcc data on test set by loading saved model checkpoints
   python bin/get_roc_auc.py 3.C8 --overwrite
@@ -643,6 +650,55 @@ python bin/plot_ssim_heatmap.py --dataset intelmobileodt --overwrite --patch_siz
 # TODO: identity score
 }
 
+
+E6() {
+  # Main predictive experiment, all patch sizes and wavelet levels, trained on only the 5 leaderboard classes
+  python <<EOF
+args = ' --opt Adam:lr=0.001 --epochs 300 --dset intel_mobileodt:train+additional:val:test:v1 --lossfn CrossEntropyLoss '
+for level in [1,2,3,4,5,6,7]:
+    for patchsize in 1,3,5,7,9,11,21,31,41,51,61,75:
+        if patchsize <= 200 / 2**level:
+            # model = f"deepfix_cervical:{level}:{patchsize}"
+            model = f"deepfix_resnet18:3:3:{level}:{patchsize}:{patchsize}"
+            print( f"""${V}.E6.J={level}.P={patchsize} env num_workers=12 batch_size=6000 python deepfix/train.py --model {model} {args}""")
+EOF
+}
+E7() {
+args=' --opt Adam:lr=0.001 --epochs 300 --dset intel_mobileodt:train+additional:val:test:v1 --lossfn CrossEntropyLoss '
+    cat <<EOF
+${V}.E7.resnet18 env num_workers=12 batch_size=6000 python deepfix/train.py --dset intel_mobileodt:train+additional:val:test:v1 --model resnet18:untrained:3:3  $args
+EOF
+# env num_workers=0 batch_size=2600 python deepfix/train.py --model densenet121:untrained:3:3 --opt SGD:lr=0.001 --epochs 300 --dset intel_mobileodt:train:val:test:v1 --lossfn CrossEntropyLoss  --loss_reg none --start_epoch 1
+}
+
+
+K0() {
+    cat <<EOF
+$V.K0 env num_workers=10 batch_size=200  python deepfix/train.py --model resnet18:untrained:3:3 --opt Adam:lr=0.001 --epochs 50 --dset kimeye:.7:.15 --lossfn kimeye_ce
+EOF
+}
+
+K1() {
+    # Main experiment for Kim's Eye Hospital Glaucoma dataset
+  python <<EOF
+args = ' --opt Adam:lr=0.001 --epochs 50 --dset kimeye:.7:.15 --lossfn kimeye_ce '
+for level in [1,2,3,4,5,6,7]:
+    # for patchsize in 1,3,5,7,9,11,21,31,41,51,61,75:
+    for patchsize in 1,3,5,9,21,31,61
+        if patchsize <= 240 / 2**level:
+            model = f"deepfix_resnet18:3:3:{level}:{patchsize}:{patchsize}"
+            print( f"""${V}.K1.J={level}.P={patchsize} env num_workers=10 batch_size=200   python deepfix/train.py --model {model} {args}""")
+EOF
+}
+
+plots_kimeye() {
+    local patch_sizes=(1 3 5 9 21 31 61)
+
+    ./bin/plot_heatmap_levels_vs_patchsize.sh 2.K1 0.924166 ${patch_sizes[*]}  # 0.924166 is the average of 6 baselines
+    python ./bin/plot_compression_ratio.py --patch_sizes ${patch_sizes[*]} --input_shape 240 240
+    python ./bin/plot_reconstructions.py --dataset kimeye --patch_sizes ${patch_sizes[*]}
+    python bin/plot_ssim_heatmap.py --dataset kimeye --overwrite --patch_sizes ${patch_sizes[*]}
+}
 
 # I1 | expand 3 | run_gpus echo 5
 # I2 | run_gpus 5
@@ -697,65 +753,27 @@ python bin/plot_ssim_heatmap.py --dataset intelmobileodt --overwrite --patch_siz
 # timings_2_table | run_gpus 1
 # filesizes_table | parallel -j 1
 # C24 | run_gpus 1
-# C8 | run_gpus 1
-
-# C25 | run_gpus 2
-
-E6() {
-  # Main predictive experiment, all patch sizes and wavelet levels, trained on only the 5 leaderboard classes
-  python <<EOF
-args = ' --opt Adam:lr=0.001 --epochs 300 --dset intel_mobileodt:train+additional:val:test:v1 --lossfn CrossEntropyLoss '
-for level in [1,2,3,4,5,6,7]:
-    for patchsize in 1,3,5,7,9,11,21,31,41,51,61,75:
-        if patchsize <= 200 / 2**level:
-            # model = f"deepfix_cervical:{level}:{patchsize}"
-            model = f"deepfix_resnet18:3:3:{level}:{patchsize}:{patchsize}"
-            print( f"""${V}.E6.J={level}.P={patchsize} env num_workers=12 batch_size=6000 python deepfix/train.py --model {model} {args}""")
-EOF
-}
-E7() {
-args=' --opt Adam:lr=0.001 --epochs 300 --dset intel_mobileodt:train+additional:val:test:v1 --lossfn CrossEntropyLoss '
-    cat <<EOF
-${V}.E7.resnet18 env num_workers=12 batch_size=6000 python deepfix/train.py --dset intel_mobileodt:train+additional:val:test:v1 --model resnet18:untrained:3:3  $args
-EOF
-# env num_workers=0 batch_size=2600 python deepfix/train.py --model densenet121:untrained:3:3 --opt SGD:lr=0.001 --epochs 300 --dset intel_mobileodt:train:val:test:v1 --lossfn CrossEntropyLoss  --loss_reg none --start_epoch 1
-}
+C25 | run_gpus 1
+C8 | run_gpus 1
+plots_chexpert
 
 
-K0() {
-    cat <<EOF
-$V.K0 env num_workers=10 batch_size=200  python deepfix/train.py --model resnet18:untrained:3:3 --opt Adam:lr=0.001 --epochs 50 --dset kimeye:.7:.15 --lossfn kimeye_ce
-EOF
-}
 
-K1() {
-    # Main experiment for Kim's Eye Hospital Glaucoma dataset
-  python <<EOF
-args = ' --opt Adam:lr=0.001 --epochs 50 --dset kimeye:.7:.15 --lossfn kimeye_ce '
-for level in [1,2,3,4,5,6,7]:
-    for patchsize in 1,3,5,7,9,11,21,31,41,51,61,75:
-        if patchsize <= 200 / 2**level:
-            model = f"deepfix_resnet18:3:3:{level}:{patchsize}:{patchsize}"
-            print( f"""${V}.K1.J={level}.P={patchsize} env num_workers=10 batch_size=200   python deepfix/train.py --model {model} {args}""")
-EOF
-}
 
-plots_kimeye() {
-    local patch_sizes="1 3 5 7 9 11 15 16 17 21 31 51 75 101"
-    # local patch_sizes="1 3 5 7 9 11 21 31 41 51 61 71 75"
-
-    # todo: fit the
-./bin/plot_heatmap_levels_vs_patchsize.sh 2.K1 $patch_sizes
-python ./bin/plot_compression_ratio.py --patch_sizes $patch_sizes --input_shape 200 150
-python ./bin/plot_reconstructions.py --dataset kimeye --patch_sizes $patch_sizes
-python bin/plot_ssim_heatmap.py --dataset kimeye --overwrite --patch_sizes $patch_sizes
-}
 
 # E6 | run_gpus 2
 # # E3 | run_gpus 2
 export lockfile_maxsuccesses=6
-( E7 ; E7 ; E7 ; E7 ; E7 ; E7 ) | run_gpus 2
+export lockfile_maxconcurrent=6
+# ( E7 ; E7 ; E7 ; E7 ; E7 ; E7 ) | run_gpus 2
 # plots_intelmobileodt
 
-( K1 ; K1 ; K1 ; K1 ; K1 ; K1 ; K0 ; K0 ; K0 ; K0 ; K0 ; K0 ) | run_gpus 1
+# ( K1 ; K1 ; K1 ; K1 ; K1 ; K1 ; K0 ; K0 ; K0 ; K0 ; K0 ; K0 ) | run_gpus 1
+# plots_kimeye
+# E6 | run_gpus 2
+# # E3 | run_gpus 2
+# ( E7 ; E7 ; E7 ; E7 ; E7 ; E7 ) | run_gpus 2
+# plots_intelmobileodt
+
+# ( K1 ; K1 ; K1 ; K1 ; K1 ; K1 ; K0 ; K0 ; K0 ; K0 ; K0 ; K0 ) | run_gpus 1
 # plots_kimeye
