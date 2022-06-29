@@ -1,7 +1,7 @@
 from matplotlib import pyplot as plt
 import torch as T
 import numpy as np
-from typing import Tuple, Iterable
+from typing import Tuple, Iterable, Optional, Dict
 
 
 def tolist(val, N):
@@ -60,3 +60,42 @@ def plot_img_grid(imgs: Iterable, suptitle:str = '', rows_cols: Tuple = None,
         ax.imshow(zimg, norm=norm, vmin=vmin, vmax=vmax, cmap=cmap)
         ax.set_title(ax_title)
     return fig
+
+
+def arrow_with_text_in_middle(
+        text, left_xy, right_xy, text_xy=None, arrowstyle=('->', '->'),
+        arrowprops:Optional[Dict]=None, fontsize='xx-large', ax=None,
+        **text_kwargs):
+    """Draw arrow like   <----  TEXT  ---->  where
+         - fontsize controls both the size of arrow and the text
+         - arrowstyle defines the arrow on left and right sides.
+           NOTE:  cannot pass 'arrowstyle' as a key in arrowprops.
+        - text_xy by default places text at midpoint.
+
+    For one-directional arrow, could also do left_xy=None or right_xy=None,
+    giving:  TEXT ---->    or  <---- TEXT
+    For an arrow like <---- TEXT ----  you can define arrowstyle=('->', '-')
+    """
+    if text_xy is None:
+        text_xy = ( (left_xy[0]+right_xy[0])/2, (left_xy[1]+right_xy[1])/2 )
+    _text_kwargs = dict(
+        horizontalalignment='center', verticalalignment='center', fontsize=fontsize)
+    _text_kwargs.update(text_kwargs)
+    text_kwargs = _text_kwargs
+    text_kwargs.update(text_kwargs)
+    if arrowprops is None:
+        arrowprops = {}
+    if ax is None:
+        ax = plt
+    if left_xy:
+        ax.annotate(
+            text, xy=left_xy, xytext=text_xy,
+            arrowprops={'arrowstyle': arrowstyle[0], **arrowprops}, **text_kwargs)
+        alpha = 0
+    else:
+        alpha = 1
+    if right_xy:
+        ax.annotate(
+            text, xytext=text_xy, xy=right_xy,
+            arrowprops={'arrowstyle': arrowstyle[1], **arrowprops},
+            alpha=alpha, **text_kwargs)
