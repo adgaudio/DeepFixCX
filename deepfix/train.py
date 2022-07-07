@@ -169,7 +169,7 @@ MODELS = {
     ('deepfix_densenet121', str, str, str, str, str): (lambda in_ch, out_ch, J, Ph, Pw: T.nn.Sequential(
         DeepFixImg2Img(in_channels=int(in_ch), J=int(J), P=(int(Ph), int(Pw)),
                        wavelet='db1', patch_features='l1',
-                       restore_orig_size=False,
+                       restore_orig_size=False, min_size=(64,64)
                        ),
         get_densenet('densenet121', 'untrained', int(in_ch), int(out_ch)),
     )),

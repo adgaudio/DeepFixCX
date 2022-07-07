@@ -8,14 +8,16 @@ fps = [
     ('Compression (%)', 'results/plots/compression_ratio_varying_patch_and_level.csv'),
 
     # Privacy Claims:
-    ('Privacy: Reconstruction', 'results/plots/heatmap_reconstruction_l1.csv'),
+    ('Privacy: SSIM', 'results/plots/heatmap_reconstruction_chexpert_l1.csv'),
     ('Privacy: Re-identification', 'results/plots/heatmap_anonymity_ks_2000.csv'),
 
     # Predictive Performance
     # ... BAcc
     #  ('Predictive Performance', 'results/plots/heatmap_perf__levels_vs_patchsize__2.C21.csv'),
     # ... ROC AUC
-    ('Predictive Performance', 'results/plots/heatmap_perf_rocauc__2.C21.csv'),
+    # ('Predictive Performance', 'results/plots/heatmap_perf_rocauc__2.C21.csv'),
+    # ('Predictive Performance', 'results/plots/heatmap_perf__levels_vs_patchsize__2.C25.csv'),
+    ('Predictive Performance', 'results/plots/heatmap_perf__levels_vs_patchsize__2.C28.csv'),
 ]
 
 
@@ -40,7 +42,7 @@ vec = (vec.max() - vec.min()).values
 #  vec = vec.mean().values
 vec_dir = vec / ((vec**2).sum())**.5
 depth = (df2@vec_dir.reshape(-1,1))
-x, y, z = 'Compression (%)', 'Privacy: Reconstruction', 'Privacy: Re-identification'
+x, y, z = 'Compression (%)', 'Privacy: SSIM', 'Privacy: Re-identification'
 mapp = ax.scatter(
     df2[x].values,
     df2[y].values,

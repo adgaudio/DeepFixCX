@@ -45,11 +45,12 @@ for J,P,M in gen:
         wavelet='db1', patch_size=P, patch_features=args.patch_features,
         how_to_error_if_input_too_small='raise')
     x = T.zeros((1,1,*args.input_shape))
-    if P <= min(args.input_shape) / 2**J:
+    if P*P <= min(args.input_shape) / 2**J * max(args.input_shape)/2**J:
         z = enc1(x)
         cr = math.prod(z.shape) / math.prod(x.shape) * 100
         out_size = math.prod(z.shape)
     else:
+        print('skip', J, P)
         cr = float('nan')
         out_size = -1
     #  plt.figure() ; plt.imshow(x.squeeze(), cmap='gray')

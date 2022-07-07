@@ -3,7 +3,7 @@ import dateutil
 from collections import defaultdict
 import pandas as pd
 
-res = !grep -HE "START|END" results/2.timing*/*console.log
+res = !grep -HE "START|END" results/2.timing.*/*console.log
 #
 data = defaultdict(lambda: [None,None])  # model_name: [start, stop]
 for line in res:
@@ -20,6 +20,7 @@ for k in data:
     s,e = data[k]
     data[k] = (e-s).seconds
 df1 = pd.Series(data, name='End2End')
+df1 = df1 / 6 # divide by six because all are for 6 epochs.
 
 
 data2 = {}
@@ -29,7 +30,11 @@ for fp in fps:
     data2[model_name] = pd.read_csv(fp)['seconds_training_epoch'].mean()
 df2 = pd.Series(data2, name='TrainingTime')
 
+print()
+print('End2End')
 print(df1.to_string())
+print()
+print('Train')
 print(df2.to_string())
 #  df1.loc['ResNet18']/df1
 #  df2.loc['ResNet18']/df2

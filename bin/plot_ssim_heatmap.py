@@ -50,7 +50,8 @@ if args.overwrite:
                              ).to(args.device, non_blocking=True)
         for n,(x,y) in enumerate(data_loader):
             B,C,H,W = x.shape
-            if P > H/2**J or P > W/2**J:
+            # if P > H/2**J or P > W/2**J:
+            if P*P > H / 2**J * W/2**J:
                 print(f"skipping  J={J} P={P}.  It doesn't do compression")
                 break
             # get deepfix encoding
@@ -88,6 +89,7 @@ sns.heatmap(
     #  norm=plt.cm.colors.PowerNorm(2),
     ax=axs, annot=True, fmt='.03f', cbar=False)
 #  axs.set_title('Privacy: Reconstruction Score')
+axs.set_xlabel('Wavelet Level, J')
 # save plot
 save_fp = f'results/plots/heatmap_reconstruction_{args.dataset}_{",".join(args.patch_features)}.png'
 fig.savefig(save_fp,bbox_inches='tight', dpi=300)

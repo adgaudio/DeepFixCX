@@ -17,7 +17,6 @@ from deepfix.train import get_dset_chexpert, get_dset_intel_mobileodt, get_dset_
 
 p=ap.ArgumentParser()
 p.add_argument('--patch_features',nargs='+',type=str,default=('l1', ))
-p.add_argument('--input_shape',nargs='+',type=int,default=(320,320))
 p.add_argument('--patch_sizes',nargs='+',type=int,default=tuple([1,3,5,9,19,37,79,115,160]))
 p.add_argument('--wavelet',type=str,default='db1')
 p.add_argument('--ssim', action='store_true')
@@ -48,7 +47,8 @@ if args.dataset == 'intelmobileodt':
 reconstructed_imgs = [[np.ones((C, H, W)) for _ in range(maxlevels)]
                       for _ in args.patch_sizes]
 for J,P in product(range(1,9), args.patch_sizes):
-    if P > H/2**J or P > W/2**J:
+    # if P > H/2**J or P > W/2**J:
+    if P*P > H / 2**J * W/2**J:
         print(f"skipping  J={J} P={P}.  It doesn't do compression")
         continue
     print(f'J={J}, P={P}')
@@ -67,8 +67,8 @@ for J,P in product(range(1,9), args.patch_sizes):
     #
     #
     if args.ssim:
-        _, features = ssim(img.squeeze().numpy(), recons.squeeze().numpy(), full=True)
-        reconstructed_imgs[args.patch_sizes.index(P)][J-1] = features
+        _, features = ssim(img.permute(1,2,0).numpy(), recons.squeeze(0).permute(1,2,0).numpy(), full=True, multichannel=True)
+        reconstructed_imgs[args.patch_sizes.index(P)][J-1] = features.transpose(2,0,1)
     else:
         reconstructed_imgs[args.patch_sizes.index(P)][J-1] = recons.squeeze().numpy()
 

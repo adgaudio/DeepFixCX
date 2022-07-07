@@ -208,7 +208,9 @@ class DeepFixCompression(T.nn.Module):
 
     @staticmethod
     def reconstruct(deepfix_embedding: T.Tensor, orig_img_HW:Tuple[int,int],
-                    wavelet:str, J:int, P:Union[int,Tuple[int,int]], restore_orig_size:bool=True) -> T.Tensor:
+                    wavelet:str, J:int, P:Union[int,Tuple[int,int]],
+                    restore_orig_size:bool=True,
+                    min_size:Optional[Tuple[int,int]]=None) -> T.Tensor:
         """Use the inverse wavelet transform to reconstruct a deepfix embedding.
         This assumes patch_features is only one feature, like "l1" or "sum".
         It "unpools" the patches by repeating the value of each patch.
@@ -223,6 +225,8 @@ class DeepFixCompression(T.nn.Module):
             P: the patch size passed to DeepFixCompression
             restore_orig_size: If True, reconstruct to the original input size by
                 unpooling.  Otherwise, reconstruct to some smaller size.
+            min_size: If supplied, ensure the height and width dimension are each as
+                least as large as given (H,W) tuple.
         Returns:
             Image of shape (B, C, H, W) corresponding to reconstruction of
             original input image.
@@ -249,12 +253,15 @@ class DeepFixReconstruct(T.nn.Module):
         P: the patch size passed to DeepFixCompression
         restore_orig_size: If True, reconstruct to the original input size by
             unpooling.  Otherwise, reconstruct to some smaller size.
+        min_size: If supplied, ensure the height and width dimension are each as
+            least as large as given (H,W) tuple.
     Returns:
         Image of shape (B, C, H, W) corresponding to reconstruction of
         original input image.
     """
     def __init__(self, wavelet:str, J:int, P:Union[int, Tuple[int,int]],
                  restore_orig_size:bool=True,
+                 min_size:Optional[Tuple[int,int]]=None,
                  orig_img_HW:Optional[Tuple[int,int]]=(None, None),
                  ):
         super().__init__()
@@ -262,6 +269,7 @@ class DeepFixReconstruct(T.nn.Module):
         self.wavelet, self.J, self.P = wavelet, J, astuple2(P)
         self.iwp = WaveletPacket2d(levels=J,wavelet=wavelet,inverse=True)
         self.H, self.W = orig_img_HW
+        self.min_size = min_size
 
     def forward(self, deepfix_embedding:T.Tensor,
                 orig_img_HW:Optional[Tuple[int,int]]=None):
@@ -288,6 +296,10 @@ class DeepFixReconstruct(T.nn.Module):
         if self.restore_orig_size:
             # ... restore original size by removing any padding created by deepfix
             recons = tvt.CenterCrop((H, W))(recons)
+        if self.min_size is not None:
+            h = max(self.min_size[0], recons.shape[-2])
+            w = max(self.min_size[1], recons.shape[-1])
+            recons = tvt.Resize((h,w))(recons)
         return recons
 
 
@@ -708,7 +720,7 @@ class MLP(T.nn.Module):
 
 class DeepFixImg2Img(T.nn.Module):
     def __init__(self, in_channels, J:int, P:int, wavelet='db1', patch_features='l1',
-                 restore_orig_size:bool=False):
+                 restore_orig_size:bool=False, min_size:Optional[Tuple[int,int]]=None):
         super().__init__()
         self.enc = DeepFixCompression(
             in_ch=in_channels, in_ch_multiplier=1,
@@ -720,7 +732,7 @@ class DeepFixImg2Img(T.nn.Module):
         )
         self.recon = DeepFixReconstruct(
             wavelet=wavelet, J=J, P=P,
-            restore_orig_size=restore_orig_size)
+            restore_orig_size=restore_orig_size, min_size=min_size)
 
     def forward(self, x:T.Tensor):
         orig_img_HW = x.shape[-2:]

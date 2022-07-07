@@ -22,8 +22,8 @@ shift
 python -m simplepytorch.plot_perf $runid_regex --mode 0 <<EOF
 
 # select the subset of data we want to visualize.
-col1 = 'val_ROC_AUC AVG'
-col2 = 'test_ROC_AUC AVG'
+col1 = 'val_ROC_AUC'
+col2 = 'test_ROC_AUC'
 
 if os.environ.get('chexpert', False) == 'true':
     cols = ['Atelectasis', 'Cardiomegaly', 'Consolidation', 'Edema', 'Pleural Effusion']
@@ -31,6 +31,8 @@ if os.environ.get('chexpert', False) == 'true':
     cols_test = [f'test_ROC_AUC {x}' for x in cols]
     cdfs['val_ROC_AUC AVG'] =  cdfs[cols_val].mean(1) # the leaderboard average, not the 14 classes average (because test set is too small)
     cdfs['test_ROC_AUC AVG'] =  cdfs[cols_test].mean(1) # the leaderboard average, not the 14 classes average (because test set is too small)
+    col1 += ' AVG'
+    col2 += ' AVG'
 
 if 'filename' in cdfs.index.names:
     df = cdfs.loc[cdfs.groupby(['run_id', 'filename'])[col1].idxmax()].groupby('run_id')[col2].mean().sort_values()
@@ -70,7 +72,7 @@ fig, ax = plt.subplots(dpi=300, figsize=(6, 2.5))
 
 baseline_score = float($baseline_score)
 sns.heatmap(data=heatmap_data, cmap='PRGn', annot=True, fmt='.03f',
-cbar=False, ax=ax, norm=plt.cm.colors.CenteredNorm(float(baseline_score)))
+cbar=False, ax=ax, norm=plt.cm.colors.TwoSlopeNorm(float(baseline_score)))
 # ax.set_title('Predictive Performance: Test ROC AUC')
 
 # save the plot to file
