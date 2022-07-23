@@ -3,7 +3,7 @@ from matplotlib import pyplot as plt
 import seaborn as sns
 import torch as T
 
-from deepfix.plotting import arrow_with_text_in_middle
+from heartspot.plotting import arrow_with_text_in_middle
 
 plt.rcParams.update({"text.usetex": True,})
 

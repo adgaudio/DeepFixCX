@@ -18,10 +18,10 @@ import numpy as np
 import torch as T
 import torchvision.transforms as tvt
 
-from deepfix.models import get_effnetv2, get_resnet, get_densenet, get_efficientnetv1
-from deepfix.models.qthline import QTLineClassifier, HLine, RLine, MedianPoolDenseNet
-from deepfix.models.quadtree import QT
-from deepfix.models.median_pooling import MedianPool2d
+from heartspot.models import get_effnetv2, get_resnet, get_densenet, get_efficientnetv1
+from heartspot.models.qthline import QTLineClassifier, HLine, RLine, MedianPoolDenseNet
+from heartspot.models.quadtree import QT
+from heartspot.models.median_pooling import MedianPool2d
 
 
 def reset_optimizer(opt_spec:str, model:T.nn.Module) -> T.optim.Optimizer:
@@ -384,7 +384,7 @@ def get_dset_chexpert(train_frac=.8, val_frac=.2, small=False,
     test_loader=DataLoader(test_dset, batch_size=batch_size, **batch_dct)
     #
     # debugging:  vis dataset
-    #  from deepfix.plotting import plot_img_grid
+    #  from heartspot.plotting import plot_img_grid
     #  from matplotlib import pyplot as plt
     #  plt.ion()
     #  fig, ax = plt.subplots(1,2)

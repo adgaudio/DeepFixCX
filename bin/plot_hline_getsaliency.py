@@ -2,8 +2,8 @@ import torch as T
 import captum.attr
 from matplotlib import pyplot as plt
 
-from deepfix.train import get_dset_chexpert
-from deepfix.models.median_pooling import MedianPool2d
+from heartspot.train import get_dset_chexpert
+from heartspot.models.median_pooling import MedianPool2d
 
 def clampq(x: T.Tensor, quantiles=(0,.99)):
     if isinstance(quantiles, (list, tuple)):

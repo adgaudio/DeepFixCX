@@ -4,10 +4,9 @@ import numpy as np
 from typing import Union, List
 import cv2
 import torch.nn as nn
-#  from deepfix.models.api import get_efficientnetv1
-from deepfix.models.quadtree import QT
-from deepfix.models.median_pooling import MedianPool2d
-from deepfix.models import get_densenet
+from heartspot.models.quadtree import QT
+from heartspot.models.median_pooling import MedianPool2d
+from heartspot.models import get_densenet
 
 
 class HLine(T.nn.Module):

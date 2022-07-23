@@ -1,3 +1,6 @@
+"""
+Code adapted from Shreshta Mohan
+"""
 import matplotlib.pyplot as plt
 import scipy.stats
 import torch as T
@@ -40,7 +43,7 @@ class QuadTree:
         if(self.leaf_node or self.level == level):
             return T.tile((self.level if map_type == 'level' else self.mean), (1,1,self.resolution[0], self.resolution[1]))
         return self.concatenate4(
-            self.north_west.get_image(level, map_type=map_type), 
+            self.north_west.get_image(level, map_type=map_type),
             self.north_east.get_image(level, map_type=map_type),
             self.south_west.get_image(level, map_type=map_type),
             self.south_east.get_image(level, map_type=map_type))
@@ -124,7 +127,7 @@ class QT(nn.Module):
 
 if __name__ == "__main__":
     import glob
-    from deepfix.train import get_dset_chexpert
+    from heartspot.train import get_dset_chexpert
     from matplotlib import pyplot as plt
     plt.ion()
     #  plt.gca()

@@ -7,8 +7,8 @@ import subprocess
 import pandas as pd
 import torch as T
 import torchvision.transforms as tvt
-from deepfix.models.qthline import QTLineClassifier, RLine, HLine, QT
-from deepfix.models.median_pooling import MedianPool2d
+from heartspot.models.qthline import QTLineClassifier, RLine, HLine, QT
+from heartspot.models.median_pooling import MedianPool2d
 import cv2
 import gzip
 
@@ -89,7 +89,7 @@ ax.scatter(1, 1, c='Gray', s=40*2, label='No Compression Baseline')
 sns.scatterplot(x='On-Disk Compression Ratio', y='In-Memory Compression Ratio', hue='Model', data=df, s=24*4, ax=ax, legend=None, palette='tab10')
 #  ax.hlines(1, 0.1, 1, colors='gray', linewidth=1, label='Baseline DenseNet121')
 #  ax.vlines(1, 0, 1, colors='gray', linewidth=1, label=None)
-for mdl, color in [('Median+HLine (Ours)', plt.cm.tab10(5)), ]:  #('Median+(RH)Line+Heart (Ours)', plt.cm.tab10(4)), 
+for mdl, color in [('Median+HLine (Ours)', plt.cm.tab10(5)), ]:  #('Median+(RH)Line+Heart (Ours)', plt.cm.tab10(4)),
     xytext=(
         df.set_index('Model').loc[mdl, 'On-Disk Compression Ratio'],
         df.set_index('Model').loc[mdl, 'In-Memory Compression Ratio'],
@@ -104,7 +104,7 @@ inv_odr, inv_imr = (1/df.set_index('Model')).loc[mdl].round(0)
 #          transform=ax.transAxes, fontsize=26)
 
 
-from deepfix.plotting import arrow_with_text_in_middle
+from heartspot.plotting import arrow_with_text_in_middle
 #  arrow_with_text_in_middle(
 #      ' ',
 #      left_xy=(xytext[0], 1), text_xy=(1,1), right_xy=None, arrowprops={'lw': 2}, fontsize=24, ax=ax)
