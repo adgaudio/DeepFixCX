@@ -1,3 +1,0 @@
-pampy
-argparse_dataclass
-simplepytorch == 0.3.1  # TODO: push tag

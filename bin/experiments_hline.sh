@@ -178,4 +178,3 @@ EOF
 # # paper results:
 HL8 | run_gpus 2
 ( HL8_part2 ; HL8b ) | run_gpus 1
-# HL8b() | run_gpus 1

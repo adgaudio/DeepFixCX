@@ -11,19 +11,30 @@ from simple_parsing import ArgumentParser
 from simplepytorch import datasets as D
 from simplepytorch import trainlib as TL
 from simplepytorch import metrics
-from sklearn.model_selection import StratifiedShuffleSplit
-from torch.utils.data import Dataset, DataLoader
-from typing import Union, Optional, Tuple
+from torch.utils.data import DataLoader
+from typing import Union, Tuple
 import dataclasses as dc
 import numpy as np
 import torch as T
 import torchvision.transforms as tvt
 
-from deepfix.models import get_effnetv2, get_resnet, get_densenet, get_efficientnetv1, DeepFixMLP
-from deepfix.init_from_distribution import reset_optimizer
+from deepfix.models import get_effnetv2, get_resnet, get_densenet, get_efficientnetv1
 from deepfix.models.qthline import QTLineClassifier, HLine, RLine, MedianPoolDenseNet
 from deepfix.models.quadtree import QT
 from deepfix.models.median_pooling import MedianPool2d
+
+
+def reset_optimizer(opt_spec:str, model:T.nn.Module) -> T.optim.Optimizer:
+    spec = opt_spec.split(':')
+    if opt_spec.startswith('AdaBound'):
+        import adabound  # trying this out.
+        kls = adabound.AdaBound
+    else:
+        kls = getattr(T.optim, spec[0])
+    params = [(x,float(y)) for x,y in [kv.split('=') for kv in spec[1:]]]
+    optimizer = kls(model.parameters(), **dict(params))
+    return optimizer
+
 
 
 def parse_normalization(normalization, wavelet, wavelet_levels, wavelet_patch_size, patch_features, zero_mean):
@@ -156,59 +167,6 @@ class LossCheXpertUignore(T.nn.Module):
         ignore = (y != 2)  # ignore uncertainty labels
         return self.bce(yhat[ignore], y[ignore])
 
-class MSELossCheXpertUignore(T.nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.mse = T.nn.MSELoss()
-
-    def forward(self, yhat, y):
-        ignore = (y != 2)  # ignore uncertainty labels
-        return self.mse(yhat[ignore], y[ignore])
-
-
-def loss_intelmobileodt(yhat, y):
-    """BCE Loss with class balancing weights.
-
-    Not sure this actually helps
-
-    because Type 2 is the hardest class, it
-    has the most samples, and it separates Type 1 from Type 3.  Arguably, Type 2
-    samples are on the decision boundary between Type 1 and 3.
-    Class balancing weights make it harder to focus on class 2.
-    """
-    #  assert y.shape == yhat.shape, 'sanity check'
-    #  assert y.dtype == yhat.dtype, 'sanity check'
-
-    # class distribution of stage='train'
-    w = T.tensor([249, 781, 450], dtype=y.dtype, device=y.device)
-    w = (w.max() / w).reshape(1, 3)
-    # w can have any of the shapes:  (B,1) or (1,C) or (B,C)
-    #  return T.nn.functional.binary_cross_entropy_with_logits(yhat, y, weight=w)
-    return T.nn.functional.cross_entropy(yhat, y, weight=w)
-    # can't apply focal loss unless do it manually.
-
-
-def onehot(y, nclasses):
-    return T.zeros((y.numel(), nclasses), dtype=y.dtype, device=y.device)\
-            .scatter_(1, y.unsqueeze(1), 1)
-
-
-def _upsample_pad_minibatch_imgs_to_same_size(batch, target_is_segmentation_mask=False):
-    """a collate function for a dataloader of (x,y) samples.  """
-    shapes = [item[0].shape for item in batch]
-    H = max(h for c,h,w in shapes)
-    W = max(w for c,h,w in shapes)
-    X, Y = [], []
-    for item in batch:
-        h,w = item[0].shape[1:]
-        dh, dw = (H-h), (W-w)
-        padding = (dw//2, dw-dw//2, dh//2, dh-dh//2, )
-        X.append(T.nn.functional.pad(item[0], padding))
-        if target_is_segmentation_mask:
-            Y.append(T.nn.functional.pad(item[1], padding))
-        else:
-            Y.append(item[1])
-    return T.stack(X), T.stack(Y)
 
 class RandomSampler(T.utils.data.Sampler):
     """Randomly sample without replacement a subset of N samples from a dataset
@@ -416,7 +374,6 @@ def get_dset_chexpert(train_frac=.8, val_frac=.2, small=False,
     batch_size = int(os.environ.get('batch_size', 15))
     print('batch size', batch_size)
     batch_dct = dict(
-        #  collate_fn=_upsample_pad_minibatch_imgs_to_same_size,
         #  pin_memory=True,
         num_workers=int(os.environ.get("num_workers", 0)))  # upsample pad must take time
     print('num workers', batch_dct['num_workers'])
@@ -444,84 +401,13 @@ def get_dset_chexpert(train_frac=.8, val_frac=.2, small=False,
     ), class_names)
 
 
-def get_dset_intel_mobileodt(stage_trainval:str, use_val:str, stage_test:str, augment:str
-                             ) -> (dict[str,Optional[Union[Dataset,DataLoader]]], tuple[str]):
-    """Obtain train/val/test splits for the IntelMobileODT Cervical Cancer
-    Colposcopy dataset, and the data loaders.
-
-    Args:
-        stage_trainval: the `stage` for training and validation.
-            i.e. Possible choices:  {'train', 'train+additional'}
-            Train / val split is 70/30 random stratified split.
-        use_val: Whether to create a validation set
-            Choices:  {"val", "noval"}
-        stage_test: the `stage` for test set.  Should be "test".
-        augment: Type of augmentations to apply.  One of {'v1', }.
-            "v1" - make the aspect ratio .75, resize images to (200,150), and convert in range [0,1]
-    Returns:
-        (
-        {'train_dset': ..., 'val_dset': ..., 'test_dset': ...,
-         'train_loader': ..., 'val_loader': ..., 'test_loader': ...
-         },
-
-        ('Type 1', 'Type 2', 'Type 3')
-        )
-    """
-    assert augment == 'v1', 'code bug: other augmentations not implemented'
-    base_dir = './data/intel_mobileodt_cervical_resized'
-    dset_trainval = D.IntelMobileODTCervical(stage_trainval, base_dir)
-    _y = [dset_trainval.getitem(i, load_img=False)
-          for i in range(len(dset_trainval))]
-    dct = {'test_dset': D.IntelMobileODTCervical(stage_test, base_dir)}
-    if use_val == 'noval':
-        dct['train_dset'] = dset_trainval
-        dct['val_dset'] = None
-    else:
-        assert use_val == 'val', f'unrecognized option: {use_val}'
-        idxs_train, idxs_val = list(
-            StratifiedShuffleSplit(1, test_size=.3).split(
-                np.arange(len(dset_trainval)), _y))[0]
-        dct['train_dset'] = T.utils.data.Subset(dset_trainval, idxs_train)
-        dct['val_dset'] = T.utils.data.Subset(dset_trainval, idxs_val)
-
-    # preprocess train/val/test images all the same way
-    preprocess_v1 = tvt.Compose([
-        #
-        ### previously done (to save computation time) ###
-        #  D.IntelMobileODTCervical.fix_aspect_ratio,
-        #  tvt.Resize((200, 150)),  # interpolation=tvt.InterpolationMode.NEAREST),
-        #
-        lambda x: x.float()/255.
-    ])
-    dct = {k: D.PreProcess(v, lambda xy: (
-        preprocess_v1(xy[0]),
-        #  onehot(xy[1].unsqueeze(0).long()-1, 3).squeeze_().float()))
-        xy[1].long()-1))
-        for k,v in dct.items()}
-    dct.update(dict(
-        train_loader=DataLoader(dct['train_dset'], batch_size=20, shuffle=True),
-        test_loader=DataLoader(dct['test_dset'], batch_size=20),))
-    if dct['val_dset'] is None:
-        dct['val_loader'] = None
-    else:
-        dct['val_loader'] = DataLoader(dct['val_dset'], batch_size=20)
-    class_names = [x.replace('_', ' ') for x in D.IntelMobileODTCervical.LABEL_NAMES]
-    return dct, class_names
-
-
 LOSS_FNS = {
     ('BCEWithLogitsLoss', ): lambda _: T.nn.BCEWithLogitsLoss(),
     ('CrossEntropyLoss', ): lambda _: T.nn.CrossEntropyLoss(),
-    ('CE_intelmobileodt', ): lambda _: loss_intelmobileodt,
     ('chexpert_uignore', ): lambda _: LossCheXpertUignore(),
-    ('chexpert_uignore_mse', ): lambda _: MSELossCheXpertUignore(),
 }
 
 DSETS = {
-    ('intel_mobileodt', str, str, str, str): (
-        lambda train, val, test, aug: get_dset_intel_mobileodt(train, val, test, aug)),
-    #  ('origa', ... todo): ( lambda ...: get_dset_origa(...)
-    #  ('riga', ... todo): ( lambda ...: get_dset_riga(...)
     ('chexpert', str, str, str): (
         lambda train_frac, val_frac, labels: get_dset_chexpert(
             float(train_frac), float(val_frac), small=False, labels=labels)),
@@ -549,7 +435,7 @@ def match(spec:str, dct:dict):
 
 
 def get_model_opt_loss(
-        model_spec:str, opt_spec:str, loss_spec:str, regularizer_spec:str,
+        model_spec:str, opt_spec:str, loss_spec:str,
         device:str) -> dict[str, Union[T.nn.Module, T.optim.Optimizer]]:
     """
     Args:
@@ -568,42 +454,12 @@ def get_model_opt_loss(
     mdl = mdl.to(device, non_blocking=True)
     optimizer = reset_optimizer(opt_spec, mdl)
     loss_fn = match(loss_spec, LOSS_FNS)
-    if regularizer_spec != 'none':
-        loss_fn = RegularizedLoss(mdl, loss_fn, regularizer_spec)
     return dict(model=mdl, optimizer=optimizer, loss_fn=loss_fn)
-
-
-class RegularizedLoss(T.nn.Module):
-    def __init__(self, model, lossfn, regularizer_spec:str):
-        super().__init__()
-        self.lossfn = lossfn
-        self.regularizer_spec = regularizer_spec
-        if regularizer_spec == 'none':
-            self.regularizer = lambda *y: 0
-        elif regularizer_spec.startswith('deepfixmlp:'):
-            lbda = float(regularizer_spec.split(':')[1])
-            self.regularizer = lambda *y: (
-                float(lbda) * DeepFixMLP.get_VecAttn_regularizer(model))
-        else:
-            raise NotImplementedError(regularizer_spec)
-
-    def forward(self, yhat, y):
-        a, b = self.lossfn(yhat, y), self.regularizer(yhat, y)
-        #  print(a.item(),b.item())
-        return a + b
-
-    def __repr__(self):
-        return f'RegularizedLoss<{repr(self.lossfn)},{self.regularizer_spec}>'
 
 
 def get_dset_loaders_resultfactory(dset_spec:str, device:str) -> dict:
     dct, class_names = match(dset_spec, DSETS)
-    if any(dset_spec.startswith(x) for x in {'intel_mobileodt:', }):
-        #  dct['result_factory'] = lambda: TL.MultiLabelBinaryClassification(
-                #  class_names, binarize_fn=lambda yh: (T.sigmoid(yh)>.5).long())
-        dct['result_factory'] = lambda: TL.MultiClassClassification(
-                len(class_names), binarize_fn=lambda yh,_: yh.softmax(1).argmax(1))
-    elif any(dset_spec.startswith(x) for x in {
+    if any(dset_spec.startswith(x) for x in {
             'chexpert:', 'chexpert_small:',
             'chexpert_small15k:', 'chexpert15k:'}):
         dct['result_factory'] = lambda: CheXpertMultiLabelBinaryClassification(
@@ -639,7 +495,7 @@ class CheXpertMultiLabelBinaryClassification(TL.MultiLabelBinaryClassification):
 def train_config(args:'TrainOptions') -> TL.TrainConfig:
     return TL.TrainConfig(
         **get_model_opt_loss(
-            args.model, args.opt, args.lossfn, args.loss_reg, args.device),
+            args.model, args.opt, args.lossfn, args.device),
         **get_dset_loaders_resultfactory(args.dset, args.device),
         device=args.device,
         epochs=args.epochs,
@@ -651,8 +507,7 @@ def train_config(args:'TrainOptions') -> TL.TrainConfig:
 
 @dc.dataclass
 class TrainOptions:
-    """High-level configuration for training PyTorch models
-    on the CheXpert or IntelMobileODTCervical datasets.
+    """High-level configuration for training PyTorch models on the CheXpert dataset
     """
     epochs:int = 50
     start_epoch:int = 0  # if "--start_epoch 1", then don't evaluate perf before training.
@@ -661,9 +516,6 @@ class TrainOptions:
     dset:str = None
     """
       Choose the dataset.  Some options:
-          --dset intel_mobileodt:train:val:test:v1
-          --dset intel_mobileodt:train+additional:val:test:v1
-          --dset intel_mobileodt:train+additional:noval:test:v1
           --dset chexpert:T:V:LABELS  where T + V <= 1 are the percent of training data to use for train and val, and where LABELS is one of {"diagnostic", "leaderboard"} or any comma separated list of class names (replace space with underscore, case sensitive).
           --dset chexpert_small:T:V:LABELS  the 11gb chexpert dataset.
           --dset chexpert_small:.1:.1:Cardiomegaly  # for example
@@ -677,11 +529,9 @@ class TrainOptions:
      Choose a loss function
           --lossfn BCEWithLogitsLoss
           --lossfn CrossEntropyLoss
-          --lossfn CE_intelmobileodt
           --lossfn chexpert_uignore
     """
 
-    loss_reg:str = 'none'  # Optionally add a regularizer to the loss.  loss + reg.  Accepted values:  "none", "deepfixmlp:X" where X is a positive float denoting the lambda in l1 regularizer
     model:str = 'resnet18:imagenet:3:3'  # Model specification adheres to the template "model_name:pretraining:in_ch:out_ch"
     experiment_id:str = os.environ.get('run_id', 'debugging')
 
