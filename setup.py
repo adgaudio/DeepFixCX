@@ -26,7 +26,8 @@ setup(
     packages=['deepfix', 'deepfix.models'],
     scripts=[],
     install_requires=[],
-        #  "torchvision", "torch", "pretrainedmodels", "pandas", "numpy", ],
+        #  "torchvision", "torch",
+        #  "pretrainedmodels", "pandas", "numpy", "timm", "einops"],
     extras_require={
         #  'dataset_qualdr': ["pyjq", ]
     }

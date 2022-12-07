@@ -877,7 +877,6 @@ plots_kimeye() {
 # C19 | run_gpus 1
 
 timings_baselinetables | run_gpus 1
-exit
 #
 # chexpert chest x-ray dataset
 #

@@ -23,6 +23,7 @@ p = ap.ArgumentParser()
 p.add_argument('--patch_features', nargs='+', default=('l1', ))
 p.add_argument('--input_shape', nargs="+", type=int, default=(320, 320))
 p.add_argument('--patch_sizes', nargs='+', type=int, default=tuple())
+p.add_argument('--filenameid', default='')
 args = p.parse_args()
 if not args.patch_sizes:
     _P_max = min(args.input_shape)//2
@@ -78,11 +79,11 @@ sns.heatmap(
     norm=None, ax=ax2)
 ax2.set_title('Output Size')
 #  fig.tight_layout()
-save_fp = 'results/plots/compression_ratio_varying_patch_and_level.png'
+save_fp = f'results/plots/compression_ratio_varying_patch_and_level{args.filenameid}.png'
 fig1.savefig(save_fp, bbox_inches='tight')
 print('save to', save_fp)
 heatmap_data.to_csv(save_fp.replace('.png', '.csv'))
-fig2.savefig('results/plots/compression_outsize_varying_patch_and_level.png', bbox_inches='tight')
+fig2.savefig(f'results/plots/compression_outsize_varying_patch_and_level{args.filenameid}.png', bbox_inches='tight')
 #  print(
 #      df.pivot_table('Compression Ratio (% of original size)', 'Patch Size, P', 'Wavelet Level, J')
 #      .to_string(float_format=lambda x: f'{x:.04f}'))
@@ -97,7 +98,7 @@ pd.plotting.table(
 )
 ax.set_title("Compression Ratio (% of original size)")
 fig.tight_layout()
-fig.savefig('results/plots/compression_ratio_table_as_img.png', bbox_inches='tight')
+fig.savefig(f'results/plots/compression_ratio_table_as_img{args.filenameid}.png', bbox_inches='tight')
 
 #  plt.show(block=False)
 #  plt.pause(10)

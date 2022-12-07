@@ -262,7 +262,7 @@ class DeepFixReconstruct(T.nn.Module):
     def __init__(self, wavelet:str, J:int, P:Union[int, Tuple[int,int]],
                  restore_orig_size:bool=True,
                  min_size:Optional[Tuple[int,int]]=None,
-                 orig_img_HW:Optional[Tuple[int,int]]=(None, None),
+                 orig_img_HW:Tuple[int,int]=(None, None),
                  ):
         super().__init__()
         self.restore_orig_size = restore_orig_size
@@ -719,7 +719,7 @@ class MLP(T.nn.Module):
 
 
 class DeepFixImg2Img(T.nn.Module):
-    def __init__(self, in_channels, J:int, P:int, wavelet='db1', patch_features='l1',
+    def __init__(self, in_channels, J:int, P:Union[int,Tuple[int,int]], wavelet='db1', patch_features='l1',
                  restore_orig_size:bool=False, min_size:Optional[Tuple[int,int]]=None):
         super().__init__()
         self.enc = DeepFixCompression(

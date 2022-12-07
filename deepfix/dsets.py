@@ -1,11 +1,13 @@
-from typing import Optional, Tuple, Union
+from typing import Optional, Tuple, Union, List
 from torch.utils.data import DataLoader, Subset, Dataset
 from dataclasses import dataclass
 import torch.utils.data
 import os
 import numpy as np
 import torchvision.transforms as tvt
+import torchvision.datasets as tvd
 from sklearn.model_selection import StratifiedShuffleSplit
+import timm.data.loader
 
 from simplepytorch import datasets as D
 
@@ -372,3 +374,84 @@ def get_dset_intel_mobileodt(stage_trainval:str, use_val:str, stage_test:str, au
         dct['val_loader'] = DataLoader(dct['val_dset'], batch_size=20)
     class_names = [x.replace('_', ' ') for x in D.IntelMobileODTCervical.LABEL_NAMES]
     return dct, class_names
+
+
+def get_dset_flowers102(preprocess_fn=None):
+    dct = dict(
+        train_dset=tvd.Flowers102(
+            'data/flowers102', split='train', download=True),
+        val_dset=tvd.Flowers102(
+            'data/flowers102', split='val', download=True),
+        test_dset=tvd.Flowers102(
+            'data/flowers102', split='test', download=True),
+    )
+    # from MDMLP paper's default settings
+    # https://github.com/Amoza-Theodore/MDMLP/blob/main/ymls/flowers102_sgd.yml
+    kws = dict(
+        input_size=(3, 224, 224),
+        batch_size=int(os.environ.get('batch_size', 16)),
+        scale=(.08, 1.0),
+        ratio=(.75, 1.33),
+        hflip=.5,
+        color_jitter=.4,
+        mean=(0.4330, 0.3819, 0.2964),
+        std=(0.2945, 0.2464, 0.2732),
+        num_workers=int(os.environ.get('num_workers', 3)),
+        crop_pct=.875,
+        persistent_workers=(0 != int(os.environ.get('num_workers', 3)))
+    )
+    dct.update(
+        train_loader=timm.data.loader.create_loader(
+            dct['train_dset'], is_training=True, **kws),
+        val_loader=timm.data.loader.create_loader(
+            dct['val_dset'], is_training=False, **kws),
+        test_loader=timm.data.loader.create_loader(
+            dct['test_dset'], is_training=False, **kws),
+    )
+    # batch_size=15
+    # dct.update(
+        # train_loader=DataLoader(
+        #     dct['train_dset'], batch_size=batch_size, shuffle=True),
+        # val_loader=DataLoader(
+        #     dct['val_dset'], batch_size=batch_size, shuffle=False),
+        # test_loader=DataLoader(
+        #     dct['test_dset'], batch_size=batch_size, shuffle=False),
+    # )
+    class_names: List[str] = list(str(x) for x in range(102))
+    return dct, class_names
+
+
+def get_dset_food101(preprocess_fn=None):
+    dct = dict(
+        train_dset=tvd.Food101(
+            'data/food101', split='train', download=True),
+        val_dset=None,  # tvd.Food101(
+            # 'data/food101', split='val', download=True),
+        test_dset=tvd.Food101(
+            'data/food101', split='test', download=True),
+    )
+    # from MDMLP paper's default settings
+    # https://github.com/Amoza-Theodore/MDMLP/blob/main/ymls/food101_sgd.yml
+    kws = dict(
+        input_size=(3, 224, 224),
+        batch_size=int(os.environ.get('batch_size', 16)),
+        crop_pct=.875,
+        mean=(0.5450, 0.4435, 0.3436),
+        std=(0.2729, 0.2758, 0.2798),
+        scale=(.08, 1.0),
+        ratio=(.75, 1.33),
+        hflip=.5,
+        color_jitter=.4,
+        num_workers=int(os.environ.get('num_workers', 3)),
+    )
+    dct.update(
+        train_loader=timm.data.loader.create_loader(
+            dct['train_dset'], is_training=True, **kws),
+        val_loader=None,  # timm.data.loader.create_loader(
+            # dct['val_dset'], is_training=False, **kws),
+        test_loader=timm.data.loader.create_loader(
+            dct['test_dset'], is_training=False, **kws),
+    )
+    class_names: List[str] = list(str(x) for x in range(102))
+    return dct, class_names
+

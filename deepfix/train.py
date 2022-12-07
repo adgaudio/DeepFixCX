@@ -13,9 +13,18 @@ from simplepytorch import metrics
 from typing import Union
 import dataclasses as dc
 import torch as T
+import timm
 
-from deepfix.models import get_effnetv2, get_resnet, get_densenet, get_efficientnetv1, get_DeepFixEnd2End, get_DeepFixEnd2End_v2, DeepFixMLP, UnetD, DeepFixImg2Img
-from deepfix.dsets import get_dset_chexpert, get_dset_intel_mobileodt, get_dset_kimeye
+from deepfix.models import (
+    vip, MedianPool2d,
+    get_effnetv2, get_resnet, get_densenet, get_efficientnetv1,
+    get_DeepFixEnd2End, get_DeepFixEnd2End_v2, DeepFixMLP, UnetD,
+    DeepFixImg2Img, MDMLP  # note: timm.create_model is also used.
+)
+from torchvision.transforms import GaussianBlur
+from deepfix.dsets import (
+    get_dset_chexpert, get_dset_intel_mobileodt, get_dset_kimeye,
+    get_dset_flowers102, get_dset_food101)
 
 
 def parse_normalization(normalization, wavelet, wavelet_levels, wavelet_patch_size, patch_features, zero_mean):
@@ -159,12 +168,12 @@ MODELS = {
             zero_mean=False, normalization=('batchnorm', ), mlp_attn='Identity',
             adaptive=0)),
 
-    ('deepfix_resnet18', str, str, str, str, str): (lambda in_ch, out_ch, J, Ph, Pw: T.nn.Sequential(
+    ('deepfix_resnet18', str, str, str, str, str, str): (lambda pretrain, in_ch, out_ch, J, Ph, Pw: T.nn.Sequential(
         DeepFixImg2Img(in_channels=int(in_ch), J=int(J), P=(int(Ph), int(Pw)),
                        wavelet='db1', patch_features='l1',
                        restore_orig_size=False,
                        ),
-        get_resnet('resnet18', 'untrained', int(in_ch), int(out_ch)),
+        get_resnet('resnet18', pretrain, int(in_ch), int(out_ch)),
     )),
     ('deepfix_densenet121', str, str, str, str, str): (lambda in_ch, out_ch, J, Ph, Pw: T.nn.Sequential(
         DeepFixImg2Img(in_channels=int(in_ch), J=int(J), P=(int(Ph), int(Pw)),
@@ -174,10 +183,127 @@ MODELS = {
         get_densenet('densenet121', 'untrained', int(in_ch), int(out_ch)),
     )),
 
+    ('volo_d1_384', str, str): (lambda in_ch, out_ch: T.nn.Sequential(
+        T.nn.UpsamplingNearest2d((384, 384)),
+        timm.create_model(
+            'volo_d1_384',
+            in_chans=int(in_ch), num_classes=int(out_ch), pretrained=True),
+    )),
+    ('volo_d1_224', str, str): (lambda in_ch, out_ch: T.nn.Sequential(
+        T.nn.UpsamplingNearest2d((224, 224)),
+        timm.create_model(
+            'volo_d1_224',
+            in_chans=int(in_ch), num_classes=int(out_ch), pretrained=True),
+    )),
+    ('deepfix_volo_d1_224', str, str, str, str, str): (lambda in_ch, out_ch, J, Ph, Pw: T.nn.Sequential(
+        DeepFixImg2Img(in_channels=int(in_ch), J=int(J), P=(int(Ph), int(Pw)),
+                       wavelet='db1', patch_features='l1',
+                       restore_orig_size=False,
+                       ),
+        T.nn.UpsamplingNearest2d((224, 224)),
+        timm.create_model(
+            'volo_d1_224',
+            in_chans=int(in_ch), num_classes=int(out_ch), pretrained=True),
+    )),
+
+    ('efficientnetv2_m', str, str): (lambda in_ch, out_ch: T.nn.Sequential(
+        timm.create_model(
+            'efficientnetv2_m',
+            in_chans=int(in_ch), num_classes=int(out_ch), pretrained=False),
+    )),
+    ('deepfix_efficientnetv2_m', str, str, str, str, str): (lambda in_ch, out_ch, J, Ph, Pw: T.nn.Sequential(
+        DeepFixImg2Img(in_channels=int(in_ch), J=int(J), P=(int(Ph), int(Pw)),
+                       wavelet='db1', patch_features='l1',
+                       restore_orig_size=False, min_size=(33,33)
+                       ),
+        # T.nn.UpsamplingNearest2d((224, 224)),
+        timm.create_model(
+            'efficientnetv2_m',
+            in_chans=int(in_ch), num_classes=int(out_ch), pretrained=False),
+    )),
+    ('deepfix_efficientnet-b0', str, str, str, str, str): (lambda in_ch, out_ch, J, Ph, Pw: T.nn.Sequential(
+        DeepFixImg2Img(in_channels=int(in_ch), J=int(J), P=(int(Ph), int(Pw)),
+                       wavelet='db1', patch_features='l1',
+                       restore_orig_size=False, min_size=(64,64)
+                       ),
+        get_efficientnetv1('efficientnet-b0', 'imagenet', int(in_ch), int(out_ch)))),
+    ('vip_s7', str, str): (
+        lambda in_ch, out_ch: T.nn.Sequential(
+            T.nn.UpsamplingNearest2d((224,224)),
+            vip.vip_s7(in_chans=int(in_ch), num_classes=int(out_ch))
+        )),
+    ('deepfix_vip_s7', str, str, str, str, str): (
+        lambda in_ch, out_ch, J, Ph, Pw: T.nn.Sequential(
+            DeepFixImg2Img(in_channels=int(in_ch), J=int(J), P=(int(Ph), int(Pw)),
+                           wavelet='db1', patch_features='l1',
+                           restore_orig_size=False, min_size=(64,64)
+                           ),
+            T.nn.UpsamplingNearest2d((224,224)),
+            vip.vip_s7(in_chans=int(in_ch), num_classes=int(out_ch))
+        )),
+    ('coatnet_1_224', str, str): (
+        lambda in_ch, out_ch: T.nn.Sequential(
+            T.nn.UpsamplingNearest2d((224,224)),
+            timm.create_model(
+                'coatnet_1_224', in_chans=int(in_ch), num_classes=int(out_ch)))
+    ),
+    ('deepfix_coatnet_1_224', str, str, str, str, str): (
+        lambda in_ch, out_ch, J, Ph, Pw: T.nn.Sequential(
+            DeepFixImg2Img(
+                in_channels=int(in_ch), J=int(J), P=(int(Ph), int(Pw)),
+                wavelet='db1', patch_features='l1', min_size=(224,224)),
+            T.nn.UpsamplingNearest2d((224,224)),
+            timm.create_model(
+                'coatnet_1_224', in_chans=int(in_ch),
+                num_classes=int(out_ch)))),
+    ('mdmlp_320', str, str): (
+        lambda in_ch, out_ch: MDMLP(
+            img_size=320, in_chans=int(in_ch), num_classes=int(out_ch),
+            base_dim=64, depth=8, patch_size=20, overlap=10)),
     #  ('waveletres18v2', str, str, str): lambda pretrain, in_ch, out_ch: (
         #  DeepFixCompression(levels=8, wavelet='coif1', patch_size=1),
         #  R2(pretrain, int(in_ch), int(out_ch))),
+    ('deepfix_mdmlp_320', str, str ,str, str, str):
+        lambda in_ch, out_ch, J, Ph, Pw: T.nn.Sequential(
+            DeepFixImg2Img(
+                in_channels=int(in_ch), J=int(J), P=(int(Ph), int(Pw)),
+                wavelet='db1', patch_features='l1', restore_orig_size=True),
+            MDMLP(img_size=320, in_chans=int(in_ch), num_classes=int(out_ch),
+                  base_dim=64, depth=8, patch_size=20, overlap=10)),
+    ('mdmlp_patch14_lap7_dim64_depth8_224', str, str): (
+        lambda in_ch, out_ch: timm.create_model(
+            'mdmlp_patch14_lap7_dim64_depth8_224',
+            in_chans=int(in_ch), num_classes=int(out_ch))),
+    ('deepfix_mdmlp_patch14_lap7_dim64_depth8_224', str, str, str, str, str): (
+        lambda in_ch, out_ch, J, Ph, Pw: T.nn.Sequential(
+            DeepFixImg2Img(
+                in_channels=int(in_ch), J=int(J), P=(int(Ph), int(Pw)),
+                wavelet='db1', patch_features='l1', restore_orig_size=True),
+            timm.create_model(
+                'mdmlp_patch14_lap7_dim64_depth8_224',
+                in_chans=int(in_ch), num_classes=int(out_ch)))),
+    ('blur_efficientnet-b0', str, str, str): (lambda in_ch, out_ch, kernel_size: T.nn.Sequential(
+        GaussianBlur(int(kernel_size) + 1 - int(kernel_size)%2, float(kernel_size)),
+        T.nn.AvgPool2d(kernel_size=int(kernel_size), stride=int(kernel_size), padding=0),
+        UpsamplingNearestMinSize((32,32)),
+        get_efficientnetv1('efficientnet-b0', 'imagenet', int(in_ch), int(out_ch)))),
+
+    ('medianpool2d_efficientnet-b0', str, str, str): (lambda in_ch, out_ch, kernel_size:
+    T.nn.Sequential(
+        MedianPool2d(kernel_size=int(kernel_size), stride=int(kernel_size), padding=0, min_size=(64,64)),
+        get_efficientnetv1('efficientnet-b0', 'imagenet', int(in_ch), int(out_ch)))),
 }
+
+class UpsamplingNearestMinSize(T.nn.Module):
+    """Ensure the input image has a minimum shape"""
+    def __init__(self, min_size):
+        super().__init__()
+        self.upsample = T.nn.UpsamplingNearest2d(min_size)
+        self.min_size = min_size
+    def forward(self, x):
+        if x.shape[-1] < self.min_size[-1] or x.shape[-2] < self.min_size[-2]:
+            x = self.upsample(x)
+        return x
 
 
 class LossCheXpertUignore(T.nn.Module):
@@ -251,6 +377,8 @@ DSETS = {
     ('chexpert15k', str, str, str): (
         lambda train_frac, val_frac, labels: get_dset_chexpert(
             float(train_frac), float(val_frac), small=False, labels=labels, epoch_size=15000)),
+    ('flowers102', ): lambda _: get_dset_flowers102(),
+    ('food101', ): lambda _: get_dset_food101(),
 }
 
 
@@ -327,7 +455,7 @@ def get_dset_loaders_resultfactory(dset_spec:str, device:str) -> dict:
         dct['result_factory'] = lambda: TL.MultiClassClassification(
             len(class_names),
             preprocess_fn=lambda yh: yh.softmax(1),
-            binarize_fn=lambda yh,_: yh.argmax(1))
+            binarize_fn=lambda yh: yh.argmax(1))
         dct['checkpoint_if'] = TL.CheckpointIf(metric='val_ROC_AUC', mode='max')
     elif any(dset_spec.startswith(x) for x in {
             'chexpert:', 'chexpert_small:',
@@ -339,8 +467,20 @@ def get_dset_loaders_resultfactory(dset_spec:str, device:str) -> dict:
         dct['result_factory'] = lambda: TL.MultiClassClassification(
             len(class_names),
             preprocess_fn=lambda yh: yh.softmax(1),
-            binarize_fn=lambda yh,_: yh.argmax(1))
+            binarize_fn=lambda yh: yh.argmax(1))
         dct['checkpoint_if'] = TL.CheckpointIf(metric='val_ROC_AUC', mode='max')
+    elif dset_spec.startswith('flowers102'):
+        dct['result_factory'] = lambda: TL.MultiClassClassification(
+            len(class_names),
+            preprocess_fn=lambda yh: yh.softmax(1),
+            binarize_fn=lambda yh: yh.argmax(1))
+        dct['checkpoint_if'] = TL.CheckpointIf(metric='val_ROC_AUC', mode='max')
+    elif dset_spec.startswith('food101'):
+        dct['result_factory'] = lambda: TL.MultiClassClassification(
+            len(class_names),
+            preprocess_fn=lambda yh: yh.softmax(1),
+            binarize_fn=lambda yh: yh.argmax(1))
+        dct['checkpoint_if'] = TL.CheckpointIf(metric='train_ROC_AUC', mode='max')
     else:
         raise NotImplementedError(f"I don't know how to create the result factory for {dset_spec}")
     return dct
