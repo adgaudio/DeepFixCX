@@ -205,7 +205,7 @@ plots_extended() {
     # chexpert=true ./bin/table_best_accuracy.sh 2.C32  #  median
     # chexpert=true ./bin/table_best_accuracy.sh 2.C31b  #  blur and median: closest # deepfix
     # chexpert=true ./bin/table_best_accuracy.sh 2.C33  #  Deepfix+DNN results not covered by the other experiments
-    python ./bin/plot_competing_methods_rocauc.py  # updated based on outputs of table_best_accuracy.sh
+    python ./bin/plot_competing_methods.py  # updated based on outputs of table_best_accuracy.sh
 
     # privacy scores - blur and median plots
 
