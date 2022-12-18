@@ -157,7 +157,7 @@ F2() {
 G1() {
     # Food101 Dataset, baseline
     cat <<EOF
-${V}.G1.diagnostic.mdmlp_food101.baseline env num_workers=11 batch_size=35 python deepfix/train.py --dset food101 --opt AdamW:lr=0.001:weight_decay=0.000001:amsgrad=1 --lossfn CrossEntropyLoss --loss_reg none --model mdmlp_patch14_lap7_dim64_depth8_224:3:101 --epochs 200
+${V}.G1.diagnostic.mdmlp_food101.baseline env num_workers=11 batch_size=35 python deepfix/train.py --dset food101 --opt AdamW:lr=0.001:weight_decay=0.000001:amsgrad=1 --lossfn CrossEntropyLoss --loss_reg none --model mdmlp_patch14_lap7_dim64_depth8_224:3:101 --epochs 60
 EOF
 }
 G2() {
@@ -172,7 +172,21 @@ for level in range(1, 8):
     for patchsize in 1,23,45,67,89,111:
         if patchsize <= 224 / 2**level:
             model = f"${deepfix_model}"
-            print( f"${V}.${experiment_id}.J={level}.P={patchsize} env num_workers=$num_workers batch_size=$batch_size python deepfix/train.py --dset $dset --opt ${opt} --lossfn CrossEntropyLoss --model ${deepfix_model} --epochs 200")
+            print( f"${V}.${experiment_id}.J={level}.P={patchsize} env num_workers=$num_workers batch_size=$batch_size python deepfix/train.py --dset $dset --opt ${opt} --lossfn CrossEntropyLoss --model ${deepfix_model} --epochs 60")
+EOF
+}
+G3() {
+    local experiment_id="G3"
+    local deepfix_model="mdmlp_patch14_lap7_dim64_depth8_224:3:101"
+    local opt="AdamW:lr=0.001:weight_decay=0.000001:amsgrad=1"
+    local num_workers="0"
+    local batch_size="35"
+    local dset="food101:{level}:{patchsize}"
+    python <<EOF
+for level in range(1, 9):
+    for patchsize in 256,128,64,32,16,8,4,2:
+        if patchsize <= 500 / 2**level:
+            print( f"${V}.${experiment_id}.J={level}.P={patchsize} env num_workers=$num_workers batch_size=$batch_size python deepfix/train.py --dset $dset --opt ${opt} --lossfn CrossEntropyLoss --model ${deepfix_model} --epochs 40")
 EOF
 }
 
@@ -191,29 +205,40 @@ plots_extended() {
     # chexpert=true ./bin/table_best_accuracy.sh 2.C32  #  median
     # chexpert=true ./bin/table_best_accuracy.sh 2.C31b  #  blur and median: closest # deepfix
     # chexpert=true ./bin/table_best_accuracy.sh 2.C33  #  Deepfix+DNN results not covered by the other experiments
-    python ./bin/plot_competing_methods_rocauc.py  # updated based on outputs table_best_accuracy.sh
+    python ./bin/plot_competing_methods_rocauc.py  # updated based on outputs of table_best_accuracy.sh
 
     # privacy scores - blur and median plots
 
     # compression ratios:
-    python bin/plot_compression_ratio.py --input_shape 224 224 --patch_sizes 1 23 45 67 89 111 --filenameid _flowers102
+    python bin/plot_compression_ratio.py --input_shape 224 224 --patch_sizes 1 23 45 67 89 111 --filenameid _food101
+    python bin/plot_compression_ratio.py --input_shape 224 224 --patch_sizes 1 23 45 67 78 89 111 --filenameid _flowers102
     # ... chexpert 224x224 models still apply deepfix on the 320x320 images.
     #
 
     # Flowers and Food datasets:
     # ./bin/table_best_accuracy.sh 2.F2
     # ./bin/table_best_accuracy.sh 2.F1
-    # ./bin/table_best_accuracy.sh 2.G2
-    # ./bin/table_best_accuracy.sh 2.G1
-    ./bin/plot_heatmap_levels_vs_patchsize.sh 2.F2 .9646  # mdmlp Flowers
-    ./bin/plot_heatmap_levels_vs_patchsize.sh 2.G2 XXX    # mdmlp Food
+    # food101=true ./bin/table_best_accuracy.sh 2.G2
+    # food101=true ./bin/table_best_accuracy.sh 2.G1
+    ./bin/plot_heatmap_levels_vs_patchsize.sh 2.F2 .528  # mdmlp Flowers
+    food101=true ./bin/plot_heatmap_levels_vs_patchsize.sh 2.G2 .658  # mdmlp Food
 
+    python ./bin/plot_ssim_heatmap.py --dataset food101 --patch_sizes 1 23 45 67 78 89 111 --overwrite
+    python ./bin/plot_ssim_heatmap.py --dataset flowers102 --patch_sizes 1 23 45 67 78 89 111 --overwrite
 
+    python ./bin/plot_reconstructions.py --dataset flowers102 --patch_sizes 1 23 45 67 78 89 111
+    python ./bin/plot_reconstructions.py --dataset flowers102 --ssim  --patch_sizes 1 23 45 67 78 89 111
+
+    python ./bin/plot_reconstructions.py --dataset food101 --patch_sizes 1 23 45 67 89 111
+    python ./bin/plot_reconstructions.py --dataset food101 --ssim  --patch_sizes 1 23 45 67 89 111
+
+    python ./bin/plot_reconstructions.py --dataset food101 --dataset food101_512 --patch_sizes 2 4 8 16 32 64 128 256
+    python ./bin/plot_reconstructions.py --dataset food101 --dataset food101_512  --ssim --patch_sizes 2 4 8 16 32 64 128 256
 }
 
 # CheXpert
 # ( C8_baselines ; C29 ; C30 ; C31 ; C32 ; C33 ; C31b ; C35 ; C36 ; F1 ; F2 ; G1 ; G2 ) | run_gpus 1
-( C8_baselines ; C31b ; C35 ; C36 ; F1 ; F2 ; G1 ; G2 ) | run_gpus 1
+( C8_baselines ; C31b ; C35 ; C36 ; F1 ; F2 ; C33 ; G1 ; G2 ; G3 ) | run_gpus 1
 
 # TODO: choose whether coatnet with adamw is preferred over adam.  make C36
 

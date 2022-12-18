@@ -25,7 +25,12 @@ python -m simplepytorch.plot_perf $runid_regex --mode 0 <<EOF
 col1 = 'val_ROC_AUC'
 col2 = 'test_ROC_AUC'
 
-if os.environ.get('chexpert', False) == 'true':
+if (
+        os.environ.get('food101', False) == 'true'
+        or os.environ.get('flower102', False) == 'true'):
+    col1 = 'train_Acc'
+    col2 = 'test_Acc'
+elif os.environ.get('chexpert', False) == 'true':
     cols = ['Atelectasis', 'Cardiomegaly', 'Consolidation', 'Edema', 'Pleural Effusion']
     cols_val = [f'val_ROC_AUC {x}' for x in cols]
     cols_test = [f'test_ROC_AUC {x}' for x in cols]

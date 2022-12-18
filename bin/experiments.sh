@@ -702,7 +702,7 @@ plots_chexpert() {
   # predictive performance
   # C25 is chexpert -> compression with deepfix --> resnet18
   # C25 | run_gpus 1
-  chexpert=true ./bin/plot_heatmap_levels_vs_patchsize.sh 2.C25 0.8599
+  chexpert=true ./bin/plot_heatmap_levels_vs_patchsize.sh 2.C25 0.858
   # ... other predictive performances.  these were done before the roc auc was
   # computed every epoch.  I verified that the approach gives identical result.
   # C21 is chexpert --> compression with deepfix --> tiny 1 layer MLP

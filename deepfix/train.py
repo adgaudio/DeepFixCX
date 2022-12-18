@@ -24,7 +24,7 @@ from deepfix.models import (
 from torchvision.transforms import GaussianBlur
 from deepfix.dsets import (
     get_dset_chexpert, get_dset_intel_mobileodt, get_dset_kimeye,
-    get_dset_flowers102, get_dset_food101)
+    get_dset_flowers102, get_dset_food101, get_dset_food101_deepfixed)
 
 
 def parse_normalization(normalization, wavelet, wavelet_levels, wavelet_patch_size, patch_features, zero_mean):
@@ -168,12 +168,12 @@ MODELS = {
             zero_mean=False, normalization=('batchnorm', ), mlp_attn='Identity',
             adaptive=0)),
 
-    ('deepfix_resnet18', str, str, str, str, str, str): (lambda pretrain, in_ch, out_ch, J, Ph, Pw: T.nn.Sequential(
+    ('deepfix_resnet18', str, str, str, str, str): (lambda in_ch, out_ch, J, Ph, Pw: T.nn.Sequential(
         DeepFixImg2Img(in_channels=int(in_ch), J=int(J), P=(int(Ph), int(Pw)),
                        wavelet='db1', patch_features='l1',
                        restore_orig_size=False,
                        ),
-        get_resnet('resnet18', pretrain, int(in_ch), int(out_ch)),
+        get_resnet('resnet18', 'untrained', int(in_ch), int(out_ch)),
     )),
     ('deepfix_densenet121', str, str, str, str, str): (lambda in_ch, out_ch, J, Ph, Pw: T.nn.Sequential(
         DeepFixImg2Img(in_channels=int(in_ch), J=int(J), P=(int(Ph), int(Pw)),
@@ -378,7 +378,9 @@ DSETS = {
         lambda train_frac, val_frac, labels: get_dset_chexpert(
             float(train_frac), float(val_frac), small=False, labels=labels, epoch_size=15000)),
     ('flowers102', ): lambda _: get_dset_flowers102(),
-    ('food101', ): lambda _: get_dset_food101(),
+    ('food101', ): (lambda _: get_dset_food101()),
+    ('food101', str, str): (
+        lambda J, P: get_dset_food101_deepfixed(int(J), int(P))),
 }
 
 
@@ -568,9 +570,39 @@ def main():
     cfg = train_config(args)
 
     cfg.train(cfg)
+
+    # for x,y in cfg.train_loader:
+        # plt.imshow(np.array(x.cpu())[0].transpose(1,2,0))
+        # plt.pause(1)
     #  import IPython ; IPython.embed() ; import sys ; sys.exit()
+
+    # cfg.train_dset.transform = None
+    # cfg.test_dset.transform = None
+    # su, sq, N = 0, 0, 0
+    # mu2 = 0
+    # for n,(x, _) in enumerate(cfg.train_dset):
+    #     # x = x.permute(1,2,0).cpu().numpy()
+    #     x = np.array(x)/255
+    #     mu2 += x.mean((0,1))
+    #     su += x.sum((0,1))
+    #     sq += (x**2).sum((0,1))
+    #     N += x.shape[0] * x.shape[1]
+    #     # if n > 1000:
+    #         # break
+    # # print(np.array(x).shape)
+    # # plt.imshow(np.array(x))
+    # # plt.show()
+    # mu2 = mu2/(n+1)
+    # print("VAL")
+    # print('std', (sq/N - (su/N)**2)**.5)
+    # print('mu', su/N)
+    # print('mu2', mu2)
+    # # TODO: copy this to dset.py flowers102 std section..
     return cfg
 
 
 if __name__ == "__main__":
+    import numpy as np
+    import matplotlib.pyplot as plt
+    plt.ion()
     cfg = main()

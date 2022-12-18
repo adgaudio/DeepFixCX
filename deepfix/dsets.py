@@ -9,7 +9,9 @@ import torchvision.datasets as tvd
 from sklearn.model_selection import StratifiedShuffleSplit
 import timm.data.loader
 
+import torch.nn
 from simplepytorch import datasets as D
+from deepfix.models import DeepFixImg2Img
 
 
 @dataclass
@@ -421,7 +423,7 @@ def get_dset_flowers102(preprocess_fn=None):
     return dct, class_names
 
 
-def get_dset_food101(preprocess_fn=None):
+def get_dset_food101():
     dct = dict(
         train_dset=tvd.Food101(
             'data/food101', split='train', download=True),
@@ -443,6 +445,7 @@ def get_dset_food101(preprocess_fn=None):
         hflip=.5,
         color_jitter=.4,
         num_workers=int(os.environ.get('num_workers', 3)),
+        persistent_workers=(0 != int(os.environ.get('num_workers', 3))),
     )
     dct.update(
         train_loader=timm.data.loader.create_loader(
@@ -455,3 +458,39 @@ def get_dset_food101(preprocess_fn=None):
     class_names: List[str] = list(str(x) for x in range(102))
     return dct, class_names
 
+
+class Food101Transform_DeepFixImg2Img(torch.nn.Module):
+    """Convert ToTensor and apply DeepFixImg2Img and run on cuda GPU"""
+    def __init__(self, C, J, P):
+        super().__init__()
+        self.to_tensor = tvt.ToTensor()
+        self.transform = tvt.Compose([
+            tvt.Resize((512, 512)),
+            DeepFixImg2Img(
+                C, J, P, restore_orig_size=True,).cuda(),
+            tvt.Resize((256, 256)),
+            tvt.CenterCrop((224, 224))])
+        # self.topil = tvt.ToPILImage()
+
+    def forward(self, img):
+        img = self.to_tensor(img).cuda()
+        img = self.transform(img.unsqueeze_(0)).squeeze_(0)
+        # img = self.topil(img)
+        # return (img) * 255  # if using timm dataloader
+        return (img)
+
+
+def get_dset_food101_deepfixed(J: int, P: int):
+    """Hack to do deepfix to food101 dataset. remove the timm transforms
+    Not trying to improve speed since model is fixed at 224
+    """
+    dct, class_names = get_dset_food101()
+    for td in [dct['train_dset'], dct['test_dset']]:
+        td.transform = Food101Transform_DeepFixImg2Img(3, J, P)
+    kws = dict(
+        num_workers=int(os.environ.get('num_workers', 3)),
+        persistent_workers=(0 != int(os.environ.get('num_workers', 3))),
+        batch_size=int(os.environ.get('batch_size', 16)))
+    dct['train_loader'] = DataLoader(dct['train_dset'], shuffle=True, **kws)
+    dct['test_loader'] = DataLoader(dct['test_dset'], shuffle=False, **kws)
+    return dct, class_names

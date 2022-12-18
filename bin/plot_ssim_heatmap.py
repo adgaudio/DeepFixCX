@@ -10,7 +10,9 @@ import torchvision.transforms as tvt
 
 from deepfix.models import DeepFixCompression
 from deepfix.models.wavelet_packet import WaveletPacket2d
-from deepfix.train import get_dset_chexpert, get_dset_intel_mobileodt, get_dset_kimeye
+from deepfix.train import (
+    get_dset_chexpert, get_dset_intel_mobileodt, get_dset_kimeye,
+    get_dset_flowers102, get_dset_food101)
 
 
 p=ap.ArgumentParser()
@@ -19,7 +21,7 @@ p.add_argument('--patch_sizes',nargs='+',type=int,default=tuple([1,3,5,9,19,37,7
 p.add_argument('--wavelet',nargs="+",type=str,default='db1')
 p.add_argument('--device', default='cuda')
 p.add_argument('--overwrite', action='store_true')
-p.add_argument('--dataset', default='chexpert', choices=('chexpert', 'intelmobileodt', 'kimeye'))
+p.add_argument('--dataset', default='chexpert', choices=('chexpert', 'intelmobileodt', 'kimeye', 'flowers102', 'food101'))
 args=p.parse_args()
 
 if args.overwrite:
@@ -31,6 +33,10 @@ if args.overwrite:
         dct, _ = get_dset_intel_mobileodt(stage_trainval='train', use_val='val', stage_test='test', augment='v1')
     elif args.dataset == 'kimeye':
         dct, _ = get_dset_kimeye(train_frac=.7, test_frac=.15)
+    elif args.dataset == 'food101':
+        dct, _ = get_dset_food101()
+    elif args.dataset == 'flowers102':
+        dct, _ = get_dset_flowers102()
     else:
         raise NotImplemented(args.dataset)
 
@@ -64,7 +70,7 @@ if args.overwrite:
             #
             # compute ssim for each img in the minibatch
             for im1, im2 in zip(x.squeeze(1).unbind(0), recons.squeeze(1).unbind(0)):
-                _val, _map = ssim(im1.numpy(), im2.numpy(), win_size=3, full=True)
+                _val, _map = ssim(im1.cpu().numpy(), im2.cpu().numpy(), win_size=3, full=True)
                 ssim_per_img.append(_val)
                 #  fig, axs = plt.subplots(1,3)
                 #  axs[0].imshow(im1.numpy(), 'gray')

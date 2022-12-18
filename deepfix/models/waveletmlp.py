@@ -47,8 +47,8 @@ class DeepFixCompression(T.nn.Module):
             patch_features: any of {'l1', 'l2', 'sum_pos', 'sum_neg'}.  The more
                 choices, the less compressible the representation is.
                 A reasonable choice is ['l1'] or ['l1'] or ['sum_pos', 'sum_neg'].
-            how_to_error_if_input_too_small:  one of {'warn', 'raise'}.  The
-                input image shape, wavelet levels, patch size (and also
+            how_to_error_if_input_too_small: one of {'warn', 'raise', 'ignore'}.
+                The input image shape, wavelet levels, patch size (and also
                 in_ch_multiplier and patch_features) should be chosen to ensure
                 the model is actually doing compression.
             zero_mean:  If True, ensure each input channel has zero mean before
@@ -125,6 +125,8 @@ class DeepFixCompression(T.nn.Module):
                 raise InvalidWaveletParametersError(msg)
             elif self.how_to_error_if_input_too_small == 'warn':
                 warnings.warn(msg)
+            elif self.how_to_error_if_input_too_small == 'ignore':
+                pass
             else:
                 raise Exception(
                     f'unrecognized option, how_to_error_if_input_too_small={self.how_to_error_if_input_too_small}')
@@ -720,7 +722,8 @@ class MLP(T.nn.Module):
 
 class DeepFixImg2Img(T.nn.Module):
     def __init__(self, in_channels, J:int, P:Union[int,Tuple[int,int]], wavelet='db1', patch_features='l1',
-                 restore_orig_size:bool=False, min_size:Optional[Tuple[int,int]]=None):
+                 restore_orig_size:bool=False, min_size:Optional[Tuple[int,int]]=None,
+                 how_to_error_if_input_too_small='raise'):
         super().__init__()
         self.enc = DeepFixCompression(
             in_ch=in_channels, in_ch_multiplier=1,
@@ -728,7 +731,8 @@ class DeepFixImg2Img(T.nn.Module):
             levels=J, wavelet=wavelet,
             # wavelet spatial feature extraction params
             patch_size=P, patch_features=patch_features.split(','),
-            zero_mean=False, adaptive=0, how_to_error_if_input_too_small='raise'
+            zero_mean=False, adaptive=0,
+            how_to_error_if_input_too_small=how_to_error_if_input_too_small
         )
         self.recon = DeepFixReconstruct(
             wavelet=wavelet, J=J, P=P,
