@@ -8,9 +8,9 @@ import seaborn as sns
 import torch as T
 import torchvision.transforms as tvt
 
-from deepfix.models import DeepFixCompression
-from deepfix.models.wavelet_packet import WaveletPacket2d
-from deepfix.train import (
+from waveletfix.models import WaveletFixCompression
+from waveletfix.models.wavelet_packet import WaveletPacket2d
+from waveletfix.train import (
     get_dset_chexpert, get_dset_intel_mobileodt, get_dset_kimeye,
     get_dset_flowers102, get_dset_food101)
 
@@ -47,7 +47,7 @@ if args.overwrite:
     for J,P in product(range(1,9), args.patch_sizes):
         print(f'J={J}, P={P}')
         ssim_per_img = []
-        enc = DeepFixCompression(
+        enc = WaveletFixCompression(
             in_ch=1, in_ch_multiplier=1, levels=J, wavelet=args.wavelet,
             patch_size=P, patch_features=args.patch_features,
             how_to_error_if_input_too_small='raise'
@@ -60,7 +60,7 @@ if args.overwrite:
             if P*P > H / 2**J * W/2**J:
                 print(f"skipping  J={J} P={P}.  It doesn't do compression")
                 break
-            # get deepfix encoding
+            # get waveletfix encoding
             op = enc(x.to(args.device))
             # get the reconstruction
 

@@ -4,8 +4,8 @@ import dataclasses as dc
 import numpy as np
 from simple_parsing import ArgumentParser
 import time
-from deepfix.models import DeepFixCompression
-from deepfix.train import get_dset_chexpert
+from waveletfix.models import WaveletFixCompression
+from waveletfix.train import get_dset_chexpert
 
 
 def timeit(encoder, loader, device):
@@ -45,7 +45,7 @@ if __name__ == "__main__":
     dct, _ = get_dset_chexpert(
         .9, .1, small=True, labels='diagnostic', epoch_size=15000)
 
-    encoder = DeepFixCompression(
+    encoder = WaveletFixCompression(
         in_ch=1, in_ch_multiplier=1,
         levels=args.J, wavelet=args.wavelet, patch_size=args.P,
         patch_features=args.patch_features.split(',')).to(args.device)

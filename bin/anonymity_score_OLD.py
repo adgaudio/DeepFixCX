@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-Get the anonymity score for a deepfix encoder model.
+Get the anonymity score for a waveletfix encoder model.
 
 python bin/anonymity_score.py --dset chexpert_small:.1:.001 --model waveletmlp:700:1:14:7:32:3:3 --lossfn chexpert_uignore
 """
@@ -22,7 +22,7 @@ import torchvision.transforms as tvt
 import scipy.stats
 
 from simplepytorch.datasets import CheXpert_Small
-from deepfix.models import DeepFixCompression
+from waveletfix.models import WaveletFixCompression
 
 
 def euclidean_dist(vec1, vec2):
@@ -81,24 +81,24 @@ def get_dset(args, seed):
 
 
 def get_model(args):
-    deepfix_mdl = DeepFixCompression(
+    waveletfix_mdl = WaveletFixCompression(
         in_ch=1, in_ch_multiplier=1,
         levels=args.level, wavelet=args.wavelet,
         patch_size=args.patchsize, patch_features=args.patch_features,
         adaptive=0, zero_mean=False,
         how_to_error_if_input_too_small='warn')
-    deepfix_mdl.to(args.device)
-    return deepfix_mdl
+    waveletfix_mdl.to(args.device)
+    return waveletfix_mdl
 
 
-def get_deepfixed_img_and_labels(deepfix_model, dset, bootstrap_idx, idx, device):
+def get_waveletfixed_img_and_labels(waveletfix_model, dset, bootstrap_idx, idx, device):
     dct = dset[idx]
     x = dct['image'].to(device, non_blocking=True)
     patient_id = dct['labels'].loc['Patient']
-    x_deepfix = deepfix_model(x.unsqueeze(0))
+    x_waveletfix = waveletfix_model(x.unsqueeze(0))
     metadata = {'labels': dct['labels'], 'fp': dct['fp'],
-                'filesize': x.shape, 'compressed_size': x_deepfix.shape}
-    return x_deepfix, patient_id, metadata
+                'filesize': x.shape, 'compressed_size': x_waveletfix.shape}
+    return x_waveletfix, patient_id, metadata
 
 
 class CacheToDiskPyTorch:
@@ -180,22 +180,22 @@ def _pairwise_distv2(bootstrap_idx, idx, args):
     """compute a row of pairwise distances in the pairwise dist matrix"""
     # fetch embeddings from cache (to save compute time) 
     cachefn = CacheToDiskPyTorch(
-        get_deepfixed_img_and_labels, cache_these_kwargs=['bootstrap_idx', 'idx'],
+        get_waveletfixed_img_and_labels, cache_these_kwargs=['bootstrap_idx', 'idx'],
         cache_dir=args.cache_dir, device=args.device
     )
-    deepfix_mdl = get_model(args)
+    waveletfix_mdl = get_model(args)
     dset = get_dset(args, seed=bootstrap_idx)
     # get first image
-    deepfixed_img, patient_id, metadata = cachefn(
-        deepfix_mdl, dset, bootstrap_idx=bootstrap_idx, idx=idx, device=args.device)
+    waveletfixed_img, patient_id, metadata = cachefn(
+        waveletfix_mdl, dset, bootstrap_idx=bootstrap_idx, idx=idx, device=args.device)
     # get distance of other images to this image
     dist_vec = T.zeros(len(dset), device=args.device, dtype=T.float)
     id_matches_vec = T.zeros(len(dset), device=args.device, dtype=T.float)
     for idx2 in range(idx+1, len(dset)):
-        another_deepfixed_img, another_patient_id, _ = cachefn(
-            deepfix_mdl, dset, bootstrap_idx=bootstrap_idx, idx=idx2, device=args.device)
+        another_waveletfixed_img, another_patient_id, _ = cachefn(
+            waveletfix_mdl, dset, bootstrap_idx=bootstrap_idx, idx=idx2, device=args.device)
         # TODO: is this the best metric?  Earth mover's distance?
-        dist = euclidean_dist(deepfixed_img, another_deepfixed_img)
+        dist = euclidean_dist(waveletfixed_img, another_waveletfixed_img)
         id_matches = T.tensor(
             (patient_id == another_patient_id).astype('uint8'), dtype=T.bool)
         dist_vec[idx2] = dist
@@ -243,13 +243,13 @@ def main():
             #  for idx in range(len(dset)):
             #      #  sys.stdout.write(f'{idx}.')
             #      #  sys.stdout.flush()
-            #      deepfixed_img, patient_id, metadata = cached__get_deepfixed_img_and_labels(
-            #          deepfix_mdl, dset, bootstrap_idx=bootstrap_idx, idx=idx, device=args.device)
+            #      waveletfixed_img, patient_id, metadata = cached__get_waveletfixed_img_and_labels(
+            #          waveletfix_mdl, dset, bootstrap_idx=bootstrap_idx, idx=idx, device=args.device)
             #      link_to_original_data[(bootstrap_idx, idx)] = metadata
 
             #      for idx2 in range(idx+1, len(dset)):
             #          executor.submit(
-            #              _pairwise_dist, bootstrap_idx, idx, deepfixed_img, patient_id, idx2)
+            #              _pairwise_dist, bootstrap_idx, idx, waveletfixed_img, patient_id, idx2)
     print('')  # newline for the stdout.write(...)
     print('analyze dist matrices')
 

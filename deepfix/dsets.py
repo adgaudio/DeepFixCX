@@ -11,7 +11,7 @@ import timm.data.loader
 
 import torch.nn
 from simplepytorch import datasets as D
-from deepfix.models import DeepFixImg2Img
+from waveletfix.models import WaveletFixImg2Img
 
 
 @dataclass
@@ -296,7 +296,7 @@ def get_dset_chexpert(train_frac=.8, val_frac=.2, small=False,
     test_loader=DataLoader(test_dset, batch_size=batch_size, **batch_dct)
     #
     # debugging:  vis dataset
-    #  from deepfix.plotting import plot_img_grid
+    #  from waveletfix.plotting import plot_img_grid
     #  from matplotlib import pyplot as plt
     #  plt.ion()
     #  fig, ax = plt.subplots(1,2)
@@ -459,14 +459,14 @@ def get_dset_food101():
     return dct, class_names
 
 
-class Food101Transform_DeepFixImg2Img(torch.nn.Module):
-    """Convert ToTensor and apply DeepFixImg2Img and run on cuda GPU"""
+class Food101Transform_WaveletFixImg2Img(torch.nn.Module):
+    """Convert ToTensor and apply WaveletFixImg2Img and run on cuda GPU"""
     def __init__(self, C, J, P):
         super().__init__()
         self.to_tensor = tvt.ToTensor()
         self.transform = tvt.Compose([
             tvt.Resize((512, 512)),
-            DeepFixImg2Img(
+            WaveletFixImg2Img(
                 C, J, P, restore_orig_size=True,).cuda(),
             tvt.Resize((256, 256)),
             tvt.CenterCrop((224, 224))])
@@ -480,13 +480,13 @@ class Food101Transform_DeepFixImg2Img(torch.nn.Module):
         return (img)
 
 
-def get_dset_food101_deepfixed(J: int, P: int):
-    """Hack to do deepfix to food101 dataset. remove the timm transforms
+def get_dset_food101_waveletfixed(J: int, P: int):
+    """Hack to do waveletfix to food101 dataset. remove the timm transforms
     Not trying to improve speed since model is fixed at 224
     """
     dct, class_names = get_dset_food101()
     for td in [dct['train_dset'], dct['test_dset']]:
-        td.transform = Food101Transform_DeepFixImg2Img(3, J, P)
+        td.transform = Food101Transform_WaveletFixImg2Img(3, J, P)
     kws = dict(
         num_workers=int(os.environ.get('num_workers', 3)),
         persistent_workers=(0 != int(os.environ.get('num_workers', 3))),

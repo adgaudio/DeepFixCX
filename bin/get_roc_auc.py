@@ -8,7 +8,7 @@ from os.path import dirname, abspath, basename
 import argparse as ap
 import sklearn.metrics
 
-from deepfix.train import match, DSETS
+from waveletfix.train import match, DSETS
 from simplepytorch.datasets import CheXpert
 
 

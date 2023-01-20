@@ -1,12 +1,12 @@
 """
 Generate and visualize hierarchical and tree-like clusterings over chexpert
-classes using the VecAttn layer from DeepFix.
+classes using the VecAttn layer from WaveletFix.
 
 Assume data of form:
     results/2.C17.Cardiomegaly/checkpoints/epoch_80.pth
     results/2.C17.Pneumonia/checkpoints/epoch_80.pth
     ...
-Where each checkpoint contains a DeepFixEnd2End model.
+Where each checkpoint contains a WaveletFixEnd2End model.
 """
 import sklearn.manifold
 import random
@@ -23,7 +23,7 @@ import glob
 import os
 import re
 import torch as T
-from deepfix.models.waveletmlp import VecAttn, DeepFixEnd2End
+from waveletfix.models.waveletmlp import VecAttn, WaveletFixEnd2End
 
 
 def get_linkage_matrix_from_sklearn(model):
@@ -183,10 +183,10 @@ def hierarchy_pos(G, root=None, width=1., vert_gap = 0.2, vert_loc = 0, leaf_vs_
     return pos
 
 
-def get_activations(mdl: DeepFixEnd2End, pathology):
+def get_activations(mdl: WaveletFixEnd2End, pathology):
     """
     Args:
-        mdl:  A DeepFixEnd2End model with spatial attn layer, trained only on 1 class.
+        mdl:  A WaveletFixEnd2End model with spatial attn layer, trained only on 1 class.
         pathology:  The class the model was trained on
     """
     dct, _ = get_dset_chexpert(
@@ -225,8 +225,8 @@ def reconstruct(tensor, orig_img_shape:Tuple[int], wavelet, J, P, I=-1):
 
 
 if __name__ == "__main__":
-    from deepfix.train import get_dset_chexpert
-    from deepfix.models.wavelet_packet import WaveletPacket2d
+    from waveletfix.train import get_dset_chexpert
+    from waveletfix.models.wavelet_packet import WaveletPacket2d
 
     orig_img_shape = (320, 320)  # original image size (320x320 imgs)
     J = 5  # wavelet level
@@ -274,7 +274,7 @@ if __name__ == "__main__":
         color_imgs[:, [0]] -= reconstructions.where(
             reconstructions<0, reconstructions.new_zeros(1))
         color_imgs = color_imgs.clip(0,1)  # suppress a warning
-        from deepfix.plotting import plot_img_grid
+        from waveletfix.plotting import plot_img_grid
         plt.close(1)
         fig = plot_img_grid(color_imgs.permute(0,2,3,1), suptitle=pathology, ax_titles=labels, num=1)
         N = color_imgs.shape[0]

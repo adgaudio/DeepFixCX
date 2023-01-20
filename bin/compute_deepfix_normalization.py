@@ -2,9 +2,9 @@ import torch as T
 import dataclasses as dc
 from simple_parsing import ArgumentParser
 from typing import List
-from deepfix.plotting import plot_img_grid
-from deepfix.models import DeepFixCompression
-from deepfix.train import get_dset_chexpert
+from waveletfix.plotting import plot_img_grid
+from waveletfix.models import WaveletFixCompression
+from waveletfix.train import get_dset_chexpert
 from simplepytorch.datasets import CheXpert_Small, CheXpert
 import torchvision.transforms as tvt
 from matplotlib import pyplot as plt
@@ -36,12 +36,12 @@ def parse_args(argv=None) -> Options:
 
 def get_model_and_dset(args):
     # model
-    deepfix_mdl = DeepFixCompression(
+    waveletfix_mdl = WaveletFixCompression(
         in_ch=1, in_ch_multiplier=1,
         levels=args.level, wavelet=args.wavelet,
         patch_size=args.patchsize, patch_features=args.patch_features,
         how_to_error_if_input_too_small='warn')
-    deepfix_mdl.to(args.device)
+    waveletfix_mdl.to(args.device)
     # dataset:  chexpert dataset
     if args.dset == 'chexpert_small':
         #  dset = CheXpert_Small(
@@ -57,24 +57,24 @@ def get_model_and_dset(args):
         dset_dct, _ = get_dset_chexpert(train_frac=1, val_frac=0, small=False)
     else:
         raise NotImplementedError(args.dset)
-    return deepfix_mdl, dset_dct
+    return waveletfix_mdl, dset_dct
 
 
-def get_deepfixed_img_and_labels(deepfix_model, dset, idx, device):
+def get_waveletfixed_img_and_labels(waveletfix_model, dset, idx, device):
     dct = dset[idx]
     x = dct['image'].to(device, non_blocking=True)
     patient_id = dct['labels'].loc['Patient']
-    x_deepfix = deepfix_model(x.unsqueeze(0))
+    x_waveletfix = waveletfix_model(x.unsqueeze(0))
     metadata = {'labels': dct['labels'], 'fp': dct['fp'],
-                'filesize': x.shape, 'compressed_size': x_deepfix.shape}
-    return x_deepfix, patient_id, metadata
+                'filesize': x.shape, 'compressed_size': x_waveletfix.shape}
+    return x_waveletfix, patient_id, metadata
 
 
 if __name__ == "__main__":
     import sys
     args = parse_args()
     print(args)
-    deepfix_mdl, dset_dct = get_model_and_dset(args)
+    waveletfix_mdl, dset_dct = get_model_and_dset(args)
     loader = dset_dct['train_loader']
 
     if os.path.exists(args.savefp) and args.overwrite_existing is False:
@@ -88,7 +88,7 @@ if __name__ == "__main__":
         print(i)
         x = mb[0].to(args.device, non_blocking=True)
         with T.no_grad():
-            enc = deepfix_mdl(x)
+            enc = waveletfix_mdl(x)
         streaming_stats.add_all(enc.cpu().double().numpy())
         #  tst.append(enc)
         #  enc = enc.reshape(
@@ -115,7 +115,7 @@ if __name__ == "__main__":
     #  batch = [dset[i]['image'].to(args.device) for i in range(20)]
     #  batch = [x - x.mean() for x in batch]
     #  batch = T.stack(batch)
-    #  enc = deepfix_mdl(batch)
+    #  enc = waveletfix_mdl(batch)
     #  print(enc.shape)
     #  import sys ; sys.exit()
     #  plt.plot(min_, label='min')

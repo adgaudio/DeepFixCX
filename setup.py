@@ -10,12 +10,12 @@ README = (HERE / "README.md").read_text()
 
 
 setup(
-    name='deepfix',
+    name='waveletfix',
     version='0.0.1',
     description='',
     long_description=README,
     long_description_content_type="text/markdown",
-    url="https://github.com/adgaudio/deepfix",
+    url="https://github.com/adgaudio/waveletfix",
     author='Alex Gaudio',
     license="MIT",
     classifiers=[
@@ -23,7 +23,7 @@ setup(
         "Programming Language :: Python :: 3.9",
     ],
     include_package_data=True,
-    packages=['deepfix', 'deepfix.models'],
+    packages=['waveletfix', 'waveletfix.models'],
     scripts=[],
     install_requires=[],
         #  "torchvision", "torch",

@@ -2,9 +2,9 @@ import torch as T
 from simple_parsing import ArgumentParser, choice
 from os import makedirs
 from dataclasses import dataclass
-from deepfix.train import TrainOptions, train_config
-from deepfix import init_from_distribution as DI
-from deepfix import weight_saliency as W
+from waveletfix.train import TrainOptions, train_config
+from waveletfix import init_from_distribution as DI
+from waveletfix import weight_saliency as W
 
 
 def reinit_model(model:T.nn.Module, bn=False):

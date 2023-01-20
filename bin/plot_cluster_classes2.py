@@ -11,9 +11,9 @@ import pandas as pd
 import random
 import scipy.cluster.hierarchy as sph
 import torch as T
-from deepfix.train import get_dset_chexpert
-from deepfix.models.wavelet_packet import WaveletPacket2d
-from deepfix import plotting as dplt
+from waveletfix.train import get_dset_chexpert
+from waveletfix.models.wavelet_packet import WaveletPacket2d
+from waveletfix import plotting as dplt
 
 
 def get_linkage_matrix_from_sklearn(model):
@@ -201,7 +201,7 @@ if __name__ == "__main__":
     # get model and dataloader
     print("get model and dataloader")
     mdl = T.load(fp)['model']
-    # backwards compatibility with earlier version of deepfix
+    # backwards compatibility with earlier version of waveletfix
     mdl.compression_mdl.wavelet_encoder.adaptive = 0
 
     # get the thresholds (from the get_rocauc script) for true prediction.

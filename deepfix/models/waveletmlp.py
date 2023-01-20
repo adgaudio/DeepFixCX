@@ -8,7 +8,7 @@ from itertools import chain
 #  import pywt
 import pytorch_wavelets as pyw
 from .wavelet_packet import WaveletPacket2d
-from deepfix.models.api import get_resnet
+from waveletfix.models.api import get_resnet
 
 
 class InvalidWaveletParametersError(Exception): pass
@@ -19,7 +19,7 @@ def astuple2(x:Union[int,Tuple[int,int]]):
         return x
     return (x,x)
 
-class DeepFixCompression(T.nn.Module):
+class WaveletFixCompression(T.nn.Module):
     """Compress the input data via wavelet packet based feature extraction.
     No learning.
     """
@@ -209,22 +209,22 @@ class DeepFixCompression(T.nn.Module):
         return (num_detail_matrices * num_patches * num_features_per_patch)
 
     @staticmethod
-    def reconstruct(deepfix_embedding: T.Tensor, orig_img_HW:Tuple[int,int],
+    def reconstruct(waveletfix_embedding: T.Tensor, orig_img_HW:Tuple[int,int],
                     wavelet:str, J:int, P:Union[int,Tuple[int,int]],
                     restore_orig_size:bool=True,
                     min_size:Optional[Tuple[int,int]]=None) -> T.Tensor:
-        """Use the inverse wavelet transform to reconstruct a deepfix embedding.
+        """Use the inverse wavelet transform to reconstruct a waveletfix embedding.
         This assumes patch_features is only one feature, like "l1" or "sum".
         It "unpools" the patches by repeating the value of each patch.
         The pooling function may cause output values outside of [0,1].  You
         could normalize the output values into [0,1] by clipping them with
         `tensor.clamp(0,1)`, or do nothing.
         Args:
-            deepfix_embedding:  The output of DeepFixCompression.forward(...), of shape (B, ...)
+            waveletfix_embedding:  The output of WaveletFixCompression.forward(...), of shape (B, ...)
             orig_img_HW:  a tuple like (H, W) denoting spatial height and spatial width of original input image.
-            wavelet: the value passed to DeepFixCompression
-            J: the wavelet level passed to DeepFixCompression
-            P: the patch size passed to DeepFixCompression
+            wavelet: the value passed to WaveletFixCompression
+            J: the wavelet level passed to WaveletFixCompression
+            P: the patch size passed to WaveletFixCompression
             restore_orig_size: If True, reconstruct to the original input size by
                 unpooling.  Otherwise, reconstruct to some smaller size.
             min_size: If supplied, ensure the height and width dimension are each as
@@ -233,26 +233,26 @@ class DeepFixCompression(T.nn.Module):
             Image of shape (B, C, H, W) corresponding to reconstruction of
             original input image.
         """
-        fn = DeepFixReconstruct(
+        fn = WaveletFixReconstruct(
             orig_img_HW=orig_img_HW, wavelet=wavelet, J=J, P=P,
             restore_orig_size=restore_orig_size).to(
-                deepfix_embedding.device, deepfix_embedding.dtype)
-        return fn(deepfix_embedding)
+                waveletfix_embedding.device, waveletfix_embedding.dtype)
+        return fn(waveletfix_embedding)
 
 
-class DeepFixReconstruct(T.nn.Module):
-    """Use the inverse wavelet transform to reconstruct a deepfix embedding.
+class WaveletFixReconstruct(T.nn.Module):
+    """Use the inverse wavelet transform to reconstruct a waveletfix embedding.
     This assumes patch_features is only one feature, like "l1" or "sum".
     It "unpools" the patches by repeating the value of each patch.
     The pooling function may cause output values outside of [0,1].  You
     could normalize the output values into [0,1] by clipping them with
     `tensor.clamp(0,1)`, or do nothing.
     Args:
-        deepfix_embedding:  The output of DeepFixCompression.forward(...), of shape (B, ...)
+        waveletfix_embedding:  The output of WaveletFixCompression.forward(...), of shape (B, ...)
         orig_img_HW:  a tuple like (H, W) denoting spatial height and spatial width of original input image.
-        wavelet: the value passed to DeepFixCompression
-        J: the wavelet level passed to DeepFixCompression
-        P: the patch size passed to DeepFixCompression
+        wavelet: the value passed to WaveletFixCompression
+        J: the wavelet level passed to WaveletFixCompression
+        P: the patch size passed to WaveletFixCompression
         restore_orig_size: If True, reconstruct to the original input size by
             unpooling.  Otherwise, reconstruct to some smaller size.
         min_size: If supplied, ensure the height and width dimension are each as
@@ -273,7 +273,7 @@ class DeepFixReconstruct(T.nn.Module):
         self.H, self.W = orig_img_HW
         self.min_size = min_size
 
-    def forward(self, deepfix_embedding:T.Tensor,
+    def forward(self, waveletfix_embedding:T.Tensor,
                 orig_img_HW:Optional[Tuple[int,int]]=None):
         J, (Ph, Pw) = self.J, self.P
         if orig_img_HW is None:
@@ -282,21 +282,21 @@ class DeepFixReconstruct(T.nn.Module):
             H, W = orig_img_HW
         assert H is not None
         assert W is not None
-        B = deepfix_embedding.shape[0]
+        B = waveletfix_embedding.shape[0]
         repY, repX = int(math.ceil(H/2**J/Ph)), int(math.ceil(W/2**J/Pw))
-        deepfix_embedding = deepfix_embedding.reshape(B,-1,4**J,Ph,Pw)
+        waveletfix_embedding = waveletfix_embedding.reshape(B,-1,4**J,Ph,Pw)
         # unpool
         if self.restore_orig_size:
-            deepfix_embedding = deepfix_embedding\
+            waveletfix_embedding = waveletfix_embedding\
                     .repeat_interleave(repX, dim=-1)\
                     .repeat_interleave(repY, dim=-2)
         # normalize
-        deepfix_embedding = deepfix_embedding / (repY*repX)
+        waveletfix_embedding = waveletfix_embedding / (repY*repX)
         # get the reconstruction
-        recons = self.iwp(deepfix_embedding)
-        del deepfix_embedding
+        recons = self.iwp(waveletfix_embedding)
+        del waveletfix_embedding
         if self.restore_orig_size:
-            # ... restore original size by removing any padding created by deepfix
+            # ... restore original size by removing any padding created by waveletfix
             recons = tvt.CenterCrop((H, W))(recons)
         if self.min_size is not None:
             h = max(self.min_size[0], recons.shape[-2])
@@ -305,7 +305,7 @@ class DeepFixReconstruct(T.nn.Module):
         return recons
 
 
-class DeepFixCompression__OLD(T.nn.Module):
+class WaveletFixCompression__OLD(T.nn.Module):
     """Compress the input data to ~1% of original size via feature extraction
     from a wavelet transform.  No learning.
     """
@@ -549,12 +549,12 @@ class LogSoftmaxVecAttn(T.nn.Module):
         return ret
 
 
-class DeepFixMLP(T.nn.Module):
-    """Apply a multi-layer perceptron to the compressed DeepFix embedding space.
-    The input to this module is the output of a DeepFixCompression(...) model.
+class WaveletFixMLP(T.nn.Module):
+    """Apply a multi-layer perceptron to the compressed WaveletFix embedding space.
+    The input to this module is the output of a WaveletFixCompression(...) model.
 
     Expected input shape is (_, C, D), which corresponds to the output from
-    DeepFixCompression, as defined by DeepFixCompression().out_shape
+    WaveletFixCompression, as defined by WaveletFixCompression().out_shape
     """
     def __init__(self, C:int, D:int,
                  out_ch:int, depth:int, mid_ch:int, final_layer:T.nn.Module,
@@ -562,7 +562,7 @@ class DeepFixMLP(T.nn.Module):
                  attn_class:T.nn.Module=VecAttn):
         """
         Args:
-            C and D: Channels and dimension output by the DeepFixCompression model
+            C and D: Channels and dimension output by the WaveletFixCompression model
             out_ch: Num outputs of the MLP.
             depth: Num hidden layers of MLP
             mid_ch: the size of the middle layers of MLP
@@ -603,7 +603,7 @@ class DeepFixMLP(T.nn.Module):
         Args:
             x: tensor of shape (B, C, D) where B is anything (batch size) and
                 where C,D correspond to the channels and dimension output by a
-                DeepFixCompression.
+                WaveletFixCompression.
         """
         x = self.spatial_attn(x)
         x = self.mlp(x)
@@ -663,14 +663,14 @@ class DeepFixMLP(T.nn.Module):
                         l.bias.data, mean=0, std=(2/l.weight.shape[0])**.5 / 10)
 
 
-class DeepFixEnd2End(T.nn.Module):
+class WaveletFixEnd2End(T.nn.Module):
     """When we can assume we have access to the full dataset,
     we can compress and use the MLP all in one step.
     This is useful for:
         - testing the compression method preserves discriminant information
         - experimenting with high resolution images
     """
-    def __init__(self, compression: DeepFixCompression, mlp: DeepFixMLP):
+    def __init__(self, compression: WaveletFixCompression, mlp: WaveletFixMLP):
         super().__init__()
         self.compression_mdl = compression
         self.mlp = mlp
@@ -720,12 +720,12 @@ class MLP(T.nn.Module):
         #  return self.fn(x)
 
 
-class DeepFixImg2Img(T.nn.Module):
+class WaveletFixImg2Img(T.nn.Module):
     def __init__(self, in_channels, J:int, P:Union[int,Tuple[int,int]], wavelet='db1', patch_features='l1',
                  restore_orig_size:bool=False, min_size:Optional[Tuple[int,int]]=None,
                  how_to_error_if_input_too_small='raise'):
         super().__init__()
-        self.enc = DeepFixCompression(
+        self.enc = WaveletFixCompression(
             in_ch=in_channels, in_ch_multiplier=1,
             # wavelet params
             levels=J, wavelet=wavelet,
@@ -734,7 +734,7 @@ class DeepFixImg2Img(T.nn.Module):
             zero_mean=False, adaptive=0,
             how_to_error_if_input_too_small=how_to_error_if_input_too_small
         )
-        self.recon = DeepFixReconstruct(
+        self.recon = WaveletFixReconstruct(
             wavelet=wavelet, J=J, P=P,
             restore_orig_size=restore_orig_size, min_size=min_size)
 
@@ -751,20 +751,20 @@ class DeepFixImg2Img(T.nn.Module):
         return x
 
 
-def get_DeepFixEnd2End(
+def get_WaveletFixEnd2End(
         in_channels, out_channels,
         in_ch_multiplier=1, wavelet='coif2', wavelet_levels=4, wavelet_patch_size=1,
         mlp_depth=2 , mlp_channels=None, mlp_activation=None,
         mlp_fix_weights='none', patch_features='l1',
         zero_mean:bool=False, normalization=('none', ), mlp_attn='LogSoftmaxVecAttn',
         adaptive:int=0):
-    enc = DeepFixCompression(
+    enc = WaveletFixCompression(
         in_ch=in_channels, in_ch_multiplier=in_ch_multiplier, levels=wavelet_levels,
         wavelet=wavelet,
         patch_size=wavelet_patch_size, patch_features=patch_features.split(','),
         zero_mean=zero_mean, adaptive=adaptive)
     C, D = enc.out_shape[-2:]
-    mlp = DeepFixMLP(
+    mlp = WaveletFixMLP(
         C=C, D=D, out_ch=out_channels, depth=mlp_depth, mid_ch=mlp_channels,
         final_layer=mlp_activation, fix_weights=mlp_fix_weights,
         input_normalization=normalization,
@@ -774,11 +774,11 @@ def get_DeepFixEnd2End(
                     'LogSoftmaxVecAttn': LogSoftmaxVecAttn,
                     }[mlp_attn],
     )
-    m = DeepFixEnd2End(enc, mlp)
+    m = WaveletFixEnd2End(enc, mlp)
     return m
 
 
-class DeepFixClassifier(T.nn.Module):
+class WaveletFixClassifier(T.nn.Module):
     def __init__(self, backbone:str, backbone_pretraining:str, in_channels:int, out_channels:int, patch_size:int):
         super().__init__()
 
@@ -815,23 +815,23 @@ class DeepFixClassifier(T.nn.Module):
         return x
 
 
-def get_DeepFixEnd2End_v2(
+def get_WaveletFixEnd2End_v2(
         in_channels, out_channels,
         in_ch_multiplier=1, wavelet='coif2', wavelet_levels=4, wavelet_patch_size=1,
         patch_features='l1', backbone='resnet18', backbone_pretraining='imagenet'):
-    enc = DeepFixCompression(
+    enc = WaveletFixCompression(
         in_ch=in_channels, in_ch_multiplier=in_ch_multiplier, levels=wavelet_levels,
         wavelet=wavelet, patch_size=wavelet_patch_size, patch_features=patch_features.split(','))
     enc_channels = 4**wavelet_levels*in_channels*in_ch_multiplier*len(patch_features.split(','))
 
-    classifier = DeepFixClassifier(
+    classifier = WaveletFixClassifier(
         backbone=backbone, backbone_pretraining=backbone_pretraining,
         in_channels=enc_channels, out_channels=out_channels,
         patch_size=wavelet_patch_size)
 
-    m = DeepFixEnd2End(enc, classifier)
+    m = WaveletFixEnd2End(enc, classifier)
     return m
 
 
 if __name__ == "__main__":
-    m = get_DeepFixEnd2End(3, out_channels=30, )
+    m = get_WaveletFixEnd2End(3, out_channels=30, )

@@ -1,5 +1,5 @@
-from deepfix import plotting as P
-from deepfix.models.wavelet_packet import WaveletPacket2d
+from waveletfix import plotting as P
+from waveletfix.models.wavelet_packet import WaveletPacket2d
 from matplotlib import pyplot as plt
 import numpy as np
 import pywt

@@ -15,16 +15,16 @@ import dataclasses as dc
 import torch as T
 import timm
 
-from deepfix.models import (
+from waveletfix.models import (
     vip, MedianPool2d,
     get_effnetv2, get_resnet, get_densenet, get_efficientnetv1,
-    get_DeepFixEnd2End, get_DeepFixEnd2End_v2, DeepFixMLP, UnetD,
-    DeepFixImg2Img, MDMLP  # note: timm.create_model is also used.
+    get_WaveletFixEnd2End, get_WaveletFixEnd2End_v2, WaveletFixMLP, UnetD,
+    WaveletFixImg2Img, MDMLP  # note: timm.create_model is also used.
 )
 from torchvision.transforms import GaussianBlur
-from deepfix.dsets import (
+from waveletfix.dsets import (
     get_dset_chexpert, get_dset_intel_mobileodt, get_dset_kimeye,
-    get_dset_flowers102, get_dset_food101, get_dset_food101_deepfixed)
+    get_dset_flowers102, get_dset_food101, get_dset_food101_waveletfixed)
 
 
 def parse_normalization(normalization, wavelet, wavelet_levels, wavelet_patch_size, patch_features, zero_mean):
@@ -54,7 +54,7 @@ MODELS = {
     ('efficientnet-b1', str, str, str): (
         lambda pretrain, in_ch, out_ch: get_efficientnetv1('efficientnet-b1', pretrain, int(in_ch), int(out_ch))),
     ('waveletmlp', str, str, str, str, str, str, str): (
-        lambda mlp_channels, in_ch, out_ch, wavelet_levels, patch_size, in_ch_mul, mlp_depth: get_DeepFixEnd2End(
+        lambda mlp_channels, in_ch, out_ch, wavelet_levels, patch_size, in_ch_mul, mlp_depth: get_WaveletFixEnd2End(
             int(in_ch), int(out_ch),
             in_ch_multiplier=int(in_ch_mul), wavelet='db1',
             wavelet_levels=int(wavelet_levels), wavelet_patch_size=int(patch_size),
@@ -63,7 +63,7 @@ MODELS = {
             normalization=('none', ), mlp_attn='VecAttn')
         ),
     ('waveletmlpV2', str, str, str, str, str, str): (
-        lambda in_ch, out_ch, wavelet, wavelet_levels, patch_size, patch_features: get_DeepFixEnd2End(
+        lambda in_ch, out_ch, wavelet, wavelet_levels, patch_size, patch_features: get_WaveletFixEnd2End(
             int(in_ch), int(out_ch),
             in_ch_multiplier=1, wavelet=wavelet,
             wavelet_levels=int(wavelet_levels), wavelet_patch_size=int(patch_size),
@@ -73,7 +73,7 @@ MODELS = {
             normalization=('none', ), mlp_attn='VecAttn')
         ),
     ('waveletmlp_bn', str, str, str, str, str, str, str, str): (
-        lambda in_ch, out_ch, wavelet, wavelet_levels, patch_size, patch_features, zero_mean, normalization: get_DeepFixEnd2End(
+        lambda in_ch, out_ch, wavelet, wavelet_levels, patch_size, patch_features, zero_mean, normalization: get_WaveletFixEnd2End(
             int(in_ch), int(out_ch),
             in_ch_multiplier=1, wavelet=wavelet,
             wavelet_levels=int(wavelet_levels), wavelet_patch_size=int(patch_size),
@@ -85,7 +85,7 @@ MODELS = {
             mlp_attn='VecAttn', )
         ),
     ('attn_test', str, str, str, str): (
-        lambda attn, out_ch, wavelet_levels, patch_size: get_DeepFixEnd2End(
+        lambda attn, out_ch, wavelet_levels, patch_size: get_WaveletFixEnd2End(
             1, int(out_ch), in_ch_multiplier=1, wavelet='coif2',
             wavelet_levels=int(wavelet_levels), wavelet_patch_size=int(patch_size),
             patch_features='l1',
@@ -93,8 +93,8 @@ MODELS = {
             zero_mean=False, normalization=parse_normalization('0mean,chexpert_small', 'coif2', wavelet_levels, patch_size, 'l1', '0'),
             mlp_attn=attn,)
     ),
-    ('deepfix_v1', str, str, str): (
-        lambda out_ch, wavelet_levels, patch_size: get_DeepFixEnd2End(
+    ('waveletfix_v1', str, str, str): (
+        lambda out_ch, wavelet_levels, patch_size: get_WaveletFixEnd2End(
             1, int(out_ch), in_ch_multiplier=1, wavelet='coif2',
             wavelet_levels=int(wavelet_levels), wavelet_patch_size=int(patch_size),
             patch_features='l1',
@@ -102,11 +102,11 @@ MODELS = {
             mlp_attn='VecAttn',
             zero_mean=False, normalization=parse_normalization('0mean,chexpert_small', 'coif2', wavelet_levels, patch_size, 'l1', '0'))
     ),
-    # adaptive, placing unet before deepfix encoder
-    ('adeepfix_v1', str, str, str): (
+    # adaptive, placing unet before waveletfix encoder
+    ('awaveletfix_v1', str, str, str): (
         lambda out_ch, wavelet_levels, patch_size: T.nn.Sequential(
             UnetD(channels=(1,3,6,12,24,48,96), depthwise_channel_multiplier=4,),
-            get_DeepFixEnd2End(
+            get_WaveletFixEnd2End(
                 1, int(out_ch), in_ch_multiplier=1, wavelet='db1',
                 wavelet_levels=int(wavelet_levels), wavelet_patch_size=int(patch_size),
                 patch_features='l1',
@@ -116,8 +116,8 @@ MODELS = {
         )
     ),
     # adaptive wavelet packet version:
-    ('deepfix_v1', str, str, str, str): (
-        lambda out_ch, wavelet_levels, patch_size, adaptive: get_DeepFixEnd2End(
+    ('waveletfix_v1', str, str, str, str): (
+        lambda out_ch, wavelet_levels, patch_size, adaptive: get_WaveletFixEnd2End(
             1, int(out_ch), in_ch_multiplier=1, wavelet='coif2',
             wavelet_levels=int(wavelet_levels), wavelet_patch_size=int(patch_size),
             patch_features='l1',
@@ -128,8 +128,8 @@ MODELS = {
         )
     ),
     # adaptive wavelet packet version varying wavelet initialization:
-    ('deepfix_v1', str, str, str, str, str): (
-        lambda out_ch, wavelet_levels, patch_size, adaptive, wavelet: get_DeepFixEnd2End(
+    ('waveletfix_v1', str, str, str, str, str): (
+        lambda out_ch, wavelet_levels, patch_size, adaptive, wavelet: get_WaveletFixEnd2End(
             1, int(out_ch), in_ch_multiplier=1, wavelet=wavelet,
             wavelet_levels=int(wavelet_levels), wavelet_patch_size=int(patch_size),
             patch_features='l1',
@@ -140,8 +140,8 @@ MODELS = {
         )
     ),
     # adaptive wavelet packet, supporting adaptive=1 or adaptive=2, different wavelets (including pytorch init like 'normal_:2'), and varying normalization
-    ('deepfix_v1', str, str, str, str, str, str): (
-        lambda out_ch, wavelet_levels, patch_size, adaptive, wavelet, normalization: get_DeepFixEnd2End(
+    ('waveletfix_v1', str, str, str, str, str, str): (
+        lambda out_ch, wavelet_levels, patch_size, adaptive, wavelet, normalization: get_WaveletFixEnd2End(
             1, int(out_ch), in_ch_multiplier=1, wavelet=wavelet,
             wavelet_levels=int(wavelet_levels), wavelet_patch_size=int(patch_size),
             patch_features='l1',
@@ -152,15 +152,15 @@ MODELS = {
         )
     ),
     # adaptive wavelet packet, supporting pytorch initialization and custom normalization
-    ('deepfix_v2', str, str, str, str, str, str, str, str): (
-        lambda in_ch, out_ch, wavelet, wavelet_levels, patch_size, patch_features, backbone, pretraining: get_DeepFixEnd2End_v2(
+    ('waveletfix_v2', str, str, str, str, str, str, str, str): (
+        lambda in_ch, out_ch, wavelet, wavelet_levels, patch_size, patch_features, backbone, pretraining: get_WaveletFixEnd2End_v2(
             int(in_ch), int(out_ch),
             in_ch_multiplier=1, wavelet=wavelet,
             wavelet_levels=int(wavelet_levels), wavelet_patch_size=int(patch_size),
             patch_features=patch_features,
             backbone=backbone, backbone_pretraining=pretraining,)
         ),
-    ('deepfix_cervical', str, str): (lambda J, P: get_DeepFixEnd2End(
+    ('waveletfix_cervical', str, str): (lambda J, P: get_WaveletFixEnd2End(
             in_channels=3, out_channels=3, in_ch_multiplier=1, wavelet='db1',
             wavelet_levels=int(J), wavelet_patch_size=int(P), patch_features='l1',
             mlp_depth=2, mlp_channels=300, mlp_activation=None,
@@ -168,15 +168,15 @@ MODELS = {
             zero_mean=False, normalization=('batchnorm', ), mlp_attn='Identity',
             adaptive=0)),
 
-    ('deepfix_resnet18', str, str, str, str, str): (lambda in_ch, out_ch, J, Ph, Pw: T.nn.Sequential(
-        DeepFixImg2Img(in_channels=int(in_ch), J=int(J), P=(int(Ph), int(Pw)),
+    ('waveletfix_resnet18', str, str, str, str, str): (lambda in_ch, out_ch, J, Ph, Pw: T.nn.Sequential(
+        WaveletFixImg2Img(in_channels=int(in_ch), J=int(J), P=(int(Ph), int(Pw)),
                        wavelet='db1', patch_features='l1',
                        restore_orig_size=False,
                        ),
         get_resnet('resnet18', 'untrained', int(in_ch), int(out_ch)),
     )),
-    ('deepfix_densenet121', str, str, str, str, str): (lambda in_ch, out_ch, J, Ph, Pw: T.nn.Sequential(
-        DeepFixImg2Img(in_channels=int(in_ch), J=int(J), P=(int(Ph), int(Pw)),
+    ('waveletfix_densenet121', str, str, str, str, str): (lambda in_ch, out_ch, J, Ph, Pw: T.nn.Sequential(
+        WaveletFixImg2Img(in_channels=int(in_ch), J=int(J), P=(int(Ph), int(Pw)),
                        wavelet='db1', patch_features='l1',
                        restore_orig_size=False, min_size=(64,64)
                        ),
@@ -195,8 +195,8 @@ MODELS = {
             'volo_d1_224',
             in_chans=int(in_ch), num_classes=int(out_ch), pretrained=True),
     )),
-    ('deepfix_volo_d1_224', str, str, str, str, str): (lambda in_ch, out_ch, J, Ph, Pw: T.nn.Sequential(
-        DeepFixImg2Img(in_channels=int(in_ch), J=int(J), P=(int(Ph), int(Pw)),
+    ('waveletfix_volo_d1_224', str, str, str, str, str): (lambda in_ch, out_ch, J, Ph, Pw: T.nn.Sequential(
+        WaveletFixImg2Img(in_channels=int(in_ch), J=int(J), P=(int(Ph), int(Pw)),
                        wavelet='db1', patch_features='l1',
                        restore_orig_size=False,
                        ),
@@ -211,8 +211,8 @@ MODELS = {
             'efficientnetv2_m',
             in_chans=int(in_ch), num_classes=int(out_ch), pretrained=False),
     )),
-    ('deepfix_efficientnetv2_m', str, str, str, str, str): (lambda in_ch, out_ch, J, Ph, Pw: T.nn.Sequential(
-        DeepFixImg2Img(in_channels=int(in_ch), J=int(J), P=(int(Ph), int(Pw)),
+    ('waveletfix_efficientnetv2_m', str, str, str, str, str): (lambda in_ch, out_ch, J, Ph, Pw: T.nn.Sequential(
+        WaveletFixImg2Img(in_channels=int(in_ch), J=int(J), P=(int(Ph), int(Pw)),
                        wavelet='db1', patch_features='l1',
                        restore_orig_size=False, min_size=(33,33)
                        ),
@@ -221,8 +221,8 @@ MODELS = {
             'efficientnetv2_m',
             in_chans=int(in_ch), num_classes=int(out_ch), pretrained=False),
     )),
-    ('deepfix_efficientnet-b0', str, str, str, str, str): (lambda in_ch, out_ch, J, Ph, Pw: T.nn.Sequential(
-        DeepFixImg2Img(in_channels=int(in_ch), J=int(J), P=(int(Ph), int(Pw)),
+    ('waveletfix_efficientnet-b0', str, str, str, str, str): (lambda in_ch, out_ch, J, Ph, Pw: T.nn.Sequential(
+        WaveletFixImg2Img(in_channels=int(in_ch), J=int(J), P=(int(Ph), int(Pw)),
                        wavelet='db1', patch_features='l1',
                        restore_orig_size=False, min_size=(64,64)
                        ),
@@ -232,9 +232,9 @@ MODELS = {
             T.nn.UpsamplingNearest2d((224,224)),
             vip.vip_s7(in_chans=int(in_ch), num_classes=int(out_ch))
         )),
-    ('deepfix_vip_s7', str, str, str, str, str): (
+    ('waveletfix_vip_s7', str, str, str, str, str): (
         lambda in_ch, out_ch, J, Ph, Pw: T.nn.Sequential(
-            DeepFixImg2Img(in_channels=int(in_ch), J=int(J), P=(int(Ph), int(Pw)),
+            WaveletFixImg2Img(in_channels=int(in_ch), J=int(J), P=(int(Ph), int(Pw)),
                            wavelet='db1', patch_features='l1',
                            restore_orig_size=False, min_size=(64,64)
                            ),
@@ -247,9 +247,9 @@ MODELS = {
             timm.create_model(
                 'coatnet_1_224', in_chans=int(in_ch), num_classes=int(out_ch)))
     ),
-    ('deepfix_coatnet_1_224', str, str, str, str, str): (
+    ('waveletfix_coatnet_1_224', str, str, str, str, str): (
         lambda in_ch, out_ch, J, Ph, Pw: T.nn.Sequential(
-            DeepFixImg2Img(
+            WaveletFixImg2Img(
                 in_channels=int(in_ch), J=int(J), P=(int(Ph), int(Pw)),
                 wavelet='db1', patch_features='l1', min_size=(224,224)),
             T.nn.UpsamplingNearest2d((224,224)),
@@ -261,11 +261,11 @@ MODELS = {
             img_size=320, in_chans=int(in_ch), num_classes=int(out_ch),
             base_dim=64, depth=8, patch_size=20, overlap=10)),
     #  ('waveletres18v2', str, str, str): lambda pretrain, in_ch, out_ch: (
-        #  DeepFixCompression(levels=8, wavelet='coif1', patch_size=1),
+        #  WaveletFixCompression(levels=8, wavelet='coif1', patch_size=1),
         #  R2(pretrain, int(in_ch), int(out_ch))),
-    ('deepfix_mdmlp_320', str, str ,str, str, str):
+    ('waveletfix_mdmlp_320', str, str ,str, str, str):
         lambda in_ch, out_ch, J, Ph, Pw: T.nn.Sequential(
-            DeepFixImg2Img(
+            WaveletFixImg2Img(
                 in_channels=int(in_ch), J=int(J), P=(int(Ph), int(Pw)),
                 wavelet='db1', patch_features='l1', restore_orig_size=True),
             MDMLP(img_size=320, in_chans=int(in_ch), num_classes=int(out_ch),
@@ -274,9 +274,9 @@ MODELS = {
         lambda in_ch, out_ch: timm.create_model(
             'mdmlp_patch14_lap7_dim64_depth8_224',
             in_chans=int(in_ch), num_classes=int(out_ch))),
-    ('deepfix_mdmlp_patch14_lap7_dim64_depth8_224', str, str, str, str, str): (
+    ('waveletfix_mdmlp_patch14_lap7_dim64_depth8_224', str, str, str, str, str): (
         lambda in_ch, out_ch, J, Ph, Pw: T.nn.Sequential(
-            DeepFixImg2Img(
+            WaveletFixImg2Img(
                 in_channels=int(in_ch), J=int(J), P=(int(Ph), int(Pw)),
                 wavelet='db1', patch_features='l1', restore_orig_size=True),
             timm.create_model(
@@ -380,7 +380,7 @@ DSETS = {
     ('flowers102', ): lambda _: get_dset_flowers102(),
     ('food101', ): (lambda _: get_dset_food101()),
     ('food101', str, str): (
-        lambda J, P: get_dset_food101_deepfixed(int(J), int(P))),
+        lambda J, P: get_dset_food101_waveletfixed(int(J), int(P))),
 }
 
 
@@ -433,10 +433,10 @@ class RegularizedLoss(T.nn.Module):
         self.regularizer_spec = regularizer_spec
         if regularizer_spec == 'none':
             self.regularizer = lambda *y: 0
-        elif regularizer_spec.startswith('deepfixmlp:'):
+        elif regularizer_spec.startswith('waveletfixmlp:'):
             lbda = float(regularizer_spec.split(':')[1])
             self.regularizer = lambda *y: (
-                float(lbda) * DeepFixMLP.get_VecAttn_regularizer(model))
+                float(lbda) * WaveletFixMLP.get_VecAttn_regularizer(model))
         else:
             raise NotImplementedError(regularizer_spec)
 
@@ -556,7 +556,7 @@ class TrainOptions:
           --lossfn chexpert_uignore
     """
 
-    loss_reg:str = 'none'  # Optionally add a regularizer to the loss.  loss + reg.  Accepted values:  "none", "deepfixmlp:X" where X is a positive float denoting the lambda in l1 regularizer
+    loss_reg:str = 'none'  # Optionally add a regularizer to the loss.  loss + reg.  Accepted values:  "none", "waveletfixmlp:X" where X is a positive float denoting the lambda in l1 regularizer
     model:str = 'resnet18:imagenet:3:3'  # Model specification adheres to the template "model_name:pretraining:in_ch:out_ch"
     experiment_id:str = os.environ.get('run_id', 'debugging')
     prune:str = 'off'

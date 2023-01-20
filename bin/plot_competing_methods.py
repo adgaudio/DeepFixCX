@@ -1,5 +1,5 @@
-from deepfix.dsets import get_dset_chexpert
-from deepfix.models import DeepFixImg2Img, MedianPool2d
+from waveletfix.dsets import get_dset_chexpert
+from waveletfix.models import WaveletFixImg2Img, MedianPool2d
 import re
 from skimage.metrics import structural_similarity as ssim
 import torch as T
@@ -22,39 +22,39 @@ def plot_accuracy_DNNs():
     # results are the 'test_ROC_AUC AVG' of the model (across J,P and epochs) with highest 'val_ROC_AUC AVG' accuracy.
     chexpert_baselines = pd.DataFrame([
         # below:  1st line:  baseline.  2nd line:  model with highest val roc auc avg.  3rd line (commented out): of models with highest val roc auc avg, choose that with highest test roc auc avg.  Third line looks best but I think it isn't correct way to do model selection.
-        ("DenseNet121 vs $DeepFixCX$", 'DNN', 0.868),  # 4.C8
-        ("DenseNet121 vs $DeepFixCX$",
-         '$DeepFixCX$ (J=1 P=115) -> DNN', 0.876),  # 2.C28
-        # ("DenseNet121 vs $DeepFixCX$", '$DeepFixCX$ (J=1 P=160) -> DNN', 0.881),  # 2.C28
+        ("DenseNet121 vs $WaveletFix$", 'DNN', 0.868),  # 4.C8
+        ("DenseNet121 vs $WaveletFix$",
+         '$WaveletFix$ (J=1 P=115) -> DNN', 0.876),  # 2.C28
+        # ("DenseNet121 vs $WaveletFix$", '$WaveletFix$ (J=1 P=160) -> DNN', 0.881),  # 2.C28
 
-        ("EfficientNet-b0 vs $DeepFixCX$", 'DNN', 0.874),  # 4.C8
-        ("EfficientNet-b0 vs $DeepFixCX$",
-         '$DeepFixCX$ (J=1 P=160) -> DNN', 0.871),  # 2.C30
-        # ("EfficientNet-b0 vs $DeepFixCX$", '$DeepFixCX$ (J=1 P=115) -> DNN', 0.877),  # 2.C30
+        ("EfficientNet-b0 vs $WaveletFix$", 'DNN', 0.874),  # 4.C8
+        ("EfficientNet-b0 vs $WaveletFix$",
+         '$WaveletFix$ (J=1 P=160) -> DNN', 0.871),  # 2.C30
+        # ("EfficientNet-b0 vs $WaveletFix$", '$WaveletFix$ (J=1 P=115) -> DNN', 0.877),  # 2.C30
 
-        ("EfficientNetV2_m vs $DeepFixCX$", 'DNN', .869),  # 4.C8
-        ("EfficientNetV2_m vs $DeepFixCX$",
-         '$DeepFixCX$ (J=1 P=115) -> DNN', .869),  # 2.C33
+        ("EfficientNetV2_m vs $WaveletFix$", 'DNN', .869),  # 4.C8
+        ("EfficientNetV2_m vs $WaveletFix$",
+         '$WaveletFix$ (J=1 P=115) -> DNN', .869),  # 2.C33
 
-        ('MDMLP_320 vs $DeepFixCX$', 'DNN', .831),
-        ('MDMLP_320 vs $DeepFixCX$', '$DeepFixCX$ (J=1 P=79) -> DNN', .848),  # 2.C35
-        # ('MDMLP_320 vs $DeepFixCX$', '$DeepFixCX$ (J=1 P=37) -> DNN', .854),  # 2.C35
+        ('MDMLP_320 vs $WaveletFix$', 'DNN', .831),
+        ('MDMLP_320 vs $WaveletFix$', '$WaveletFix$ (J=1 P=79) -> DNN', .848),  # 2.C35
+        # ('MDMLP_320 vs $WaveletFix$', '$WaveletFix$ (J=1 P=37) -> DNN', .854),  # 2.C35
 
-        ('VOLO_d1_224 vs $DeepFixCX$', 'DNN', .805),
-        ('VOLO_d1_224 vs $DeepFixCX$', '$DeepFixCX$ (J=1 P=115) -> DNN', .837),  # 2.C29
-        # ('VOLO_d1_224 vs $DeepFixCX$', '$DeepFixCX$ (J=2 P=79) -> DNN', .843),  # 2.C29
+        ('VOLO_d1_224 vs $WaveletFix$', 'DNN', .805),
+        ('VOLO_d1_224 vs $WaveletFix$', '$WaveletFix$ (J=1 P=115) -> DNN', .837),  # 2.C29
+        # ('VOLO_d1_224 vs $WaveletFix$', '$WaveletFix$ (J=2 P=79) -> DNN', .843),  # 2.C29
 
         #
-        ('CoAtNet_224 vs $DeepFixCX$', 'DNN', .828),
-        ('CoAtNet_224 vs $DeepFixCX$', '$DeepFixCX$ (J=1 P=160) -> DNN', .831),  # 2.C36
-        # ('CoAtNet_224 vs $DeepFixCX$', '$DeepFixCX$ (J=1 P=37) -> DNN', .843),  # 2.C36
+        ('CoAtNet_224 vs $WaveletFix$', 'DNN', .828),
+        ('CoAtNet_224 vs $WaveletFix$', '$WaveletFix$ (J=1 P=160) -> DNN', .831),  # 2.C36
+        # ('CoAtNet_224 vs $WaveletFix$', '$WaveletFix$ (J=1 P=37) -> DNN', .843),  # 2.C36
 
-        ('VIP_s7 vs $DeepFixCX$', 'DNN', .801),  # 4.C8
-        ('VIP_s7 vs $DeepFixCX$', '$DeepFixCX$ (J=1 P=115) -> DNN', .801),  # 2.C33
+        ('VIP_s7 vs $WaveletFix$', 'DNN', .801),  # 4.C8
+        ('VIP_s7 vs $WaveletFix$', '$WaveletFix$ (J=1 P=115) -> DNN', .801),  # 2.C33
         # not evaluated on all models.
 
-        # ('ResNet18 vs $DeepFixCX$', 'DNN', 0.864),  # 4.C8
-        # ('ResNet18 vs $DeepFixCX$', '$DeepFixCX$ (J=1 P=115) -> DNN', .845),  # 2.C33
+        # ('ResNet18 vs $WaveletFix$', 'DNN', 0.864),  # 4.C8
+        # ('ResNet18 vs $WaveletFix$', '$WaveletFix$ (J=1 P=115) -> DNN', .845),  # 2.C33
 
     ], columns=['Experiment', 'Method', 'Prediction Performance (Test Set AVG ROC AUC)'])
 
@@ -67,11 +67,11 @@ def plot_accuracy_DNNs():
     #     x='Experiment', y='Prediction Performance (Test Set AVG ROC AUC)',
     #     hue='Method', ax=ax)
     # barplot.set_ylim(.8, .9)
-    # barplot.set_title("$DeepFixCX$ Improves Prediction Performance of DNNs")
+    # barplot.set_title("$WaveletFix$ Improves Prediction Performance of DNNs")
     # barplot.set_xticklabels(
     #     barplot.get_xticklabels(), rotation=10, horizontalalignment='center')
     # barplot.legend(loc='lower right')
-    # savefp = 'results/plots/accuracy_DNNs_vs_DeepFix.png'
+    # savefp = 'results/plots/accuracy_DNNs_vs_WaveletFix.png'
     # barplot.figure.savefig(savefp, bbox_inches='tight')
     chexpert_baselines.to_latex(savefp.replace('.png', '.tex'))
     print('save to:', savefp.replace('.png', '.tex'))
@@ -81,7 +81,7 @@ def plot_accuracy_DNNs():
 
 # chexpert, accuracy with median and blur filters
 
-# idea: for each blur, find closest deepfix.  get perf on that deepfix. compare
+# idea: for each blur, find closest waveletfix.  get perf on that waveletfix. compare
 
 
 def blur(tensor_img: T.Tensor, kernel_size: int) -> T.Tensor:
@@ -96,7 +96,7 @@ def median(tensor_img: T.Tensor, kernel_size: int, min_size=(64, 64)):
     return f(tensor_img)
 
 
-def find_deepfix_model_most_comparable_to(competing_method, kernel_sizes):
+def find_waveletfix_model_most_comparable_to(competing_method, kernel_sizes):
     dset = get_dset_chexpert(.9, .1, small=True, labels='diagnostic', epoch_size=15000)[
         0]['train_dset']
     fig, axs = plt.subplots(2, len(kernel_sizes), figsize=(
@@ -104,7 +104,7 @@ def find_deepfix_model_most_comparable_to(competing_method, kernel_sizes):
     for n, kernel_size in enumerate(kernel_sizes):
         img = dset[0][0]
         blurred = competing_method(img.unsqueeze(0), kernel_size)
-        score, J, P, deepfix_img = _find_closest_deepfix(
+        score, J, P, waveletfix_img = _find_closest_waveletfix(
             img, blurred, kernel_size)
         # print(kernel_size, ':', J, P, ':', '1/err', score)
         # fig, (c, a,b) = plt.subplots(1,3, figsize=(8,2.75))
@@ -115,7 +115,7 @@ def find_deepfix_model_most_comparable_to(competing_method, kernel_sizes):
         a.imshow(blurred.squeeze().numpy())
         a.set_title(f'K={kernel_size}')
         b = axs[1, n]
-        b.imshow(deepfix_img.squeeze().numpy())
+        b.imshow(waveletfix_img.squeeze().numpy())
         b.set_title(f'J={J} P={P}')
         [ax.axis('off') for ax in [a, b]]
     for ax in [axs[0, 0], axs[1, 0]]:
@@ -123,29 +123,29 @@ def find_deepfix_model_most_comparable_to(competing_method, kernel_sizes):
         ax.set_yticks([])
         ax.get_xaxis().set_visible(False)
     axs[0, 0].set_ylabel(f'{competing_method.__name__.capitalize()}')
-    axs[1, 0].set_ylabel(f'$DeepFixCX$')
-    savefp = f'results/plots/img_{competing_method.__name__}_vs_DeepFix.png'
+    axs[1, 0].set_ylabel(f'$WaveletFix$')
+    savefp = f'results/plots/img_{competing_method.__name__}_vs_WaveletFix.png'
     fig.tight_layout()
     fig.savefig(savefp, bbox_inches='tight')
     print('save to:', savefp)
 
 
-def _find_closest_deepfix(img: T.Tensor, blurred_img, K):
+def _find_closest_waveletfix(img: T.Tensor, blurred_img, K):
     H = img.shape[-2]
     best = [0, 0, 0, None]
     blurred_img = Resize(img.shape[-2:])(blurred_img).squeeze(0).numpy()
     for J in range(1, int(np.log2(H))):
         for P in range(1, 161):
             if P <= H / 2**J:
-                deepfix_img = DeepFixImg2Img(
+                waveletfix_img = WaveletFixImg2Img(
                     1, J, P, restore_orig_size=True)(img.unsqueeze(0))
                 z = 1 / \
                     np.sqrt(
-                        ((blurred_img - deepfix_img.squeeze(0).squeeze(0).numpy())**2).sum())
+                        ((blurred_img - waveletfix_img.squeeze(0).squeeze(0).numpy())**2).sum())
                 # print(J, P,z)
                 # print('...', z)
                 if z > best[0]:
-                    best[:] = [z, J, P, deepfix_img]
+                    best[:] = [z, J, P, waveletfix_img]
     # print(best[:3])
     return best
 
@@ -153,30 +153,30 @@ def _find_closest_deepfix(img: T.Tensor, blurred_img, K):
 def plot_accuracy_blur_median(plot=True):
     df1 = pd.DataFrame([
         ('K=4 vs\nP=80', 'Blur', 'Blur, K={K}',  .856), (
-            'K=4 vs\nP=80', 'Blur', r'closest $DeepFixCX$, J=1 P={P}', .883),
+            'K=4 vs\nP=80', 'Blur', r'closest $WaveletFix$, J=1 P={P}', .883),
         ('K=8 vs\nP=40', 'Blur', 'Blur, K={K}',  .854), (
-            'K=8 vs\nP=40', 'Blur', r'closest $DeepFixCX$, J=1 P={P}', .855),
+            'K=8 vs\nP=40', 'Blur', r'closest $WaveletFix$, J=1 P={P}', .855),
         ('K=16 vs\nP=20', 'Blur', 'Blur, K={K}', .792), (
-            'K=16 vs\nP=20', 'Blur', r'closest $DeepFixCX$, J=1 P={P}', .843),
+            'K=16 vs\nP=20', 'Blur', r'closest $WaveletFix$, J=1 P={P}', .843),
         ('K=32 vs\nP=10', 'Blur', 'Blur, K={K}', .757), (
-            'K=32 vs\nP=10', 'Blur', r'closest $DeepFixCX$, J=1 P={P}', .826),
+            'K=32 vs\nP=10', 'Blur', r'closest $WaveletFix$, J=1 P={P}', .826),
         ('K=64 vs\nP=5', 'Blur', 'Blur, K={K}', .741),  (
-            'K=64 vs\nP=5', 'Blur', r'closest $DeepFixCX$, J=1 P={P}', .785),
+            'K=64 vs\nP=5', 'Blur', r'closest $WaveletFix$, J=1 P={P}', .785),
         # \hline
         ('K=3 vs\nP=80', 'Median', 'Median, K={K}',  .859), (
-            'K=3 vs\nP=80', 'Median', r'closest $DeepFixCX$, J=1 P={P}',  .883),
+            'K=3 vs\nP=80', 'Median', r'closest $WaveletFix$, J=1 P={P}',  .883),
         ('K=5 vs\nP=80', 'Median', 'Median, K={K}',  .854), (
-            'K=5 vs\nP=80', 'Median', r'closest $DeepFixCX$, J=1 P={P}',  .883),
+            'K=5 vs\nP=80', 'Median', r'closest $WaveletFix$, J=1 P={P}',  .883),
         ('K=9  vs\nP=40', 'Median', 'Median, K={K}', .858), (
-            'K=9  vs\nP=40', 'Median', r'closest $DeepFixCX$, J=1 P={P}', .855),
+            'K=9  vs\nP=40', 'Median', r'closest $WaveletFix$, J=1 P={P}', .855),
         ('K=15 vs\nP=40', 'Median', 'Median, K={K}', .850), (
-            'K=15 vs\nP=40', 'Median', r'closest $DeepFixCX$, J=1 P={P}', .855),
+            'K=15 vs\nP=40', 'Median', r'closest $WaveletFix$, J=1 P={P}', .855),
         ('K=25 vs\nP=18', 'Median', 'Median, K={K}', .831), (
-            'K=25 vs\nP=18', 'Median', r'closest $DeepFixCX$, J=1 P={P}', .840),
+            'K=25 vs\nP=18', 'Median', r'closest $WaveletFix$, J=1 P={P}', .840),
         ('K=50 vs\nP=6', 'Median', 'Median, K={K}', .800),  (
-            'K=50 vs\nP=6', 'Median', r'closest $DeepFixCX$, J=1 P={P}', .791),
+            'K=50 vs\nP=6', 'Median', r'closest $WaveletFix$, J=1 P={P}', .791),
         ('K=75 vs\nP=4', 'Median', 'Median, K={K}', .761),  (
-            'K=75 vs\nP=4', 'Median', r'closest $DeepFixCX$, J=1 P={P}', .766),
+            'K=75 vs\nP=4', 'Median', r'closest $WaveletFix$, J=1 P={P}', .766),
     ], columns=[
         'Experiment', 'Competing Method', 'Method', 'Prediction Perf (Test Set AVG ROC AUC)',
     ])
@@ -198,7 +198,7 @@ def plot_accuracy_blur_median(plot=True):
             ax.set_ylim(.7, .9)
             ax.legend(loc='lower right')
             fig.subplots_adjust(bottom=.2)
-            savefp = f'results/plots/accuracy_{competing_method}_vs_DeepFix.png'
+            savefp = f'results/plots/accuracy_{competing_method}_vs_WaveletFix.png'
             print('save to: ', savefp)
             fig.savefig(savefp, bbox_inches='tight')
     return df1
@@ -209,51 +209,51 @@ def plot_ssim_blur_median():
         # experiments_blur = [
         {'Experiment': 'K=4 vs\n J=1 P=80', 'Type': 'Blur', 'Method': 'Blur, K={K}'},
         {'Experiment': 'K=4 vs\n J=1 P=80', 'Type': 'Blur',
-            'Method': 'closest $DeepFixCX$, J=1 P={P}'},
+            'Method': 'closest $WaveletFix$, J=1 P={P}'},
         {'Experiment': 'K=8 vs\n J=1 P=40', 'Type': 'Blur', 'Method': 'Blur, K={K}'},
         {'Experiment': 'K=8 vs\n J=1 P=40', 'Type': 'Blur',
-            'Method': 'closest $DeepFixCX$, J=1 P={P}'},
+            'Method': 'closest $WaveletFix$, J=1 P={P}'},
         {'Experiment': 'K=16 vs\n J=1 P=20',
             'Type': 'Blur', 'Method': 'Blur, K={K}'},
         {'Experiment': 'K=16 vs\n J=1 P=20', 'Type': 'Blur',
-            'Method': 'closest $DeepFixCX$, J=1 P={P}'},
+            'Method': 'closest $WaveletFix$, J=1 P={P}'},
         {'Experiment': 'K=32 vs\n J=1 P=10',
             'Type': 'Blur', 'Method': 'Blur, K={K}'},
         {'Experiment': 'K=32 vs\n J=1 P=10', 'Type': 'Blur',
-            'Method': 'closest $DeepFixCX$, J=1 P={P}'},
+            'Method': 'closest $WaveletFix$, J=1 P={P}'},
         {'Experiment': 'K=64 vs\n J=1 P=5', 'Type': 'Blur', 'Method': 'Blur, K={K}'},
         {'Experiment': 'K=64 vs\n J=1 P=5', 'Type': 'Blur',
-            'Method': 'closest $DeepFixCX$, J=1 P={P}'},
+            'Method': 'closest $WaveletFix$, J=1 P={P}'},
         # ]
         # experiments_median = [
         {'Experiment': 'K=3 vs\n J=1 P=80',
             'Type': 'Median', 'Method': 'Median, K={K}'},
         {'Experiment': 'K=3 vs\n J=1 P=80', 'Type': 'Median',
-            'Method': 'closest $DeepFixCX$, J=1 P={P}'},
+            'Method': 'closest $WaveletFix$, J=1 P={P}'},
         {'Experiment': 'K=5 vs\n J=1 P=80',
             'Type': 'Median', 'Method': 'Median, K={K}'},
         {'Experiment': 'K=5 vs\n J=1 P=80', 'Type': 'Median',
-            'Method': 'closest $DeepFixCX$, J=1 P={P}'},
+            'Method': 'closest $WaveletFix$, J=1 P={P}'},
         {'Experiment': 'K=9 vs\n J=1 P=40',
             'Type': 'Median', 'Method': 'Median, K={K}'},
         {'Experiment': 'K=9 vs\n J=1 P=40', 'Type': 'Median',
-            'Method': 'closest $DeepFixCX$, J=1 P={P}'},
+            'Method': 'closest $WaveletFix$, J=1 P={P}'},
         {'Experiment': 'K=15 vs\n J=1 P=40',
             'Type': 'Median', 'Method': 'Median, K={K}'},
         {'Experiment': 'K=15 vs\n J=1 P=40', 'Type': 'Median',
-            'Method': 'closest $DeepFixCX$, J=1 P={P}'},
+            'Method': 'closest $WaveletFix$, J=1 P={P}'},
         {'Experiment': 'K=25 vs\n J=1 P=18',
             'Type': 'Median', 'Method': 'Median, K={K}'},
         {'Experiment': 'K=25 vs\n J=1 P=18', 'Type': 'Median',
-            'Method': 'closest $DeepFixCX$, J=1 P={P}'},
+            'Method': 'closest $WaveletFix$, J=1 P={P}'},
         {'Experiment': 'K=50 vs\n J=1 P=6',
             'Type': 'Median', 'Method': 'Median, K={K}'},
         {'Experiment': 'K=50 vs\n J=1 P=6', 'Type': 'Median',
-            'Method': 'closest $DeepFixCX$, J=1 P={P}'},
+            'Method': 'closest $WaveletFix$, J=1 P={P}'},
         {'Experiment': 'K=75 vs\n J=1 P=4',
             'Type': 'Median', 'Method': 'Median, K={K}'},
         {'Experiment': 'K=75 vs\n J=1 P=4', 'Type': 'Median',
-            'Method': 'closest $DeepFixCX$, J=1 P={P}'},
+            'Method': 'closest $WaveletFix$, J=1 P={P}'},
     ]
     loader = []
 
@@ -273,10 +273,10 @@ def plot_ssim_blur_median():
             elif 'Blur' in dct['Method']:
                 K, = re.search(r'K=(\d+)', dct['Experiment']).groups()
                 new_img = resize_fn(blur(orig_img, int(K)))
-            elif 'DeepFixCX' in dct['Method']:
+            elif 'WaveletFix' in dct['Method']:
                 J, P = re.search(r'J=(\d+) P=(\d+)',
                                  dct['Experiment']).groups()
-                _dfx = DeepFixImg2Img(
+                _dfx = WaveletFixImg2Img(
                     1, int(J), int(P), restore_orig_size=True)
                 new_img = _dfx(orig_img)
             else:
@@ -307,7 +307,7 @@ def plot_ssim_blur_median():
         ax.legend(loc='lower right')
         ax.set_ylim(0.5, .85)
         # save figure and csv data to file
-        savefp = f'results/plots/ssim_{method}_vs_DeepFix.png'
+        savefp = f'results/plots/ssim_{method}_vs_WaveletFix.png'
         print('save to:', savefp)
         fig.savefig(
             savefp, bbox_inches='tight')
@@ -360,23 +360,23 @@ def plot_compression_blur_median():
     data_imrs = {}
     # ('Median', K): Num
     # ('Blur', K): Num
-    # ('$DeepFixCX$', P): Num
+    # ('$WaveletFix$', P): Num
     data_odrs = {
         # ('Median', K): [Num, ...]
         # ('Blur', K): [Num, ...]
-        # ('$DeepFixCX$', P): [Num, ...]
+        # ('$WaveletFix$', P): [Num, ...]
     }
     img_size = {}
-    closest_deepfix_for_blur = [80, 40, 20, 10, 5]
-    closest_deepfix_for_median = [80, 80, 40, 40, 18, 6, 4]
+    closest_waveletfix_for_blur = [80, 40, 20, 10, 5]
+    closest_waveletfix_for_median = [80, 80, 40, 40, 18, 6, 4]
     for orig_img, _ in loader:
         orig_img = orig_img.detach()
         instructions = [
             ('Blur', blur, [4, 8, 16, 32, 64]),
             ('Median', (lambda img, K: median(img, K, min_size=(1, 1))),
              [3, 5, 9, 15, 25, 50, 75]),
-            ('$DeepFixCX$', (lambda img, P: DeepFixImg2Img(1, J=1, P=P)(orig_img)),
-                set(closest_deepfix_for_blur + closest_deepfix_for_median)),
+            ('$WaveletFix$', (lambda img, P: WaveletFixImg2Img(1, J=1, P=P)(orig_img)),
+                set(closest_waveletfix_for_blur + closest_waveletfix_for_median)),
         ]
 
         for method_name, fn, params in instructions:
@@ -400,13 +400,13 @@ def plot_compression_blur_median():
     # pull in accuracy information.
     df1 = plot_accuracy_blur_median(plot=False)
     df2 = pd.concat({
-        'Method': df1['Method'].str.extract('(Blur|Median|\$DeepFixCX\$)')[0],
+        'Method': df1['Method'].str.extract('(Blur|Median|\$WaveletFix\$)')[0],
         'K': df1['Experiment'].str.extract('K=(\d+)')[0],
         'P': df1['Experiment'].str.extract('P=(\d+)')[0],
         'Prediction Perf (Test Set AVG ROC AUC)': df1['Prediction Perf (Test Set AVG ROC AUC)'],
     }, axis=1)
-    df2.loc[df2['Method'] == '$DeepFixCX$', 'K'] = None
-    df2.loc[df2['Method'] != '$DeepFixCX$', 'P'] = None
+    df2.loc[df2['Method'] == '$WaveletFix$', 'K'] = None
+    df2.loc[df2['Method'] != '$WaveletFix$', 'P'] = None
     df2 = df2.melt(['Method', 'Prediction Perf (Test Set AVG ROC AUC)'],
                    ['K',  'P'], 'Param').dropna()
     df2['value'] = df2['value'].astype('int')
@@ -416,26 +416,26 @@ def plot_compression_blur_median():
     df = df.join(df2.drop(columns=['Param'])).reset_index()
 
     # pull in ssim information
-    df3a = pd.read_csv('results/plots/ssim_Blur_vs_DeepFix.csv')
+    df3a = pd.read_csv('results/plots/ssim_Blur_vs_WaveletFix.csv')
     df3b = pd.concat({
-        'Method': df3a['Method'].str.extract('(Blur|Median|\$DeepFixCX\$)')[0],
+        'Method': df3a['Method'].str.extract('(Blur|Median|\$WaveletFix\$)')[0],
         'K': df3a['Experiment'].str.extract('K=(\d+)')[0],
         'P': df3a['Experiment'].str.extract('P=(\d+)')[0],
         'SSIM': df3a['SSIM'],
     }, axis=1)
-    df3b.loc[df3b['Method'] == '$DeepFixCX$', 'K'] = None
-    df3b.loc[df3b['Method'] != '$DeepFixCX$', 'P'] = None
+    df3b.loc[df3b['Method'] == '$WaveletFix$', 'K'] = None
+    df3b.loc[df3b['Method'] != '$WaveletFix$', 'P'] = None
     df3b = df3b.melt(['Method', 'SSIM'], ['K',  'P'], 'Param').dropna()
     #
-    df4a = pd.read_csv('results/plots/ssim_Median_vs_DeepFix.csv')
+    df4a = pd.read_csv('results/plots/ssim_Median_vs_WaveletFix.csv')
     df4b = pd.concat({
-        'Method': df4a['Method'].str.extract('(Median|Median|\$DeepFixCX\$)')[0],
+        'Method': df4a['Method'].str.extract('(Median|Median|\$WaveletFix\$)')[0],
         'K': df4a['Experiment'].str.extract('K=(\d+)')[0],
         'P': df4a['Experiment'].str.extract('P=(\d+)')[0],
         'SSIM': df4a['SSIM'],
     }, axis=1)
-    df4b.loc[df4b['Method'] == '$DeepFixCX$', 'K'] = None
-    df4b.loc[df4b['Method'] != '$DeepFixCX$', 'P'] = None
+    df4b.loc[df4b['Method'] == '$WaveletFix$', 'K'] = None
+    df4b.loc[df4b['Method'] != '$WaveletFix$', 'P'] = None
     df4b = df4b.melt(['Method', 'SSIM'], ['K',  'P'], 'Param').dropna()
     #
     df5 = pd.concat([df3b, df4b])
@@ -455,7 +455,8 @@ def plot_compression_blur_median():
                     y='IMR', hue='Method', ax=axs[1])
     fig.tight_layout()
 
-    savefp = './results/plots/imr_ssim_acc_blur_median_deepfix.png'
+    savefp =
+    './results/plots/imr_ssim_acc_blur_median_waveletfix.png'
     # "more private and as accurate at the same compression ratio"
     # more accurate at the same privacy level
     print('save to:', savefp)
@@ -475,18 +476,18 @@ def plot_compression_blur_median():
 
 
 def _plot_nimble(csv_files, savefp,
-                 competing_method_name_in_legend, deepfix_name_in_legend,
+                 competing_method_name_in_legend, waveletfix_name_in_legend,
                  hline: Optional[Tuple[int, str]] = None, figsize=(6, 4)):
     results = []
     for lst in csv_files:
         dnn = pd.read_csv(lst[1])
-        deepfix = pd.read_csv(lst[3])
+        waveletfix = pd.read_csv(lst[3])
         results.append(
             [lst[0], dnn['seconds_training_epoch'].min(),
-             lst[2], deepfix['seconds_training_epoch'].min()])
+             lst[2], waveletfix['seconds_training_epoch'].min()])
     df = pd.DataFrame(results, columns=[
         'Architecture', competing_method_name_in_legend,
-        'with $DeepFixCX$', deepfix_name_in_legend])  # 2nd and 4th column are SPE
+        'with $WaveletFix$', waveletfix_name_in_legend])  # 2nd and 4th column are SPE
     # print(df.head(1))
     fig, ax = plt.subplots(1, 1, figsize=figsize)
     if hline:
@@ -497,7 +498,7 @@ def _plot_nimble(csv_files, savefp,
             df
             .melt(id_vars=['Architecture'],
                   value_vars=[competing_method_name_in_legend,
-                              deepfix_name_in_legend],
+                              waveletfix_name_in_legend],
                   value_name='SPE', var_name='Experiment')
         ),
         hue='Experiment', x='Architecture', y='SPE', ax=ax)
@@ -513,71 +514,71 @@ def plot_nimble_DNNs():
     csv_files = [
         ['DenseNet121',
          'results/4.C8.diagnostic.densenet121.baseline.fromscratch/perf.csv',
-         '$DeepFixCX$ J=1 P=115', 'results/2.C28.J=1.P=115/perf.csv'],
+         '$WaveletFix$ J=1 P=115', 'results/2.C28.J=1.P=115/perf.csv'],
 
         ['EfficientNet-b0', 'results/4.C8.diagnostic.efficientnet-b0.baseline/perf.csv',
-         '$DeepFixCX$ J=1 P=160', 'results/2.C30.J=1.P=160/perf.csv'],
+         '$WaveletFix$ J=1 P=160', 'results/2.C30.J=1.P=160/perf.csv'],
 
         ['ResNet18', 'results/4.C8.diagnostic.resnet18.baseline.fromscratch/perf.csv',
-         '$DeepFixCX$ J=1 P=160', 'results/2.C25.J=1.P=160/perf.csv'],
+         '$WaveletFix$ J=1 P=160', 'results/2.C25.J=1.P=160/perf.csv'],
 
         ['EfficientNetV2_m', 'results/4.C8.diagnostic.efficientnetv2_m.baseline/perf.csv',
-         '$DeepFixCX$ (J=1 P=115)', 'results/2.C33.J=1.P=115.efficientnetv2_m/perf.csv'],
+         '$WaveletFix$ (J=1 P=115)', 'results/2.C33.J=1.P=115.efficientnetv2_m/perf.csv'],
 
         ['MDMLP_320', 'results/4.C8.diagnostic.mdmlp_320.baseline/perf.csv',
-         '$DeepFixCX$ (J=1 P=79)', 'results/2.C35.J=1.P=79/perf.csv'],
+         '$WaveletFix$ (J=1 P=79)', 'results/2.C35.J=1.P=79/perf.csv'],
 
         ['VOLO_d1_224', 'results/4.C8.diagnostic.volo_d1_224.baseline/perf.csv',
-         '$DeepFixCX$ (J=1 P=115)', 'results/2.C29.J=1.P=115/perf.csv'],
+         '$WaveletFix$ (J=1 P=115)', 'results/2.C29.J=1.P=115/perf.csv'],
 
         ['CoAtNet_224', 'results/4.C8.diagnostic.coatnet_1_224.baseline.adamw2/perf.csv',
-         '$DeepFixCX$ (J=1 P=160)', 'results/2.C36.J=1.P=160/perf.csv'],
+         '$WaveletFix$ (J=1 P=160)', 'results/2.C36.J=1.P=160/perf.csv'],
 
         ['VIP_s7', 'results/4.C8.diagnostic.vip_s7.baseline/perf.csv',
-         '$DeepFixCX$ (J=1 P=115)', 'results/2.C33.J=1.P=115.vip_s7/perf.csv'],
+         '$WaveletFix$ (J=1 P=115)', 'results/2.C33.J=1.P=115.vip_s7/perf.csv'],
         # vip_s7 not evaluated on all models.
     ]
-    df = _plot_nimble(csv_files, 'results/plots/nimble_dnn_vs_deepfix.png',
-                      'DNN', '$DeepFixCX$', figsize=(12, 4))
+    df = _plot_nimble(csv_files, 'results/plots/nimble_dnn_vs_waveletfix.png',
+                      'DNN', '$WaveletFix$', figsize=(12, 4))
     return df
 
 
 def plot_nimble_blur_median():
     blur_csv_files = [
         ['K=4', 'results/2.C31.K=4/perf.csv',
-         '$DeepFixCX$ (J=1 P=80)', 'results/2.C31b.J=1.P=80/perf.csv'],
+         '$WaveletFix$ (J=1 P=80)', 'results/2.C31b.J=1.P=80/perf.csv'],
         ['K=8', 'results/2.C31.K=8/perf.csv',
-         '$DeepFixCX$ (J=1 P=40)', 'results/2.C31b.J=1.P=40/perf.csv'],
+         '$WaveletFix$ (J=1 P=40)', 'results/2.C31b.J=1.P=40/perf.csv'],
         ['K=16', 'results/2.C31.K=16/perf.csv',
-         '$DeepFixCX$ (J=1 P=20)', 'results/2.C31b.J=1.P=20/perf.csv'],
+         '$WaveletFix$ (J=1 P=20)', 'results/2.C31b.J=1.P=20/perf.csv'],
         ['K=32', 'results/2.C31.K=32/perf.csv',
-         '$DeepFixCX$ (J=1 P=10)', 'results/2.C31b.J=1.P=10/perf.csv'],
+         '$WaveletFix$ (J=1 P=10)', 'results/2.C31b.J=1.P=10/perf.csv'],
         ['K=64', 'results/2.C31.K=64/perf.csv',
-         '$DeepFixCX$ (J=1 P=5)', 'results/2.C31b.J=1.P=5/perf.csv'],
+         '$WaveletFix$ (J=1 P=5)', 'results/2.C31b.J=1.P=5/perf.csv'],
     ]
     median_csv_files = [
-        ['K=3', 'results/2.C32.K=3/perf.csv', '$DeepFixCX$ (J=1 P=80)',
+        ['K=3', 'results/2.C32.K=3/perf.csv', '$WaveletFix$ (J=1 P=80)',
          'results/2.C31b.J=1.P=80/perf.csv'],
-        ['K=5', 'results/2.C32.K=5/perf.csv', '$DeepFixCX$ (J=1 P=80)',
+        ['K=5', 'results/2.C32.K=5/perf.csv', '$WaveletFix$ (J=1 P=80)',
          'results/2.C31b.J=1.P=80/perf.csv'],
-        ['K=9', 'results/2.C32.K=9/perf.csv', '$DeepFixCX$ (J=1 P=40)',
+        ['K=9', 'results/2.C32.K=9/perf.csv', '$WaveletFix$ (J=1 P=40)',
          'results/2.C31b.J=1.P=40/perf.csv'],
-        ['K=15', 'results/2.C32.K=15/perf.csv', '$DeepFixCX$ (J=1 P=40)',
+        ['K=15', 'results/2.C32.K=15/perf.csv', '$WaveletFix$ (J=1 P=40)',
          'results/2.C31b.J=1.P=40/perf.csv'],
-        ['K=25', 'results/2.C32.K=25/perf.csv', '$DeepFixCX$ (J=1 P=18)',
+        ['K=25', 'results/2.C32.K=25/perf.csv', '$WaveletFix$ (J=1 P=18)',
          'results/2.C31b.J=1.P=18/perf.csv'],
-        ['K=50', 'results/2.C32.K=50/perf.csv', '$DeepFixCX$ (J=1 P=6)',
+        ['K=50', 'results/2.C32.K=50/perf.csv', '$WaveletFix$ (J=1 P=6)',
          'results/2.C31b.J=1.P=6/perf.csv'],
         ['K=75', 'results/2.C32.K=75/perf.csv',
-            '$DeepFixCX$ (J=1 P=4)', 'results/2.C31b.J=1.P=4/perf.csv'],
+            '$WaveletFix$ (J=1 P=4)', 'results/2.C31b.J=1.P=4/perf.csv'],
     ]
     df1 = _plot_nimble(
-        median_csv_files, 'results/plots/nimble_median_vs_deepfix.png',
-        'Median, K={K}', 'closest $DeepFixCX$, J=1, P={P}',
+        median_csv_files, 'results/plots/nimble_median_vs_waveletfix.png',
+        'Median, K={K}', 'closest $WaveletFix$, J=1, P={P}',
         hline=(107.644, 'DNN (EfficientNet-b0, no privatized compression)'))  # number from 4.C8 efficientnet SPE.min()
     df2 = _plot_nimble(
-        blur_csv_files, 'results/plots/nimble_blur_vs_deepfix.png',
-        'Blur, K={K}', 'closest $DeepFixCX$, J=1, P={P}',
+        blur_csv_files, 'results/plots/nimble_blur_vs_waveletfix.png',
+        'Blur, K={K}', 'closest $WaveletFix$, J=1, P={P}',
         hline=(107.644, 'DNN (EfficientNet-b0, no privatized compression)'))  # number from 4.C8 efficientnet SPE.min()
     return (df1, df2)
 
@@ -591,8 +592,8 @@ if __name__ == '__main__':
     plot_nimble_blur_median()
 
     # this was used to find the J and P comparable to blur and median.
-    # and plot the side-by-side images of the blur and closest deepfix
-    find_deepfix_model_most_comparable_to(
+    # and plot the side-by-side images of the blur and closest waveletfix
+    find_waveletfix_model_most_comparable_to(
         blur, kernel_sizes=[4, 8, 16, 32, 64])
-    find_deepfix_model_most_comparable_to(
+    find_waveletfix_model_most_comparable_to(
         median, kernel_sizes=[3, 5, 9, 15, 25, 50, 75])

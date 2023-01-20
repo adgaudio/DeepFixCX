@@ -11,9 +11,9 @@ import torchvision.transforms as tvt
 from typing import Callable
 
 from simplepytorch.datasets import CheXpert_Small, IntelMobileODTCervical, PreProcess
-from deepfix.analyze_layer import analyze_model_at_modules
-from deepfix.weight_saliency import costfn_multiclass
-#  from deepfix.models import get_resnet, get_efficientnetv1
+from waveletfix.analyze_layer import analyze_model_at_modules
+from waveletfix.weight_saliency import costfn_multiclass
+#  from waveletfix.models import get_resnet, get_efficientnetv1
 
 
 def get_model(model_name:str) -> T.nn.Module:
