@@ -29,12 +29,12 @@ export num_workers=4
 
 
 I1() {
-local deepfix="reinit:2:.2:1"  # N:P:R
+local waveletfix="reinit:2:.2:1"  # N:P:R
 local e1="${V}.I1.baseline"
-local e2="${V}.I1.$deepfix"
+local e2="${V}.I1.$waveletfix"
 cat <<EOF
-$e1 python deepfix/train.py  --experiment_id $e1 --deepfix off
-$e2 python deepfix/train.py  --experiment_id $e2 --deepfix $deepfix
+$e1 python waveletfix/train.py  --experiment_id $e1 --waveletfix off
+$e2 python waveletfix/train.py  --experiment_id $e2 --waveletfix $waveletfix
 EOF
 }
 
@@ -42,10 +42,10 @@ I2() {
   # grid search over N and P
 for P in .05 .1 .2 .3 .4 ; do
   for N in 1 2 3 ; do
-  local deepfix="reinit:$N:$P:1"
-  local e2="${V}.I2.$deepfix"
+  local waveletfix="reinit:$N:$P:1"
+  local e2="${V}.I2.$waveletfix"
 cat <<EOF
-$e2 python deepfix/train.py  --experiment_id $e2 --deepfix $deepfix
+$e2 python waveletfix/train.py  --experiment_id $e2 --waveletfix $waveletfix
 EOF
 done ; done
 }
@@ -66,11 +66,11 @@ python bin/find_distribution_single_model.py --model 'resnet18:imagenet:3:3' --b
 EOF
 }
 I3_part2() {
-  # initialize model from a histogram for each scalar parameter obtained by analyzing untrained models (deepfix dhist method)
+  # initialize model from a histogram for each scalar parameter obtained by analyzing untrained models (waveletfix dhist method)
   # local fpout=./results/${V}.I3
   # mkdir -p "$fpout"
   # find ./histograms -name "hist_*.pth" | parallel echo \
-    # python deepfix/train.py bin/eval_distribution.py "{}" "${fpout}/{/.}.csv"
+    # python waveletfix/train.py bin/eval_distribution.py "{}" "${fpout}/{/.}.csv"
   local e1="${V}.I3.baseline"
   local e2="${V}.I3.dhist"
   local e3="${V}.I3.dfhist"
@@ -78,33 +78,33 @@ I3_part2() {
   local e5="${V}.I3.dshist"
   local params=" --model resnet18:untrained:3:3 "
   cat <<EOF
-run $e1 python deepfix/train.py     --experiment_id $e1     --deepfix off $params
-run $e1.imagenet python deepfix/train.py     --experiment_id $e1.imagenet     --deepfix off
+run $e1 python waveletfix/train.py     --experiment_id $e1     --waveletfix off $params
+run $e1.imagenet python waveletfix/train.py     --experiment_id $e1.imagenet     --waveletfix off
 EOF
 cat <<EOF
-run $e2.sg python deepfix/train.py  --experiment_id $e2.sg  --deepfix dhist:./results/${V}.I3/histograms/hist_nth_most_salient.wsgrad_resnet18:untrained:3:3.pth $params
-run $e2.sw python deepfix/train.py  --experiment_id $e2.sw  --deepfix dhist:./results/${V}.I3/histograms/hist_nth_most_salient.wsweight_resnet18:untrained:3:3.pth $params
-run $e2.swg python deepfix/train.py --experiment_id $e2.swg --deepfix dhist:./results/${V}.I3/histograms/hist_nth_most_salient_resnet18:untrained:3:3.pth $params
-run $e2.ng python deepfix/train.py  --experiment_id $e2.ng  --deepfix dhist:./results/${V}.I3/histograms/hist_nth_weight.wsgrad_resnet18:untrained:3:3.pth $params
-run $e2.nw python deepfix/train.py  --experiment_id $e2.nw  --deepfix dhist:./results/${V}.I3/histograms/hist_nth_weight.wsweight_resnet18:untrained:3:3.pth $params
-run $e2.nwg python deepfix/train.py --experiment_id $e2.nwg --deepfix dhist:./results/${V}.I3/histograms/hist_nth_weight_resnet18:untrained:3:3.pth $params
+run $e2.sg python waveletfix/train.py  --experiment_id $e2.sg  --waveletfix dhist:./results/${V}.I3/histograms/hist_nth_most_salient.wsgrad_resnet18:untrained:3:3.pth $params
+run $e2.sw python waveletfix/train.py  --experiment_id $e2.sw  --waveletfix dhist:./results/${V}.I3/histograms/hist_nth_most_salient.wsweight_resnet18:untrained:3:3.pth $params
+run $e2.swg python waveletfix/train.py --experiment_id $e2.swg --waveletfix dhist:./results/${V}.I3/histograms/hist_nth_most_salient_resnet18:untrained:3:3.pth $params
+run $e2.ng python waveletfix/train.py  --experiment_id $e2.ng  --waveletfix dhist:./results/${V}.I3/histograms/hist_nth_weight.wsgrad_resnet18:untrained:3:3.pth $params
+run $e2.nw python waveletfix/train.py  --experiment_id $e2.nw  --waveletfix dhist:./results/${V}.I3/histograms/hist_nth_weight.wsweight_resnet18:untrained:3:3.pth $params
+run $e2.nwg python waveletfix/train.py --experiment_id $e2.nwg --waveletfix dhist:./results/${V}.I3/histograms/hist_nth_weight_resnet18:untrained:3:3.pth $params
 EOF
 cat <<EOF
-run $e3.sg python deepfix/train.py  --experiment_id $e3.sg  --deepfix dfhist:./results/${V}.I3/histograms/hist_nth_most_salient.wsgrad_resnet18:untrained:3:3.pth $params
-run $e3.sw python deepfix/train.py  --experiment_id $e3.sw  --deepfix dfhist:./results/${V}.I3/histograms/hist_nth_most_salient.wsweight_resnet18:untrained:3:3.pth $params
-run $e3.swg python deepfix/train.py --experiment_id $e3.swg --deepfix dfhist:./results/${V}.I3/histograms/hist_nth_most_salient_resnet18:untrained:3:3.pth $params
-run $e3.ng python deepfix/train.py  --experiment_id $e3.ng  --deepfix dfhist:./results/${V}.I3/histograms/hist_nth_weight.wsgrad_resnet18:untrained:3:3.pth $params
-run $e3.nw python deepfix/train.py  --experiment_id $e3.nw  --deepfix dfhist:./results/${V}.I3/histograms/hist_nth_weight.wsweight_resnet18:untrained:3:3.pth $params
-run $e3.nwg python deepfix/train.py --experiment_id $e3.nwg --deepfix dfhist:./results/${V}.I3/histograms/hist_nth_weight_resnet18:untrained:3:3.pth $params
+run $e3.sg python waveletfix/train.py  --experiment_id $e3.sg  --waveletfix dfhist:./results/${V}.I3/histograms/hist_nth_most_salient.wsgrad_resnet18:untrained:3:3.pth $params
+run $e3.sw python waveletfix/train.py  --experiment_id $e3.sw  --waveletfix dfhist:./results/${V}.I3/histograms/hist_nth_most_salient.wsweight_resnet18:untrained:3:3.pth $params
+run $e3.swg python waveletfix/train.py --experiment_id $e3.swg --waveletfix dfhist:./results/${V}.I3/histograms/hist_nth_most_salient_resnet18:untrained:3:3.pth $params
+run $e3.ng python waveletfix/train.py  --experiment_id $e3.ng  --waveletfix dfhist:./results/${V}.I3/histograms/hist_nth_weight.wsgrad_resnet18:untrained:3:3.pth $params
+run $e3.nw python waveletfix/train.py  --experiment_id $e3.nw  --waveletfix dfhist:./results/${V}.I3/histograms/hist_nth_weight.wsweight_resnet18:untrained:3:3.pth $params
+run $e3.nwg python waveletfix/train.py --experiment_id $e3.nwg --waveletfix dfhist:./results/${V}.I3/histograms/hist_nth_weight_resnet18:untrained:3:3.pth $params
 EOF
 cat <<EOF
-run $e4 python deepfix/train.py     --experiment_id $e4     --deepfix fixed $params
-run $e4.imagenet python deepfix/train.py     --experiment_id $e4.imagenet --deepfix fixed
+run $e4 python waveletfix/train.py     --experiment_id $e4     --waveletfix fixed $params
+run $e4.imagenet python waveletfix/train.py     --experiment_id $e4.imagenet --waveletfix fixed
 EOF
 # what happens when you initialize to the distribution of imagenet?  if you lose the pre-training benefit, then the value is in the path through layers.
 # ... the model doesn't learn basically at all.
 cat <<EOF
-run $e5 python deepfix/train.py --experiment_id $e5 --deepfix dfhist:./results/${V}.I3/histograms_single_model/resnet18:imagenet:3:3_weightgrad.pth $params
+run $e5 python waveletfix/train.py --experiment_id $e5 --waveletfix dfhist:./results/${V}.I3/histograms_single_model/resnet18:imagenet:3:3_weightgrad.pth $params
 EOF
 }
 
@@ -113,14 +113,14 @@ I4() {
   for pretraining in untrained imagenet ; do
     for beta in .01 .2 .5 .8 ; do
     local e="${V}.I4.beta.${beta}.${pretraining}"
-    echo run $e python deepfix/train.py --experiment_id $e --model resnet18:$pretraining:3:3 --deepfix beta:$beta:$beta
+    echo run $e python waveletfix/train.py --experiment_id $e --model resnet18:$pretraining:3:3 --waveletfix beta:$beta:$beta
   done
 done
 }
 
 
 E1() {
-  echo run E1.resnet18.IntelMobileODT  python deepfix/train.py  --experiment_id E1.resnet18.IntelMobileODT  --deepfix off
+  echo run E1.resnet18.IntelMobileODT  python waveletfix/train.py  --experiment_id E1.resnet18.IntelMobileODT  --waveletfix off
   # for layer in pointwise spatial ; do
     # for model in resnet18:imagenet:1 efficientnet-b0:imagenetadv:1 ; do
       # for dset in CheXpert ; do
@@ -133,9 +133,9 @@ E1() {
 E2() {
   local args=" --dset intel_mobileodt:train+additional:val:test:v1 --model resnet18:imagenet:3:3 --epochs 300"
   cat <<EOF
-  E2.IntelMobileODT.resnet18.baseline          python deepfix/train.py --deepfix off                $args
-  E2.IntelMobileODT.resnet18.ghaarconv2d:      python deepfix/train.py --deepfix ghaarconv2d:       $args
-  E2.IntelMobileODT.resnet18.ghaarconv2d:conv1 python deepfix/train.py --deepfix ghaarconv2d:conv1  $args
+  E2.IntelMobileODT.resnet18.baseline          python waveletfix/train.py --waveletfix off                $args
+  E2.IntelMobileODT.resnet18.ghaarconv2d:      python waveletfix/train.py --waveletfix ghaarconv2d:       $args
+  E2.IntelMobileODT.resnet18.ghaarconv2d:conv1 python waveletfix/train.py --waveletfix ghaarconv2d:conv1  $args
 EOF
 }
 
@@ -143,10 +143,10 @@ E3() {
   # baselines
   local args=' --opt Adam:lr=0.001 --epochs 300 --lossfn CrossEntropyLoss '
   cat <<EOF
-  ${V}.E3.IntelMobileODT_ta.resnet18.baseline.fromscratch python deepfix/train.py --dset intel_mobileodt:train+additional:val:test:v1 --model resnet18:untrained:3:3  $args
-  ${V}.E3.IntelMobileODT_ta.resnet18.baseline.imagenet    python deepfix/train.py --dset intel_mobileodt:train+additional:val:test:v1 --model resnet18:imagenet:3:3  $args
-  ${V}.E3.IntelMobileODT_t.resnet18.baseline.fromscratch python deepfix/train.py --dset intel_mobileodt:train:val:test:v1 --model resnet18:untrained:3:3  $args
-  ${V}.E3.IntelMobileODT_t.resnet18.baseline.imagenet    python deepfix/train.py --dset intel_mobileodt:train:val:test:v1 --model resnet18:imagenet:3:3  $args
+  ${V}.E3.IntelMobileODT_ta.resnet18.baseline.fromscratch python waveletfix/train.py --dset intel_mobileodt:train+additional:val:test:v1 --model resnet18:untrained:3:3  $args
+  ${V}.E3.IntelMobileODT_ta.resnet18.baseline.imagenet    python waveletfix/train.py --dset intel_mobileodt:train+additional:val:test:v1 --model resnet18:imagenet:3:3  $args
+  ${V}.E3.IntelMobileODT_t.resnet18.baseline.fromscratch python waveletfix/train.py --dset intel_mobileodt:train:val:test:v1 --model resnet18:untrained:3:3  $args
+  ${V}.E3.IntelMobileODT_t.resnet18.baseline.imagenet    python waveletfix/train.py --dset intel_mobileodt:train:val:test:v1 --model resnet18:imagenet:3:3  $args
 EOF
 }
 E4() {
@@ -154,17 +154,17 @@ E4() {
   # see that imagenet pre-training gains are lost.
   local args=" --epochs 300"
   cat <<EOF
-  ${V}.E4.IntelMobileODT_ta.waveletres18.fromscratch python deepfix/train.py --deepfix off --dset intel_mobileodt:train+additional:val:test:v1 --model waveletres18:untrained:3:3  $args
-  ${V}.E4.IntelMobileODT_ta.waveletres18.imagenet    python deepfix/train.py --deepfix off --dset intel_mobileodt:train+additional:val:test:v1 --model waveletres18:imagenet:3:3  $args
-  ${V}.E4.IntelMobileODT_t.waveletres18.fromscratch python deepfix/train.py --deepfix off --dset intel_mobileodt:train:val:test:v1 --model waveletres18:untrained:3:3  $args
-  ${V}.E4.IntelMobileODT_t.waveletres18.imagenet    python deepfix/train.py --deepfix off --dset intel_mobileodt:train:val:test:v1 --model waveletres18:imagenet:3:3  $args
+  ${V}.E4.IntelMobileODT_ta.waveletres18.fromscratch python waveletfix/train.py --waveletfix off --dset intel_mobileodt:train+additional:val:test:v1 --model waveletres18:untrained:3:3  $args
+  ${V}.E4.IntelMobileODT_ta.waveletres18.imagenet    python waveletfix/train.py --waveletfix off --dset intel_mobileodt:train+additional:val:test:v1 --model waveletres18:imagenet:3:3  $args
+  ${V}.E4.IntelMobileODT_t.waveletres18.fromscratch python waveletfix/train.py --waveletfix off --dset intel_mobileodt:train:val:test:v1 --model waveletres18:untrained:3:3  $args
+  ${V}.E4.IntelMobileODT_t.waveletres18.imagenet    python waveletfix/train.py --waveletfix off --dset intel_mobileodt:train:val:test:v1 --model waveletres18:imagenet:3:3  $args
 EOF
 }
 E5() {
   # waveletmlp
   # NOTE: this was done with the preprocessing_transform with I think 3 conv2d(...) layers, not just 1.  the initial results I have are 3 conv layers but code is now just 1 layer.
   cat <<EOF
-  ${V}.E5.IntelMobileODT_ta.waveletmlp:500 python deepfix/train.py --deepfix off --dset intel_mobileodt:train+additional:val:test:v1 --model waveletmlp:500:3:3:true  --epochs 300 --opt SGD:lr=0.001
+  ${V}.E5.IntelMobileODT_ta.waveletmlp:500 python waveletfix/train.py --waveletfix off --dset intel_mobileodt:train+additional:val:test:v1 --model waveletmlp:500:3:3:true  --epochs 300 --opt SGD:lr=0.001
 EOF
 }
 
@@ -172,41 +172,41 @@ EOF
 C3() {
   # chexpert baselines
   cat <<EOF
-  ${V}.C3.chexpert_small.resnet18.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small:.8:.2 --loss chexpert_uignore --opt Adam:lr=0.003 --model resnet18:untrained:1:14
-  ${V}.C3.chexpert_small.resnet18.baseline.imagenet    python deepfix/train.py --deepfix off --dset chexpert_small:.8:.2 --loss chexpert_uignore --opt Adam:lr=0.003 --model resnet18:imagenet:1:14
+  ${V}.C3.chexpert_small.resnet18.baseline.fromscratch    python waveletfix/train.py --waveletfix off --dset chexpert_small:.8:.2 --loss chexpert_uignore --opt Adam:lr=0.003 --model resnet18:untrained:1:14
+  ${V}.C3.chexpert_small.resnet18.baseline.imagenet    python waveletfix/train.py --waveletfix off --dset chexpert_small:.8:.2 --loss chexpert_uignore --opt Adam:lr=0.003 --model resnet18:imagenet:1:14
 EOF
-  # ${V}.C3.chexpert.resnet18.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert:.8:.2 --loss chexpert_uignore --opt Adam:lr=0.003 --model resnet18:untrained:1:14
-  # ${V}.C3.chexpert.resnet18.baseline.imagenet    python deepfix/train.py --deepfix off --dset chexpert:.8:.2 --loss chexpert_uignore --opt Adam:lr=0.003 --model resnet18:imagenet:1:14
+  # ${V}.C3.chexpert.resnet18.baseline.fromscratch    python waveletfix/train.py --waveletfix off --dset chexpert:.8:.2 --loss chexpert_uignore --opt Adam:lr=0.003 --model resnet18:untrained:1:14
+  # ${V}.C3.chexpert.resnet18.baseline.imagenet    python waveletfix/train.py --waveletfix off --dset chexpert:.8:.2 --loss chexpert_uignore --opt Adam:lr=0.003 --model resnet18:imagenet:1:14
 }
 
 # model spec is:   mlp_channels : in_ch : out_ch : wavelet_levels : patch_size : mlp_depth
 
 C4() {
   # chexpert: experiment with varying mlp middle channel width.
-  local default_cmd=" python deepfix/train.py --deepfix off --dset chexpert_small:.2:.1 --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none"
+  local default_cmd=" python waveletfix/train.py --waveletfix off --dset chexpert_small:.2:.1 --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none"
   for ch_mid in 300 500 700 ; do
     echo ${V}.C4.chexpert_small.waveletmlp:$ch_mid:none $default_cmd --model waveletmlp:${ch_mid}:1:14:9:3:2
   done
 }
 C5_vecattn_regularizer() {
   # chexpert: experiment with regularizer on or off.
-  local default_cmd=" python deepfix/train.py --deepfix off --dset chexpert_small:.8:.2 --opt Adam:lr=0.003 --model waveletmlp:500:1:14:9:3:2 --lossfn chexpert_uignore "
+  local default_cmd=" python waveletfix/train.py --waveletfix off --dset chexpert_small:.8:.2 --opt Adam:lr=0.003 --model waveletmlp:500:1:14:9:3:2 --lossfn chexpert_uignore "
   # experiment id has format:  mid-channels:patch_size:lambda
   cat <<EOF
   ${V}.C5.chexpert_small.waveletmlp:500:3:2:0 $default_cmd --loss_reg none
-  ${V}.C5.chexpert_small.waveletmlp:500:3:2:1 $default_cmd --loss_reg deepfixmlp:1
-  ${V}.C5.chexpert_small.waveletmlp:500:3:2:.5 $default_cmd --loss_reg deepfixmlp:.5
+  ${V}.C5.chexpert_small.waveletmlp:500:3:2:1 $default_cmd --loss_reg waveletfixmlp:1
+  ${V}.C5.chexpert_small.waveletmlp:500:3:2:.5 $default_cmd --loss_reg waveletfixmlp:.5
 EOF
 }
 
 C6_vary_patch_size() {
   for p in 1 3 32 64; do
-echo "${V}.C6.10%dset.patch$p" python deepfix/train.py --deepfix off --dset chexpert_small:.1:.01 --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model waveletmlp:700:1:14:9:$p:2
+echo "${V}.C6.10%dset.patch$p" python waveletfix/train.py --waveletfix off --dset chexpert_small:.1:.01 --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model waveletmlp:700:1:14:9:$p:2
   done
 }
 C6_vary_patch_size_part2() {
   for p in 128 ; do
-echo "${V}.C6.10%dset.patch$p" python deepfix/train.py --deepfix off --dset chexpert_small:.1:.01 --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model waveletmlp:300:1:14:9:$p:2
+echo "${V}.C6.10%dset.patch$p" python waveletfix/train.py --waveletfix off --dset chexpert_small:.1:.01 --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model waveletmlp:300:1:14:9:$p:2
   done
 }
 
@@ -214,39 +214,39 @@ C7() {
   # new tests with wavelet packet
 # (7,1,1), (7,1,3), (6,3,1), (2,32,1)
 for model in "waveletmlp:700:1:14:7:1:1:3" "waveletmlp:700:1:14:7:1:3:3" "waveletmlp:700:1:14:6:3:1:3"  "waveletmlp:700:1:14:2:30:1:3" ; do
-  echo "${V}.C7.$model" python deepfix/train.py --deepfix off --dset chexpert_small:.1:.01 --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model $model
+  echo "${V}.C7.$model" python waveletfix/train.py --waveletfix off --dset chexpert_small:.1:.01 --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model $model
 done
 }
 
 C8() {
   # baseline
   local V=$((V+2))
-  # ${V}.C8.diagnostic.densenet121.baseline.fromscratch    python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:untrained:1:14 --epochs 80
-  # ${V}.C8.Cardiomegaly.densenet121.baseline.fromscratch    python deepfix/train.py --dset chexpert_small15k:.9:.1:Cardiomegaly --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:untrained:1:1 --epochs 80
-  # ${V}.C8.Cardiomegaly.resnet18.baseline.fromscratch    python deepfix/train.py --dset chexpert_small15k:.9:.1:Cardiomegaly --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:untrained:1:1 --epochs 80
+  # ${V}.C8.diagnostic.densenet121.baseline.fromscratch    python waveletfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:untrained:1:14 --epochs 80
+  # ${V}.C8.Cardiomegaly.densenet121.baseline.fromscratch    python waveletfix/train.py --dset chexpert_small15k:.9:.1:Cardiomegaly --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:untrained:1:1 --epochs 80
+  # ${V}.C8.Cardiomegaly.resnet18.baseline.fromscratch    python waveletfix/train.py --dset chexpert_small15k:.9:.1:Cardiomegaly --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:untrained:1:1 --epochs 80
 
   cat <<EOF
-  ${V}.C8.leaderboard.resnet18.baseline.fromscratch    env batch_size=55 num_workers=6    python deepfix/train.py --dset chexpert_small15k:.9:.1:leaderboard --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:untrained:1:5 --epochs 80
-  ${V}.C8.leaderboard.resnet18.baseline.imagenet       env batch_size=55 num_workers=6    python deepfix/train.py --dset chexpert_small15k:.9:.1:leaderboard --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:imagenet:1:5 --epochs 80
-  ${V}.C8.leaderboard.densenet121.baseline.fromscratch env batch_size=10 num_workers=6    python deepfix/train.py --dset chexpert_small15k:.9:.1:leaderboard --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:untrained:1:5 --epochs 80
-  ${V}.C8.leaderboard.densenet121.baseline.imagenet    env batch_size=10 num_workers=6    python deepfix/train.py --dset chexpert_small15k:.9:.1:leaderboard --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:imagenet:1:5 --epochs 80
-  ${V}.C8.diagnostic.resnet18.baseline.fromscratch    python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:untrained:1:14 --epochs 80
-  ${V}.C8.diagnostic.resnet18.baseline.imagenet    python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:imagenet:1:14 --epochs 80
-  ${V}.C8.diagnostic.densenet121.baseline.fromscratch    python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:untrained:1:14 --epochs 80
-  ${V}.C8.diagnostic.densenet121.baseline.imagenet    python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:imagenet:1:14 --epochs 80
+  ${V}.C8.leaderboard.resnet18.baseline.fromscratch    env batch_size=55 num_workers=6    python waveletfix/train.py --dset chexpert_small15k:.9:.1:leaderboard --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:untrained:1:5 --epochs 80
+  ${V}.C8.leaderboard.resnet18.baseline.imagenet       env batch_size=55 num_workers=6    python waveletfix/train.py --dset chexpert_small15k:.9:.1:leaderboard --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:imagenet:1:5 --epochs 80
+  ${V}.C8.leaderboard.densenet121.baseline.fromscratch env batch_size=10 num_workers=6    python waveletfix/train.py --dset chexpert_small15k:.9:.1:leaderboard --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:untrained:1:5 --epochs 80
+  ${V}.C8.leaderboard.densenet121.baseline.imagenet    env batch_size=10 num_workers=6    python waveletfix/train.py --dset chexpert_small15k:.9:.1:leaderboard --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:imagenet:1:5 --epochs 80
+  ${V}.C8.diagnostic.resnet18.baseline.fromscratch    python waveletfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:untrained:1:14 --epochs 80
+  ${V}.C8.diagnostic.resnet18.baseline.imagenet    python waveletfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:imagenet:1:14 --epochs 80
+  ${V}.C8.diagnostic.densenet121.baseline.fromscratch    python waveletfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:untrained:1:14 --epochs 80
+  ${V}.C8.diagnostic.densenet121.baseline.imagenet    python waveletfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:imagenet:1:14 --epochs 80
 EOF
 }
 # I8() {
 #   local num_identities=100
 #   local train_pct=.01
 #   # identity model baselines, 1.0% of training data
-#   # ${V}.I8.Cardiomegaly.densenet121.baseline.fromscratch    python deepfix/train.py --epochs 150 --dset chexpert_small_ID:1000:$train_pct:.01 --opt Adam:lr=0.003 --lossfn chexpert_identity:$num_identities --loss_reg none --model densenet121:untrained:1:1
-#   # ${V}.I8.leaderboard.densenet121.baseline.fromscratch    python deepfix/train.py --epochs 150 --dset chexpert_small_ID:1000:$train_pct:.01 --opt Adam:lr=0.003 --lossfn chexpert_identity:$num_identities --loss_reg none --model densenet121:untrained:1:5
-#   # ${V}.I8.diagnostic.densenet121.baseline.fromscratch    python deepfix/train.py --epochs 150 --dset chexpert_small_ID:$num_identities:$train_pct:.01 --opt Adam:lr=0.003 --lossfn chexpert_identity:$num_identities --loss_reg none --model densenet121:untrained:1:$num_identities
+#   # ${V}.I8.Cardiomegaly.densenet121.baseline.fromscratch    python waveletfix/train.py --epochs 150 --dset chexpert_small_ID:1000:$train_pct:.01 --opt Adam:lr=0.003 --lossfn chexpert_identity:$num_identities --loss_reg none --model densenet121:untrained:1:1
+#   # ${V}.I8.leaderboard.densenet121.baseline.fromscratch    python waveletfix/train.py --epochs 150 --dset chexpert_small_ID:1000:$train_pct:.01 --opt Adam:lr=0.003 --lossfn chexpert_identity:$num_identities --loss_reg none --model densenet121:untrained:1:5
+#   # ${V}.I8.diagnostic.densenet121.baseline.fromscratch    python waveletfix/train.py --epochs 150 --dset chexpert_small_ID:$num_identities:$train_pct:.01 --opt Adam:lr=0.003 --lossfn chexpert_identity:$num_identities --loss_reg none --model densenet121:untrained:1:$num_identities
 #   cat <<EOF
-#   # ${V}.I8.Cardiomegaly.resnet18.baseline.fromscratch    python deepfix/train.py --epochs 150 --dset chexpert_small_ID:1000:$train_pct:.01 --opt Adam:lr=0.003 --lossfn chexpert_identity:$num_identities --loss_reg none --model resnet18:untrained:1:1
-#   # ${V}.I8.leaderboard.resnet18.baseline.fromscratch    python deepfix/train.py --epochs 150 --dset chexpert_small_ID:1000:$train_pct:.01 --opt Adam:lr=0.003 --lossfn chexpert_identity:$num_identities --loss_reg none --model resnet18:untrained:1:5
-#   # ${V}.I8.diagnostic.resnet18.baseline.fromscratch    python deepfix/train.py --epochs 150 --dset chexpert_small_ID:$num_identities:$train_pct:.01 --opt Adam:lr=0.003 --lossfn chexpert_identity:$num_identities --loss_reg none --model resnet18:untrained:1:$num_identities
+#   # ${V}.I8.Cardiomegaly.resnet18.baseline.fromscratch    python waveletfix/train.py --epochs 150 --dset chexpert_small_ID:1000:$train_pct:.01 --opt Adam:lr=0.003 --lossfn chexpert_identity:$num_identities --loss_reg none --model resnet18:untrained:1:1
+#   # ${V}.I8.leaderboard.resnet18.baseline.fromscratch    python waveletfix/train.py --epochs 150 --dset chexpert_small_ID:1000:$train_pct:.01 --opt Adam:lr=0.003 --lossfn chexpert_identity:$num_identities --loss_reg none --model resnet18:untrained:1:5
+#   # ${V}.I8.diagnostic.resnet18.baseline.fromscratch    python waveletfix/train.py --epochs 150 --dset chexpert_small_ID:$num_identities:$train_pct:.01 --opt Adam:lr=0.003 --lossfn chexpert_identity:$num_identities --loss_reg none --model resnet18:untrained:1:$num_identities
 # EOF
 # }
 C9() {
@@ -260,7 +260,7 @@ for levels, patch_size, patch_features in [
         # (5,5,'l1'), (5,5,'l2'), (5,5,'sum_pos,sum_neg'), (4,8,'sum_pos,sum_neg'),
         ]:
     model = f'waveletmlpV2:1:14:coif1:{levels}:{patch_size}:{patch_features}'
-    print(f""" ${V}.C9.{model}     python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model {model} """)
+    print(f""" ${V}.C9.{model}     python waveletfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model {model} """)
 EOF
 }
 C10() {
@@ -273,17 +273,17 @@ for wavelet in [
         'db3', 'rbio1.1', 'rbio1.3', 'rbio2.2', 'rbio3.1', 'sym2', 'sym3']:
     for levels, patch_size, patch_features in [(5,5,'l1'),]:
         model = f'waveletmlpV2:1:14:{wavelet}:{levels}:{patch_size}:{patch_features}'
-        print(f""" ${V}.C10.{model}     python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model {model} """)
+        print(f""" ${V}.C10.{model}     python waveletfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model {model} """)
 EOF
 }
 C11() {
-  # experiment with deepfix_v2
+  # experiment with waveletfix_v2
   # conc: not working needs work.
-  local model="deepfix_v2:1:14:coif1:5:5:l1:resnet18:imagenet"
-        # lambda in_ch, out_ch, wavelet, wavelet_levels, patch_size, patch_features, backbone, pretraining: get_DeepFixEnd2End_v2(
-  echo "${V}.C11.$model" python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model "$model"
-  echo "${V}.C11.$model.lr001" python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model "$model"
-  # python deepfix/train.py --dset chexpert_small:.01:.01:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model "$model"
+  local model="waveletfix_v2:1:14:coif1:5:5:l1:resnet18:imagenet"
+        # lambda in_ch, out_ch, wavelet, wavelet_levels, patch_size, patch_features, backbone, pretraining: get_WaveletFixEnd2End_v2(
+  echo "${V}.C11.$model" python waveletfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model "$model"
+  echo "${V}.C11.$model.lr001" python waveletfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model "$model"
+  # python waveletfix/train.py --dset chexpert_small:.01:.01:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model "$model"
 }
 C12() {
   # varying MLP depth and width,    all "s" and "m" have same num parameters, respectively
@@ -294,13 +294,13 @@ ws = [300, 174, 135, 114, 100]  # 180,000 parameter models
 wm = [600, 347, 268, 226, 200]  # 4*180k parameter models
 for depth, width in zip(d, ws):
     model = f'waveletmlp:{width}:1:14:5:5:1:{depth}'
-    print(f""" ${V}.C12.s.{model}     python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model {model} """)
+    print(f""" ${V}.C12.s.{model}     python waveletfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model {model} """)
 for depth, width in zip(d, wm):
     model = f'waveletmlp:{width}:1:14:5:5:1:{depth}'
-    print(f""" ${V}.C12.m.{model}     python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model {model} """)
+    print(f""" ${V}.C12.m.{model}     python waveletfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model {model} """)
 for depth, width in [(1, 600), (1, 300), (1, 1000), (0, 300)]:
     model = f'waveletmlp:{width}:1:14:5:5:1:{depth}'
-    print(f""" ${V}.C12.1.{model}     python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model {model} """)
+    print(f""" ${V}.C12.1.{model}     python waveletfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model {model} """)
 EOF
 }
 
@@ -332,11 +332,11 @@ level = 5
 patchsize = 5
 for zero_mean in '0', '1':
     for patch_features in ["l1", "min"]:
-        print(f" python bin/compute_deepfix_normalization.py --wavelet {wavelet} --level {level} --patchsize {patchsize} --patch_features {patch_features} --zero_mean {zero_mean}")
+        print(f" python bin/compute_waveletfix_normalization.py --wavelet {wavelet} --level {level} --patchsize {patchsize} --patch_features {patch_features} --zero_mean {zero_mean}")
 
         for normalization in ["none", "batchnorm", "whiten,chexpert_small", "0mean,chexpert_small"]:
             model = f"waveletmlp_bn:1:14:{wavelet}:{level}:{patchsize}:{patch_features}:{zero_mean}:{normalization}"
-            print(f"""${V}.C13.{model} python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model {model} """)
+            print(f"""${V}.C13.{model} python waveletfix/train.py --waveletfix off --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model {model} """)
 EOF
 }
 
@@ -353,7 +353,7 @@ for dset in 'chexpert_small','chexpert':
         #     for patchsize in 1,3,5,9,19,37,79,115,160:
                 if patchsize <= 320 / 2**level:
                     # run_id:   norm:{dset}:{wavelet}:{level}:{patchsize}:{patch_features}:{zero_mean}
-                    print(f"python bin/compute_deepfix_normalization.py --dset {dset} --wavelet {wavelet} --level {level} --patchsize {patchsize} --patch_features {patch_features} --zero_mean {zero_mean}")
+                    print(f"python bin/compute_waveletfix_normalization.py --dset {dset} --wavelet {wavelet} --level {level} --patchsize {patchsize} --patch_features {patch_features} --zero_mean {zero_mean}")
                 # else skip this unnecessary norm because the (level, patchsize) isn't doing compression.  This assumes images are 320x320, our default from chexpert dataset
 EOF
 }
@@ -370,10 +370,10 @@ level = 5
 patch_size = 5
 for attn in 'Identity', 'SoftmaxVecAttn', 'LogSoftmaxVecAttn':
     model = f'attn_test:{attn}:14:{level}:{patch_size}'
-    print(f"""${V}.C14.{attn} python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model {model}""")
+    print(f"""${V}.C14.{attn} python waveletfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model {model}""")
 model = f'attn_test:VecAttn:14:{level}:{patch_size}'
 for reg in 0, .1, 1:
-    print(f"""${V}.C14.VecAttn.{reg} python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg deepfixmlp:{reg} --model {model}""")
+    print(f"""${V}.C14.VecAttn.{reg} python waveletfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg waveletfixmlp:{reg} --model {model}""")
 EOF
 }
 
@@ -384,8 +384,8 @@ level = 5
 patch_size = 5
 reg = .1
 for opt in 'SGD:lr=0.002:momentum=.9', 'SGD:lr=0.003:momentum=.9', 'SGD:lr=0.001:momentum=.9', 'SGD:lr=0.001', 'SGD:lr=0.0005', 'Adam:lr=0.001', 'Adam:lr=0.002', 'Adam:lr=0.005':
-    print(f"""${V}.C15.VecAttn-{reg}.{opt}   python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt {opt} --lossfn chexpert_uignore --loss_reg deepfixmlp:{reg} --model attn_test:VecAttn:14:{level}:{patch_size}""")
-    print(f"""${V}.C15.LogSoftmax.{opt}      python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt {opt} --lossfn chexpert_uignore --loss_reg none             --model attn_test:LogSoftmaxVecAttn:14:{level}:{patch_size}""")
+    print(f"""${V}.C15.VecAttn-{reg}.{opt}   python waveletfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt {opt} --lossfn chexpert_uignore --loss_reg waveletfixmlp:{reg} --model attn_test:VecAttn:14:{level}:{patch_size}""")
+    print(f"""${V}.C15.LogSoftmax.{opt}      python waveletfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt {opt} --lossfn chexpert_uignore --loss_reg none             --model attn_test:LogSoftmaxVecAttn:14:{level}:{patch_size}""")
 EOF
 }
 # before running this, let's do the
@@ -399,9 +399,9 @@ C16() {
 for level in range(1, 9):
     for patchsize in 1,3,5,9,19,37,79,115,160:
         if patchsize <= 320 / 2**level:
-        #     print(f"norm:{level}:{patchsize}:{patch_features}:{zero_mean} python bin/compute_deepfix_normalization.py --level {level} --patchsize {patchsize} --patch_features {patch_features} --zero_mean {zero_mean}")
-            model = f"deepfix_v1:14:{level}:{patchsize}"
-            print( f"${V}.C16.J={level}.P={patchsize} python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg deepfixmlp:.1 --model {model} --epochs 80")
+        #     print(f"norm:{level}:{patchsize}:{patch_features}:{zero_mean} python bin/compute_waveletfix_normalization.py --level {level} --patchsize {patchsize} --patch_features {patch_features} --zero_mean {zero_mean}")
+            model = f"waveletfix_v1:14:{level}:{patchsize}"
+            print( f"${V}.C16.J={level}.P={patchsize} python waveletfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg waveletfixmlp:.1 --model {model} --epochs 80")
         # # else skip this unnecessary task because the (level, patchsize) isn't doing compression.  This assumes images are 320x320, our default from chexpert dataset
 EOF
 }
@@ -418,9 +418,9 @@ class_names = [x.replace(' ', '\ ') for x in class_names]
 level = 5
 patchsize = 5
 for class_name in class_names:
-    model = f"deepfix_v1:1:{level}:{patchsize}"
+    model = f"waveletfix_v1:1:{level}:{patchsize}"
     class_name2 = class_name.replace('\ ', '_')
-    print( f"""${V}.C17.{class_name2} python deepfix/train.py --dset chexpert_small15k:.9:.1:{class_name2} --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg deepfixmlp:.1 --model {model} --epochs 80 """)
+    print( f"""${V}.C17.{class_name2} python waveletfix/train.py --dset chexpert_small15k:.9:.1:{class_name2} --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg waveletfixmlp:.1 --model {model} --epochs 80 """)
 EOF
 }
 
@@ -439,8 +439,8 @@ for level in [5]: # ,8,1]:  #range(1, 9):
     # for patchsize in 5,1,160:
     for patchsize in 5,:
         if patchsize <= 320 / 2**level:
-            model = f"deepfix_v1:14:{level}:{patchsize}:1:{wavelet}:{normalization}"
-            print( f"${V}.C18.J={level}.P={patchsize} python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg deepfixmlp:.1 --model {model} --epochs 80")
+            model = f"waveletfix_v1:14:{level}:{patchsize}:1:{wavelet}:{normalization}"
+            print( f"${V}.C18.J={level}.P={patchsize} python waveletfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg waveletfixmlp:.1 --model {model} --epochs 80")
         # # else skip this unnecessary task because the (level, patchsize) isn't doing compression.  This assumes images are 320x320, our default from chexpert dataset
 EOF
 }
@@ -455,8 +455,8 @@ for level in [1,5,8]:  #range(1, 9):
     # for patchsize in 1,3,5,9,19,37,79,115,160:
     for patchsize in 1,5,160:
         if patchsize <= 320 / 2**level:
-            model = f"deepfix_v1:14:{level}:{patchsize}:2"
-            print( f"${V}.C19.J={level}.P={patchsize} python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg deepfixmlp:.1 --model {model} --epochs 80")
+            model = f"waveletfix_v1:14:{level}:{patchsize}:2"
+            print( f"${V}.C19.J={level}.P={patchsize} python waveletfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg waveletfixmlp:.1 --model {model} --epochs 80")
         # # else skip this unnecessary task because the (level, patchsize) isn't doing compression.  This assumes images are 320x320, our default from chexpert dataset
 EOF
 }
@@ -468,9 +468,9 @@ C20() {
 for level in [5,8,1]:  #range(1, 9):
     for patchsize in 5,160,1:
         if patchsize <= 320 / 2**level:
-        #     print(f"norm:{level}:{patchsize}:{patch_features}:{zero_mean} python bin/compute_deepfix_normalization.py --level {level} --patchsize {patchsize} --patch_features {patch_features} --zero_mean {zero_mean}")
-            model = f"deepfix_v1:14:{level}:{patchsize}"
-            print( f"${V}.C20.J={level}.P={patchsize} python deepfix/train.py --dset chexpert15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg deepfixmlp:.1 --model {model} --epochs 80 --start_epoch 1")
+        #     print(f"norm:{level}:{patchsize}:{patch_features}:{zero_mean} python bin/compute_waveletfix_normalization.py --level {level} --patchsize {patchsize} --patch_features {patch_features} --zero_mean {zero_mean}")
+            model = f"waveletfix_v1:14:{level}:{patchsize}"
+            print( f"${V}.C20.J={level}.P={patchsize} python waveletfix/train.py --dset chexpert15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg waveletfixmlp:.1 --model {model} --epochs 80 --start_epoch 1")
         # # else skip this unnecessary task because the (level, patchsize) isn't doing compression.  This assumes images are 320x320, our default from chexpert dataset
 EOF
 }
@@ -483,9 +483,9 @@ C21() {
 for level in range(1, 9):
     for patchsize in 1,3,5,9,19,37,79,115,160:
         if patchsize <= 320 / 2**level:
-        #     print(f"norm:{level}:{patchsize}:{patch_features}:{zero_mean} python bin/compute_deepfix_normalization.py --level {level} --patchsize {patchsize} --patch_features {patch_features} --zero_mean {zero_mean}")
-            model = f"deepfix_v1:14:{level}:{patchsize}:0:db1"
-            print( f"${V}.C21.J={level}.P={patchsize} python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg deepfixmlp:.1 --model {model} --epochs 80")
+        #     print(f"norm:{level}:{patchsize}:{patch_features}:{zero_mean} python bin/compute_waveletfix_normalization.py --level {level} --patchsize {patchsize} --patch_features {patch_features} --zero_mean {zero_mean}")
+            model = f"waveletfix_v1:14:{level}:{patchsize}:0:db1"
+            print( f"${V}.C21.J={level}.P={patchsize} python waveletfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg waveletfixmlp:.1 --model {model} --epochs 80")
         # # else skip this unnecessary task because the (level, patchsize) isn't doing compression.  This assumes images are 320x320, our default from chexpert dataset
 EOF
 }
@@ -513,36 +513,36 @@ for level in [5,8,1]:
 # for level in range(1, 9):
     # for patchsize in 1,3,5,9,19,37,79,115,160:
         if patchsize <= 320 / 2**level:
-            model = f"adeepfix_v1:14:{level}:{patchsize}"
-            print( f"${V}.C23.J={level}.P={patchsize} python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg deepfixmlp:.1 --model {model} --epochs 80")
+            model = f"awaveletfix_v1:14:{level}:{patchsize}"
+            print( f"${V}.C23.J={level}.P={patchsize} python waveletfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg waveletfixmlp:.1 --model {model} --epochs 80")
         # # else skip this unnecessary task because the (level, patchsize) isn't doing compression.  This assumes images are 320x320, our default from chexpert dataset
 EOF
 }
 
 C24() {
   # Main predictive experiment, all patch sizes and wavelet levels, trained on only the 5 leaderboard classes
-  # version V+0:  with db1, with deepfixmlp:1, with leaderboard classes
-  # version V+1:  with db1, deepfixmlp:0, leaderboard
+  # version V+0:  with db1, with waveletfixmlp:1, with leaderboard classes
+  # version V+1:  with db1, waveletfixmlp:0, leaderboard
   local V=$((V+1))
   python <<EOF
 # for level in [1,5,8]:
 #     for patchsize in 1,5,160:
 # hack: my gpu has a hardware problem.  too high batch size or num workers causes server to crash.  bypass it this way.
 for level, patchsize in [(1,160), (6,5), (3,19), (8,1)]:
-    model = f"deepfix_v1:5:{level}:{patchsize}:0:db1"
-    print( f"${V}.C24.J={level}.P={patchsize} env num_workers=0 batch_size=200 python deepfix/train.py --dset chexpert_small15k:.9:.1:leaderboard --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg deepfixmlp:0 --model {model} --epochs 80")
+    model = f"waveletfix_v1:5:{level}:{patchsize}:0:db1"
+    print( f"${V}.C24.J={level}.P={patchsize} env num_workers=0 batch_size=200 python waveletfix/train.py --dset chexpert_small15k:.9:.1:leaderboard --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg waveletfixmlp:0 --model {model} --epochs 80")
 for level in range(1, 9):
     for patchsize in 1,3,5,9,19,37,79,115,160:
         if patchsize <= 320 / 2**level:
-        #     print(f"norm:{level}:{patchsize}:{patch_features}:{zero_mean} python bin/compute_deepfix_normalization.py --level {level} --patchsize {patchsize} --patch_features {patch_features} --zero_mean {zero_mean}")
-            model = f"deepfix_v1:5:{level}:{patchsize}:0:db1"
-            print( f"${V}.C24.J={level}.P={patchsize} env num_workers=5 batch_size=600 python deepfix/train.py --dset chexpert_small15k:.9:.1:leaderboard --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg deepfixmlp:0 --model {model} --epochs 80")
+        #     print(f"norm:{level}:{patchsize}:{patch_features}:{zero_mean} python bin/compute_waveletfix_normalization.py --level {level} --patchsize {patchsize} --patch_features {patch_features} --zero_mean {zero_mean}")
+            model = f"waveletfix_v1:5:{level}:{patchsize}:0:db1"
+            print( f"${V}.C24.J={level}.P={patchsize} env num_workers=5 batch_size=600 python waveletfix/train.py --dset chexpert_small15k:.9:.1:leaderboard --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg waveletfixmlp:0 --model {model} --epochs 80")
         # # else skip this unnecessary task because the (level, patchsize) isn't doing compression.  This assumes images are 320x320, our default from chexpert dataset
 EOF
 }
 
 C25() {
-  # Main predictive experiment, DeepFixImg2Img --> ResNet18
+  # Main predictive experiment, WaveletFixImg2Img --> ResNet18
   # repeat of C21
   python <<EOF
 # for level in [1,5,8]:
@@ -550,39 +550,39 @@ C25() {
 for level in range(1, 9):
     for patchsize in 1,3,5,9,19,37,79,115,160:
         if patchsize <= 320 / 2**level:
-            model = f"deepfix_resnet18:1:14:{level}:{patchsize}:{patchsize}"
-            print( f"${V}.C25.J={level}.P={patchsize} env num_workers=11 batch_size=30 python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --model {model} --epochs 80")
+            model = f"waveletfix_resnet18:1:14:{level}:{patchsize}:{patchsize}"
+            print( f"${V}.C25.J={level}.P={patchsize} env num_workers=11 batch_size=30 python waveletfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --model {model} --epochs 80")
         # # else skip this unnecessary task because the (level, patchsize) isn't doing compression.  This assumes images are 320x320, our default from chexpert dataset
 EOF
 }
 C26() {
-    # Chexpert baseline and best deepfix model ( to repeat 6 times )
+    # Chexpert baseline and best waveletfix model ( to repeat 6 times )
     # resnet18
   python <<EOF
 level = 1
 patchsize = 79
-model = f"deepfix_resnet18:1:14:{level}:{patchsize}:{patchsize}"
-print( f"${V}.C26.DeepFix env num_workers=11 batch_size=30 python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --model {model} --epochs 80")
+model = f"waveletfix_resnet18:1:14:{level}:{patchsize}:{patchsize}"
+print( f"${V}.C26.WaveletFix env num_workers=11 batch_size=30 python waveletfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --model {model} --epochs 80")
 EOF
 cat <<EOF
-${V}.C26.Baseline    python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model resnet18:untrained:1:14 --epochs 80
+${V}.C26.Baseline    python waveletfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model resnet18:untrained:1:14 --epochs 80
 EOF
 }
 C27() {
-    # Chexpert baseline and best deepfix model ( to repeat 6 times )
+    # Chexpert baseline and best waveletfix model ( to repeat 6 times )
     # densenet121
   python <<EOF
 level = 1
 patchsize = 79
-model = f"deepfix_densenet121:1:14:{level}:{patchsize}:{patchsize}"
-print( f"${V}.C27.DeepFix.J={level}.P={patchsize} env num_workers=11 batch_size=30 python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --model {model} --epochs 80")
+model = f"waveletfix_densenet121:1:14:{level}:{patchsize}:{patchsize}"
+print( f"${V}.C27.WaveletFix.J={level}.P={patchsize} env num_workers=11 batch_size=30 python waveletfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --model {model} --epochs 80")
 EOF
 cat <<EOF
-${V}.C27.Baseline    python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model densenet121:untrained:1:14 --epochs 80
+${V}.C27.Baseline    python waveletfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model densenet121:untrained:1:14 --epochs 80
 EOF
 }
 C28() {
-  # Main predictive experiment, DeepFixImg2Img --> DenseNet121
+  # Main predictive experiment, WaveletFixImg2Img --> DenseNet121
   # repeat of C21
   python <<EOF
 # for level in [1,5,8]:
@@ -590,8 +590,8 @@ C28() {
 for level in range(1, 9):
     for patchsize in 1,3,5,9,19,37,79,115,160:
         if patchsize <= 320 / 2**level:
-            model = f"deepfix_densenet121:1:14:{level}:{patchsize}:{patchsize}"
-            print( f"${V}.C28.J={level}.P={patchsize} env num_workers=11 batch_size=30 python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --model {model} --epochs 80")
+            model = f"waveletfix_densenet121:1:14:{level}:{patchsize}:{patchsize}"
+            print( f"${V}.C28.J={level}.P={patchsize} env num_workers=11 batch_size=30 python waveletfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --model {model} --epochs 80")
         # # else skip this unnecessary task because the (level, patchsize) isn't doing compression.  This assumes images are 320x320, our default from chexpert dataset
 EOF
 }
@@ -601,21 +601,21 @@ timings_e2e_table() {
 # MLP
 python <<EOF
 for J,P,batch_size in [ (6,5,1000), (2,19,1000),(1,1,1350), (1,160,800), (8,1,600), (5,5,1350) ]:
-    model = f"deepfix_v1:14:{J}:{P}:0:db1"
-    print(f'''${V}.timing.DeepFix.J={J}.P={P}  env batch_size={batch_size} num_workers=6  python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg deepfixmlp:.1 --model {model} --epochs 6 --start_epoch 1''')
+    model = f"waveletfix_v1:14:{J}:{P}:0:db1"
+    print(f'''${V}.timing.WaveletFix.J={J}.P={P}  env batch_size={batch_size} num_workers=6  python waveletfix/train.py --waveletfix off --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg waveletfixmlp:.1 --model {model} --epochs 6 --start_epoch 1''')
 EOF
-# cnn + deepfix
+# cnn + waveletfix
 python <<EOF
 level = 1
 patchsize = 115
-print( f"${V}.timing.DenseNet121.J={level}.P={patchsize} env num_workers=6 batch_size=20 python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --model deepfix_densenet121:1:14:{level}:{patchsize}:{patchsize} --epochs 6 --start_epoch 1")
-print( f"${V}.timing.ResNet18.J={level}.P={patchsize} env num_workers=6 batch_size=110 python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --model deepfix_resnet18:1:14:{level}:{patchsize}:{patchsize} --epochs 6 --start_epoch 1")
+print( f"${V}.timing.DenseNet121.J={level}.P={patchsize} env num_workers=6 batch_size=20 python waveletfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --model waveletfix_densenet121:1:14:{level}:{patchsize}:{patchsize} --epochs 6 --start_epoch 1")
+print( f"${V}.timing.ResNet18.J={level}.P={patchsize} env num_workers=6 batch_size=110 python waveletfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --model waveletfix_resnet18:1:14:{level}:{patchsize}:{patchsize} --epochs 6 --start_epoch 1")
 
 EOF
 # cnn baseline
   cat <<EOF
-${V}.timing.ResNet18                           env batch_size=55 num_workers=6    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:untrained:1:14 --epochs 6 --start_epoch 1
-${V}.timing.Densenet121                        env batch_size=10 num_workers=6    python deepfix/train.py --deepfix off --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:untrained:1:14 --epochs 6 --start_epoch 1
+${V}.timing.ResNet18                           env batch_size=55 num_workers=6    python waveletfix/train.py --waveletfix off --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:untrained:1:14 --epochs 6 --start_epoch 1
+${V}.timing.Densenet121                        env batch_size=10 num_workers=6    python waveletfix/train.py --waveletfix off --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model densenet121:untrained:1:14 --epochs 6 --start_epoch 1
 EOF
 }
 
@@ -626,47 +626,47 @@ function timings_baselinetables() {
 # baseline
 local args=' --opt Adam:lr=0.001 --epochs 6 --dset intel_mobileodt:train+additional:val:test:v1 --lossfn CrossEntropyLoss --start_epoch 1'
     cat <<EOF
-${V}.timingbt.intelmobileodt.resnet18 env num_workers=6 batch_size=12000 python deepfix/train.py --model resnet18:untrained:3:3  $args
-${V}.timingbt.intelmobileodt.resnet18 env num_workers=6 batch_size=12000 python deepfix/train.py --model resnet18:untrained:3:3  $args
+${V}.timingbt.intelmobileodt.resnet18 env num_workers=6 batch_size=12000 python waveletfix/train.py --model resnet18:untrained:3:3  $args
+${V}.timingbt.intelmobileodt.resnet18 env num_workers=6 batch_size=12000 python waveletfix/train.py --model resnet18:untrained:3:3  $args
 EOF
 
-# deepfix
+# waveletfix
 python <<EOF
 args=' --opt Adam:lr=0.001 --epochs 6 --dset intel_mobileodt:train+additional:val:test:v1 --lossfn CrossEntropyLoss --start_epoch 1'
 level = 5
 patchsize = 5
-model = f"deepfix_resnet18:3:3:{level}:{patchsize}:{patchsize}"
-print( f"""${V}.timingbt.intelmobileodt.J={level}.P={patchsize} env num_workers=6 batch_size=12000 python deepfix/train.py --model {model} {args}""")
+model = f"waveletfix_resnet18:3:3:{level}:{patchsize}:{patchsize}"
+print( f"""${V}.timingbt.intelmobileodt.J={level}.P={patchsize} env num_workers=6 batch_size=12000 python waveletfix/train.py --model {model} {args}""")
 EOF
 
 #
 # kimeye
 #
-# cnn + deepfix
+# cnn + waveletfix
 python <<EOF
 args = ' --opt Adam:lr=0.001 --epochs 6 --dset kimeye:.7:.15 --lossfn kimeye_ce --start_epoch 1'
 level = 4
 patchsize = 5
-model = f"deepfix_resnet18:3:3:{level}:{patchsize}:{patchsize}"
-print( f"""${V}.timingbt.kimeye.J={level}.P={patchsize} env num_workers=6 batch_size=720  python deepfix/train.py --model {model} {args}""")
+model = f"waveletfix_resnet18:3:3:{level}:{patchsize}:{patchsize}"
+print( f"""${V}.timingbt.kimeye.J={level}.P={patchsize} env num_workers=6 batch_size=720  python waveletfix/train.py --model {model} {args}""")
 EOF
 # cnn baseline
 cat <<EOF
-$V.timingbt.kimeye.resnet18 env num_workers=6 batch_size=105  python deepfix/train.py --model resnet18:untrained:3:3 --opt Adam:lr=0.001 --epochs 6 --start_epoch 1 --dset kimeye:.7:.15 --lossfn kimeye_ce
+$V.timingbt.kimeye.resnet18 env num_workers=6 batch_size=105  python waveletfix/train.py --model resnet18:untrained:3:3 --opt Adam:lr=0.001 --epochs 6 --start_epoch 1 --dset kimeye:.7:.15 --lossfn kimeye_ce
 EOF
 
 #
 # chexpert
 #
-# cnn + deepfix
+# cnn + waveletfix
 python <<EOF
 level = 1
 patchsize = 79
-print( f"${V}.timingbt.chexpert.J={level}.P={patchsize} env num_workers=6 batch_size=25 python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --model deepfix_densenet121:1:14:{level}:{patchsize}:{patchsize} --epochs 6 --start_epoch 1")
+print( f"${V}.timingbt.chexpert.J={level}.P={patchsize} env num_workers=6 batch_size=25 python waveletfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --model waveletfix_densenet121:1:14:{level}:{patchsize}:{patchsize} --epochs 6 --start_epoch 1")
 EOF
 # cnn baseline
 cat <<EOF
-${V}.timingbt.chexpert.DenseNet121 env batch_size=10 num_workers=6    python deepfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model densenet121:untrained:1:14 --epochs 6 --start_epoch 1
+${V}.timingbt.chexpert.DenseNet121 env batch_size=10 num_workers=6    python waveletfix/train.py --dset chexpert_small15k:.9:.1:diagnostic --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model densenet121:untrained:1:14 --epochs 6 --start_epoch 1
 EOF
 }
 
@@ -700,12 +700,12 @@ plots_chexpert() {
   python ./bin/plot_compression_ratio.py --patch_sizes 1 2 3 4 5 6 7 8 --input_size 64 64
 
   # predictive performance
-  # C25 is chexpert -> compression with deepfix --> resnet18
+  # C25 is chexpert -> compression with waveletfix --> resnet18
   # C25 | run_gpus 1
   chexpert=true ./bin/plot_heatmap_levels_vs_patchsize.sh 2.C25 0.858
   # ... other predictive performances.  these were done before the roc auc was
   # computed every epoch.  I verified that the approach gives identical result.
-  # C21 is chexpert --> compression with deepfix --> tiny 1 layer MLP
+  # C21 is chexpert --> compression with waveletfix --> tiny 1 layer MLP
   # C21 | run_gpus 1
   # C8 is the baselines,  e.g.  chexpert --> resnet18
   # C8 | run_gpus 1
@@ -761,36 +761,36 @@ args = ' --opt Adam:lr=0.001 --epochs 300 --dset intel_mobileodt:train+additiona
 for level in [1,2,3,4,5,6,7]:
     for patchsize in 1,3,5,7,9,11,21,31,41,51,61,75:
         if patchsize <= 200 / 2**level:
-            # model = f"deepfix_cervical:{level}:{patchsize}"
-            model = f"deepfix_resnet18:3:3:{level}:{patchsize}:{patchsize}"
-            print( f"""${V}.E6.J={level}.P={patchsize} env num_workers=12 batch_size=6000 python deepfix/train.py --model {model} {args}""")
+            # model = f"waveletfix_cervical:{level}:{patchsize}"
+            model = f"waveletfix_resnet18:3:3:{level}:{patchsize}:{patchsize}"
+            print( f"""${V}.E6.J={level}.P={patchsize} env num_workers=12 batch_size=6000 python waveletfix/train.py --model {model} {args}""")
 EOF
 }
 E7() {
     # Intel MobileODT cervical.  Baseline.  ( to run 6 times )
 args=' --opt Adam:lr=0.001 --epochs 300 --dset intel_mobileodt:train+additional:val:test:v1 --lossfn CrossEntropyLoss '
     cat <<EOF
-${V}.E7.resnet18 env num_workers=12 batch_size=6000 python deepfix/train.py --dset intel_mobileodt:train+additional:val:test:v1 --model resnet18:untrained:3:3  $args
+${V}.E7.resnet18 env num_workers=12 batch_size=6000 python waveletfix/train.py --dset intel_mobileodt:train+additional:val:test:v1 --model resnet18:untrained:3:3  $args
 EOF
-# env num_workers=0 batch_size=2600 python deepfix/train.py --model densenet121:untrained:3:3 --opt SGD:lr=0.001 --epochs 300 --dset intel_mobileodt:train:val:test:v1 --lossfn CrossEntropyLoss  --loss_reg none --start_epoch 1
+# env num_workers=0 batch_size=2600 python waveletfix/train.py --model densenet121:untrained:3:3 --opt SGD:lr=0.001 --epochs 300 --dset intel_mobileodt:train:val:test:v1 --lossfn CrossEntropyLoss  --loss_reg none --start_epoch 1
 }
 E8() {
-    # Intel MobileODT cervical.  "Best" DeepFix model ( to run 6 times )
+    # Intel MobileODT cervical.  "Best" WaveletFix model ( to run 6 times )
 
 local V=$((V+1))
 python <<EOF
 args = ' --opt Adam:lr=0.001 --epochs 300 --dset intel_mobileodt:train+additional:val:test:v1 --lossfn CrossEntropyLoss '
 level = 5
 patchsize = 5
-model = f"deepfix_resnet18:3:3:{level}:{patchsize}:{patchsize}"
-print( f"""${V}.E8 env num_workers=6 batch_size=6000 python deepfix/train.py --model {model} {args}""")
+model = f"waveletfix_resnet18:3:3:{level}:{patchsize}:{patchsize}"
+print( f"""${V}.E8 env num_workers=6 batch_size=6000 python waveletfix/train.py --model {model} {args}""")
 EOF
 }
 
 
 K0() {
     cat <<EOF
-$V.K0 env num_workers=10 batch_size=200  python deepfix/train.py --model resnet18:untrained:3:3 --opt Adam:lr=0.001 --epochs 50 --dset kimeye:.7:.15 --lossfn kimeye_ce
+$V.K0 env num_workers=10 batch_size=200  python waveletfix/train.py --model resnet18:untrained:3:3 --opt Adam:lr=0.001 --epochs 50 --dset kimeye:.7:.15 --lossfn kimeye_ce
 EOF
 }
 
@@ -802,18 +802,18 @@ for level in [1,2,3,4,5,6,7]:
     # for patchsize in 1,3,5,7,9,11,21,31,41,51,61,75:
     for patchsize in 1,3,5,9,21,31,61:
         if patchsize <= 240 / 2**level:
-            model = f"deepfix_resnet18:3:3:{level}:{patchsize}:{patchsize}"
-            print( f"""${V}.K1.J={level}.P={patchsize} env num_workers=10 batch_size=200   python deepfix/train.py --model {model} {args}""")
+            model = f"waveletfix_resnet18:3:3:{level}:{patchsize}:{patchsize}"
+            print( f"""${V}.K1.J={level}.P={patchsize} env num_workers=10 batch_size=200   python waveletfix/train.py --model {model} {args}""")
 EOF
 }
 K2() {
-    # Kim eye best deepfix run
+    # Kim eye best waveletfix run
 python <<EOF
 args = ' --opt Adam:lr=0.001 --epochs 50 --dset kimeye:.7:.15 --lossfn kimeye_ce '
 level = 4
 patchsize = 5
-model = f"deepfix_resnet18:3:3:{level}:{patchsize}:{patchsize}"
-print( f"""${V}.K2 env num_workers=10 batch_size=200   python deepfix/train.py --model {model} {args}""")
+model = f"waveletfix_resnet18:3:3:{level}:{patchsize}:{patchsize}"
+print( f"""${V}.K2 env num_workers=10 batch_size=200   python waveletfix/train.py --model {model} {args}""")
 EOF
 }
 
@@ -855,8 +855,8 @@ plots_kimeye() {
 # ( C9 ; C10 ) | run_gpus 5
 # ( C8 ; C9 ; C10 ; C11 ; C12 ) | run_gpus 3
 # C12
-# C13 | grep compute_deepfix | parallel -j 10
-# C13 | grep -v compute_deepfix | run_gpus 5
+# C13 | grep compute_waveletfix | parallel -j 10
+# C13 | grep -v compute_waveletfix | run_gpus 5
 # C15 | run_gpus 1
 # export num_workers=6
 # export batch_size=16

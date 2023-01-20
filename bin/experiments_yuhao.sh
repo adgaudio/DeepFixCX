@@ -31,41 +31,41 @@ V=111  # experiment version number
 C3() {
   # chexpert baselines
   cat <<EOF
-  ${V}.C3.chexpert_small.resnet18.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small:.8:.2 --loss chexpert_uignore --opt Adam:lr=0.003 --model resnet18:untrained:1:14
-  ${V}.C3.chexpert_small.resnet18.baseline.imagenet    python deepfix/train.py --deepfix off --dset chexpert_small:.8:.2 --loss chexpert_uignore --opt Adam:lr=0.003 --model resnet18:imagenet:1:14
+  ${V}.C3.chexpert_small.resnet18.baseline.fromscratch    python waveletfix/train.py --waveletfix off --dset chexpert_small:.8:.2 --loss chexpert_uignore --opt Adam:lr=0.003 --model resnet18:untrained:1:14
+  ${V}.C3.chexpert_small.resnet18.baseline.imagenet    python waveletfix/train.py --waveletfix off --dset chexpert_small:.8:.2 --loss chexpert_uignore --opt Adam:lr=0.003 --model resnet18:imagenet:1:14
 EOF
-  # ${V}.C3.chexpert.resnet18.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert:.8:.2 --loss chexpert_uignore --opt Adam:lr=0.003 --model resnet18:untrained:1:14
-  # ${V}.C3.chexpert.resnet18.baseline.imagenet    python deepfix/train.py --deepfix off --dset chexpert:.8:.2 --loss chexpert_uignore --opt Adam:lr=0.003 --model resnet18:imagenet:1:14
+  # ${V}.C3.chexpert.resnet18.baseline.fromscratch    python waveletfix/train.py --waveletfix off --dset chexpert:.8:.2 --loss chexpert_uignore --opt Adam:lr=0.003 --model resnet18:untrained:1:14
+  # ${V}.C3.chexpert.resnet18.baseline.imagenet    python waveletfix/train.py --waveletfix off --dset chexpert:.8:.2 --loss chexpert_uignore --opt Adam:lr=0.003 --model resnet18:imagenet:1:14
 }
 
 # model spec is:   mlp_channels : in_ch : out_ch : wavelet_levels : patch_size : mlp_depth
 
 C4() {
   # chexpert: experiment with varying mlp middle channel width.
-  local default_cmd=" python deepfix/train.py --deepfix off --dset chexpert_small:.2:.1 --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none"
+  local default_cmd=" python waveletfix/train.py --waveletfix off --dset chexpert_small:.2:.1 --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none"
   for ch_mid in 300 500 700 ; do
     echo ${V}.C4.chexpert_small.waveletmlp:$ch_mid:none $default_cmd --model waveletmlp:${ch_mid}:1:14:9:3:2
   done
 }
 C5_vecattn_regularizer() {
   # chexpert: experiment with regularizer on or off.
-  local default_cmd=" python deepfix/train.py --deepfix off --dset chexpert_small:.8:.2 --opt Adam:lr=0.003 --model waveletmlp:500:1:14:9:3:2 --lossfn chexpert_uignore "
+  local default_cmd=" python waveletfix/train.py --waveletfix off --dset chexpert_small:.8:.2 --opt Adam:lr=0.003 --model waveletmlp:500:1:14:9:3:2 --lossfn chexpert_uignore "
   # experiment id has format:  mid-channels:patch_size:lambda
   cat <<EOF
   ${V}.C5.chexpert_small.waveletmlp:500:3:2:0 $default_cmd --loss_reg none
-  ${V}.C5.chexpert_small.waveletmlp:500:3:2:1 $default_cmd --loss_reg deepfixmlp:1
-  ${V}.C5.chexpert_small.waveletmlp:500:3:2:.5 $default_cmd --loss_reg deepfixmlp:.5
+  ${V}.C5.chexpert_small.waveletmlp:500:3:2:1 $default_cmd --loss_reg waveletfixmlp:1
+  ${V}.C5.chexpert_small.waveletmlp:500:3:2:.5 $default_cmd --loss_reg waveletfixmlp:.5
 EOF
 }
 
 C6_vary_patch_size() {
   for p in 1 3 32 64; do
-echo "${V}.C6.10%dset.patch$p" python deepfix/train.py --deepfix off --dset chexpert_small:.1:.01 --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model waveletmlp:700:1:14:9:$p:2
+echo "${V}.C6.10%dset.patch$p" python waveletfix/train.py --waveletfix off --dset chexpert_small:.1:.01 --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model waveletmlp:700:1:14:9:$p:2
   done
 }
 C6_vary_patch_size_part2() {
   for p in 128 ; do
-echo "${V}.C6.10%dset.patch$p" python deepfix/train.py --deepfix off --dset chexpert_small:.1:.01 --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model waveletmlp:300:1:14:9:$p:2
+echo "${V}.C6.10%dset.patch$p" python waveletfix/train.py --waveletfix off --dset chexpert_small:.1:.01 --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model waveletmlp:300:1:14:9:$p:2
   done
 }
 
@@ -73,14 +73,14 @@ C7() {
   # new tests with wavelet packet
 # (7,1,1), (7,1,3), (6,3,1), (2,32,1)
 for model in "waveletmlp:700:1:14:7:1:1:3" "waveletmlp:700:1:14:7:1:3:3" "waveletmlp:700:1:14:6:3:1:3"  "waveletmlp:700:1:14:2:30:1:3" ; do
-  echo "${V}.C7.$model" python deepfix/train.py --deepfix off --dset chexpert_small:.1:.01 --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model $model
+  echo "${V}.C7.$model" python waveletfix/train.py --waveletfix off --dset chexpert_small:.1:.01 --opt Adam:lr=0.001 --lossfn chexpert_uignore --loss_reg none --model $model
 done
 }
 
 C8() {
   # baseline, 1% of training data
   cat <<EOF
-  ${V}.C8.resnet18.baseline.fromscratch    python deepfix/train.py --deepfix off --dset chexpert_small:.1:.01 --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:untrained:1:14
+  ${V}.C8.resnet18.baseline.fromscratch    python waveletfix/train.py --waveletfix off --dset chexpert_small:.1:.01 --opt Adam:lr=0.003 --lossfn chexpert_uignore --loss_reg none --model resnet18:untrained:1:14
 EOF
 }
 
@@ -89,12 +89,12 @@ Y1() {
   N=5000  # Use 5k identities
 
   # resnet18 baseline
-  echo "${V}.Y1.resnet18.baseline.fromscratch python deepfix/train.py --dset chexpert_small_ID:N:.01:.01 --opt Adam:lr=0.001 --lossfn chexpert_identity:N --loss_reg none --model resnet18:untrained:1:N"
+  echo "${V}.Y1.resnet18.baseline.fromscratch python waveletfix/train.py --dset chexpert_small_ID:N:.01:.01 --opt Adam:lr=0.001 --lossfn chexpert_identity:N --loss_reg none --model resnet18:untrained:1:N"
   # our model with  patch_size=1 --loss_reg none
-  # ...todo:   echo ${V}.Y1.SOMETHiNG  python deepfix/train.py ...FILL IN HERE.
+  # ...todo:   echo ${V}.Y1.SOMETHiNG  python waveletfix/train.py ...FILL IN HERE.
   # our model with  patch_size=30 --loss_reg none
   # ...todo
-  # our model with  patch_size=30 --loss_reg deepfixmlp:1
+  # our model with  patch_size=30 --loss_reg waveletfixmlp:1
   # ...todo
 
 }

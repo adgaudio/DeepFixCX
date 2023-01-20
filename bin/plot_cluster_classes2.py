@@ -243,7 +243,7 @@ if __name__ == "__main__":
     for mb in d:
         x = mb[0].to(device, non_blocking=True)
         _B = x.shape[0]
-        # get Deepfix encoding
+        # get WaveletFix encoding
         enc = mdl.compression_mdl(x)
         # Use the approximation image as baseline for the attribution method
         baseline = enc.reshape(_B, 4**J,P,P).clone()
