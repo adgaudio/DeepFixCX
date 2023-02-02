@@ -6,7 +6,7 @@ import warnings
 from itertools import chain
 #  import pytorch_colors as colors
 #  import pywt
-import pytorch_wavelets as pyw
+# import pytorch_wavelets as pyw
 from .wavelet_packet import WaveletPacket2d
 from deepfixcx.models.api import get_resnet
 
@@ -305,144 +305,6 @@ class DeepFixCXReconstruct(T.nn.Module):
         return recons
 
 
-class DeepFixCXCompression__OLD(T.nn.Module):
-    """Compress the input data to ~1% of original size via feature extraction
-    from a wavelet transform.  No learning.
-    """
-    def __init__(self,
-                 in_ch:int,
-                 in_ch_multiplier:int,
-                 # wavelet params
-                 levels:int, wavelet:str,
-                 # wavelet spatial feature extraction params
-                 patch_size:int,
-                 ):
-        super().__init__()
-        #
-        # construct the compressed encoder:
-        #
-        # preprocessing: expand channels by random projection
-        assert in_ch_multiplier >= 1, 'invalid input. expect in_ch_multiplier >= 1'
-        if in_ch_multiplier > 1:
-            self.expand_input_channels = T.nn.Sequential(
-                T.nn.Conv2d(in_ch, in_ch*in_ch_multiplier, 1),
-                T.nn.CELU(),
-            )
-            # note: kaiming normal initialization of this step improves perf in xlm
-            # This can be fixed randomly and not learned I think.
-            T.nn.init.kaiming_normal_(self.expand_input_channels[0].weight, nonlinearity='sigmoid')
-        else:
-            self.expand_input_channels = T.nn.Identity()
-        # wavelet transform
-        self.wavelet_encoder = pyw.DWT(
-            J=levels, wave=wavelet, mode='periodization')
-        # wavelet feature extractor
-        self.patch_size = patch_size
-        # fix the model (no learning)
-        for x in self.parameters():
-            x.requires_grad_(False)
-        # for convenience:  determine what the output shape should be
-        D = self.get_n_wavelet_features(
-            in_ch*in_ch_multiplier, wavelet_levels=levels, patch_size=patch_size)
-        self.out_shape = ("?", in_ch * in_ch_multiplier, D)
-
-    def forward(self, x: T.Tensor):
-        """Fixed weight dataset agnostic compression"""
-        x = self.expand_input_channels(x)
-        x = self.wavelet_feature_extractor(*self.wavelet_encoder(x))
-        return x
-
-    def wavelet_feature_extractor(self, approx, detail):
-        # extract features from each detail matrix
-        _scores = []
-        _zero = approx.new_tensor(0)
-        p = self.patch_size
-        for lvl_idx, lvl in enumerate(chain(detail, [approx.unsqueeze_(2)])):
-            # divide the spatial dimensions into a pxp grid of "patches"
-            # p=3 means we divide the detail matrix into 9 patches,
-            # padding zeros as needed.
-            h,w = lvl.shape[-2:]
-            if p != 1 and (h>p or w>p):  # if condition avoids unnecessarily padding the input
-                # zero pad rows and cols so can have a pxp grid
-                py, px = (p-h%p)%p, (p-w%p)%p  # total num cols and rows to pad
-                assert py in set(range(p)) and px in set(range(p)), 'sanity check: code bug'
-                yl = py//2
-                yr = py-yl
-                xl = px//2
-                xr = px-xl
-                lvl = T.nn.functional.pad(lvl, (xl, xr, yl, yr))
-                b,c,d,h,w = lvl.shape
-                assert h%p == 0, w%p == 0
-                if lvl_idx < len(detail):  # if not the approx matrix...
-                    assert d == 3, 'sanity check: 3 detail matrices per level'
-                lvl = T.nn.functional.unfold(
-                    lvl.reshape(b,c*d,h,w),
-                    kernel_size=(max(1,h//p), max(1,w//p)),
-                    stride=(max(1,h//p),max(1,w//p)))
-                lvl = lvl.reshape(b,c,d,max(1,h//p),max(1,w//p),p*p)
-                # put the spatial dimensions last.
-                lvl = lvl.permute(0,1,2,5,3,4)
-            # for each patch, get some numbers
-            _scores.append(T.stack([
-                # pos and neg coefficients
-                lvl.where(lvl > 1e-6, _zero).sum((-2, -1)).float(),
-                lvl.where(lvl < -1e-6, _zero).sum((-2, -1)).float(),
-                # the num of zeros and near zeros
-                #  (lvl.abs() < 1e-6).sum((-2, -1)).float(),
-                #  (lvl > 0).sum((-2,-1)).float(),
-                #  (lvl < 0).sum((-2,-1)).float(),
-                # num elements in this detail matrix (very redundant)
-                #  T.ones(lvl.shape[:-2], device=approx.device, dtype=approx.dtype)
-                   #  * lvl.shape[-2:].numel(),
-            ], -1))
-            del lvl
-        # extract features comparing pairwise similarities over all detail matrices
-        #  from simplepytorch.metrics import distance_correlation
-        #  dcovs = [distance_correlation(coefs1.flatten(-2), coefs2.flatten(-2)).dcov
-        #           for n,coefs1 in enumerate(detail)
-        #           for m,coefs2 in enumerate(detail)
-        #           if n != m]
-        # flatten into a single vector per (image, channel)
-        # the features of each (layer, detail matrix, patch)
-        B, C = approx.shape[:2]
-        out = T.cat([x.reshape(B,C,-1) for x in _scores], -1)
-        if out[0].numel() > math.prod(detail[0].shape[-2:])*4:
-            warnings.warn(
-                f'{self.__class__.__name__}.patch_size too large, so the'
-                '  compressed representation is larger than the input image.'
-                '  Reduce the patch_size, or try reducing the wavelet levels.'
-            )
-        return out
-                      #  approx.reshape(B, C, -1)], -1)
-
-    @staticmethod
-    def get_n_wavelet_features(in_channels, wavelet_levels, patch_size):
-        # without 3x3 patches, much simpler
-        #  n_detail_features = in_channels * wavelet_levels * 3*4  # 3 for horizontal,vertical,diagonal coefficients
-        #  n_approx_features = in_channels*4
-        #  n_dcov_features = 0  # in_channels * wavelet_levels * (wavelet_levels-1)
-        #  return  n_detail_features+n_approx_features+n_dcov_features
-        #
-        # with pxp patches, more complex
-        p = patch_size
-        #  lvl_shape = [(math.ceil(H/2**i), math.ceil(W/2**i))
-                    #  for i in range(1, wavelet_levels+1)]
-        #  padded_lvl_shape = [(y + (p-y%p)%p, x + (p-x%p)%p) for y,x in lvl_shape]
-        n_detail_features = [
-            p*p  # num patches at this level
-            * 3*2  # 3 detail matrices and 2 features per level.
-            for _ in range(wavelet_levels)]
-
-        # lvl_shapes = ...  # dynamic size
-            #  p*p if (h>p or w>p) else h*w   # num patches at this level
-            #  * 3*2  # 3 detail matrices and 2 features per level.
-            #  for (h,w),_ in zip(lvl_shapes, range(wavelet_levels))]
-        n_approx_features = n_detail_features[-1]/3
-        rv = sum(n_detail_features) + n_approx_features
-        assert rv == int(rv), 'sanity check: is integer value'
-        return int(rv)
-
-
 class Normalization(T.nn.Module):
     """Expect input of shape  (B,C,D) and normalize each of the D features"""
     def __init__(self, D:int, normalization:str, filepath:str=None):
@@ -721,6 +583,9 @@ class MLP(T.nn.Module):
 
 
 class DeepFixCXImg2Img(T.nn.Module):
+    """Privatize and compress an Image, outputting another image.  Useful as a
+    layer before a deep network.  No learning happens in this layer by default.
+    """
     def __init__(self, in_channels, J:int, P:Union[int,Tuple[int,int]], wavelet='db1', patch_features='l1',
                  restore_orig_size:bool=False, min_size:Optional[Tuple[int,int]]=None,
                  how_to_error_if_input_too_small='raise'):
