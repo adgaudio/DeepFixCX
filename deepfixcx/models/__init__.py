@@ -1,14 +1,14 @@
 from .api import get_effnetv2, get_resnet, get_efficientnetv1, get_densenet
 from .waveletmlp import (
-    # generate waveletfix embedding (but don't reconstruct into img)
-    WaveletFixCompression,
-    # reconstruct img from waveletfix embedding
-    WaveletFixReconstruct,
+    # generate deepfixcx embedding (but don't reconstruct into img)
+    DeepFixCXCompression,
+    # reconstruct img from deepfixcx embedding
+    DeepFixCXReconstruct,
     # do compression and img reconstruction all in one go.
-    WaveletFixImg2Img,
+    DeepFixCXImg2Img,
     # other things
-    get_WaveletFixEnd2End, WaveletFixEnd2End, WaveletFixMLP,
-    get_WaveletFixEnd2End_v2,
+    get_DeepFixCXEnd2End, DeepFixCXEnd2End, DeepFixCXMLP,
+    get_DeepFixCXEnd2End_v2,
     InvalidWaveletParametersError,
 )
 from .unetd import UnetD

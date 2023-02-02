@@ -10,12 +10,12 @@ README = (HERE / "README.md").read_text()
 
 
 setup(
-    name='waveletfix',
+    name='deepfixcx',
     version='0.0.1',
     description='',
     long_description=README,
     long_description_content_type="text/markdown",
-    url="https://github.com/adgaudio/waveletfix",
+    url="https://github.com/adgaudio/DeepFixCX",
     author='Alex Gaudio',
     license="MIT",
     classifiers=[
@@ -23,12 +23,8 @@ setup(
         "Programming Language :: Python :: 3.9",
     ],
     include_package_data=True,
-    packages=['waveletfix', 'waveletfix.models'],
+    packages=['deepfixcx', 'deepfixcx.models'],
     scripts=[],
     install_requires=[],
-        #  "torchvision", "torch",
-        #  "pretrainedmodels", "pandas", "numpy", "timm", "einops"],
-    extras_require={
-        #  'dataset_qualdr': ["pyjq", ]
-    }
+    extras_require={}
 )

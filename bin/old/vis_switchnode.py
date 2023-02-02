@@ -1,4 +1,4 @@
-from waveletfix.weight_saliency import get_saliency, SaliencyResult, reinitialize_least_salient
+from deepfixcx.weight_saliency import get_saliency, SaliencyResult, reinitialize_least_salient
 from simplepytorch.datasets import CheXpert_Small, PreProcess
 import torch as T
 import math

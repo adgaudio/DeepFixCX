@@ -2,7 +2,7 @@
 Show how much compression you get for varying choices of wavelet levels and
 patch size.
 
-Use the chart to choose a waveletfix compression model that based on its spatial
+Use the chart to choose a deepfixcx compression model that based on its spatial
 resolution, scale resolution and overall compression ratio.
 
 Usage:
@@ -15,9 +15,9 @@ import pandas as pd
 import argparse as ap
 from matplotlib import pyplot as plt
 import seaborn as sns
-from waveletfix.models import WaveletFixCompression, InvalidWaveletParametersError
-from waveletfix.train import get_dset_chexpert, match, MODELS
-from waveletfix import plotting as P
+from deepfixcx.models import DeepFixCXCompression, InvalidWaveletParametersError
+from deepfixcx.train import get_dset_chexpert, match, MODELS
+from deepfixcx import plotting as P
 
 p = ap.ArgumentParser()
 p.add_argument('--patch_features', nargs='+', default=('l1', ))
@@ -41,7 +41,7 @@ gen = ((J,P,M)
        for P in args.patch_sizes
        for M in [1])
 for J,P,M in gen:
-    enc1 = WaveletFixCompression(
+    enc1 = DeepFixCXCompression(
         in_ch=1, in_ch_multiplier=M, levels=J,
         wavelet='db1', patch_size=P, patch_features=args.patch_features,
         how_to_error_if_input_too_small='raise')
@@ -105,7 +105,7 @@ fig.savefig(f'results/plots/compression_ratio_table_as_img{args.filenameid}.png'
 
 
 
-#  mlp_channels, in_ch, out_ch, wavelet_levels, patch_size, mlp_depth: get_WaveletFixEnd2End(
+#  mlp_channels, in_ch, out_ch, wavelet_levels, patch_size, mlp_depth: get_DeepFixCXEnd2End(
 # 78.7  waveletmlp:700:1:14:6:1:3
 # 19.69 waveletmlp:700:1:14:7:1:3
 # 78.7  waveletmlp:700:1:14:6:2:3

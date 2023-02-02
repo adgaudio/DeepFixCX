@@ -12,7 +12,7 @@ import pandas as pd
 import torch as T
 import argparse as ap
 
-from waveletfix.dsets import get_dset_flowers102, get_dset_food101, get_dset_food101_waveletfixed
+from deepfixcx.dsets import get_dset_flowers102, get_dset_food101, get_dset_food101_deepfixcxed
 
 
 def evaluate(model, loader, device):
@@ -54,7 +54,7 @@ def main(args: ap.Namespace):
         dct, class_names = get_dset_flowers102()
     elif args.dset.startswith('food101:'):
         J, P = re.match('food101:(\d+):(\d+)', args.dset)
-        dct, class_names = get_dset_food101_waveletfixed(J=int(J), P=int(P))
+        dct, class_names = get_dset_food101_deepfixcxed(J=int(J), P=int(P))
     elif args.dset == 'food101':
         dct, class_names = get_dset_food101()
     else:

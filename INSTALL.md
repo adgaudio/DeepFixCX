@@ -2,8 +2,8 @@
 Code used to setup the environment:
 
     source /opt/anaconda/bin/activate
-    conda create -n deepfix python=3.9
-    conda activate deepfix
+    conda create -n deepfixcx python=3.9
+    conda activate deepfixcx
     conda install pytorch torchvision torchaudio cudatoolkit=11.3 -c pytorch
 
     conda install matplotlib numpy pandas scikit-learn pip tqdm pytables ipython seaborn

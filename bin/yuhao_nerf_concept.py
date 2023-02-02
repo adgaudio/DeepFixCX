@@ -4,7 +4,7 @@ nerf reconstruction idea for yuhao.
 step 2:  train a neural net to do an inverse wavelet packet transform.
 step 3.  train a neural net to do an inverse wavelet packet transform on sparse and missing data, and incorporating spatial position information like nerf would.
 """
-from waveletfix.models.wavelet_packet import WaveletPacket2d
+from deepfixcx.models.wavelet_packet import WaveletPacket2d
 from matplotlib import pyplot as plt
 import torchvision.transforms as tvt
 

@@ -196,7 +196,7 @@ class WaveletPacket2d(T.nn.Module):
 if __name__ == "__main__":
 
     import skimage.data
-    from waveletfix import plotting as P
+    from deepfixcx import plotting as P
     from matplotlib import pyplot as plt
     plt.ion()
     #  im = T.tensor(skimage.data.cell() / 255.).unsqueeze(0).unsqueeze(0).float()

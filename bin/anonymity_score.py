@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-Get the anonymity score for a waveletfix encoder model.
+Get the anonymity score for a deepfixcx encoder model.
 
 python bin/anonymity_score.py --dset chexpert_small:.1:.001 --model waveletmlp:700:1:14:7:32:3:3 --lossfn chexpert_uignore
 """
@@ -20,8 +20,8 @@ import scipy.stats
 import scipy.spatial.distance
 
 from simplepytorch.datasets import CheXpert_Small
-from waveletfix.models import WaveletFixCompression
-from waveletfix.models.waveletmlp import Normalization
+from deepfixcx.models import DeepFixCXCompression
+from deepfixcx.models.waveletmlp import Normalization
 
 
 def euclidean_dist(vec1, vec2):
@@ -79,20 +79,20 @@ def get_dset(args, seed):
 
 
 def get_model(args):
-    waveletfix_mdl = WaveletFixCompression(
+    deepfixcx_mdl = DeepFixCXCompression(
         in_ch=1, in_ch_multiplier=1,
         levels=args.level, wavelet=args.wavelet,
         patch_size=args.patchsize, patch_features=args.patch_features,
         adaptive=0, zero_mean=False,
         how_to_error_if_input_too_small='warn')
     if args.normalization != 'none':
-        D = waveletfix_mdl.out_shape[-1]
+        D = deepfixcx_mdl.out_shape[-1]
         assert D == 4**args.level * args.patchsize**2 * len(args.patch_features)
-        waveletfix_mdl = T.nn.Sequential(waveletfix_mdl, Normalization(
+        deepfixcx_mdl = T.nn.Sequential(deepfixcx_mdl, Normalization(
             D=D, normalization=args.normalization, filepath=(
                 f'norms/chexpert_small:{args.wavelet}:{args.level}:{args.patchsize}:{",".join(args.patch_features)}:0.pth')))
-    waveletfix_mdl.to(args.device)
-    return waveletfix_mdl
+    deepfixcx_mdl.to(args.device)
+    return deepfixcx_mdl
 
 
 def analyze_dist_matrices(args, cdists:List[T.Tensor], patient_id_matches:List[T.Tensor]):
@@ -127,7 +127,7 @@ def main():
     args = parse_args()
     print(args)
 
-    waveletfix_mdl = get_model(args)
+    deepfixcx_mdl = get_model(args)
     pdists, patient_id_matches, link_to_original_data = [], [], []
     for bootstrap_idx in range(args.n_bootstrap):
         T.cuda.empty_cache()
@@ -143,7 +143,7 @@ def main():
             labels.extend(y)
             patient_ids.extend([dct['labels'].loc['Patient'] for dct in y])
             with T.no_grad():
-                encs.append(waveletfix_mdl(x))
+                encs.append(deepfixcx_mdl(x))
 
         print(f'bootstrap {bootstrap_idx}: get pairwise distances')
         link_to_original_data.append(labels)

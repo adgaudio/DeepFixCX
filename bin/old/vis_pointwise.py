@@ -11,8 +11,8 @@ import torchvision.transforms as tvt
 from efficientnet_pytorch import EfficientNet
 
 from simplepytorch.datasets import CheXpert_Small
-from waveletfix.weight_saliency import get_saliency
-from waveletfix.analyze_layer import analyze_model_at_modules
+from deepfixcx.weight_saliency import get_saliency
+from deepfixcx.analyze_layer import analyze_model_at_modules
 
 
 def plot_as_subplots(lst: list['data'], ax_titles:list[str]=None,

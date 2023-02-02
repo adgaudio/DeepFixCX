@@ -7,11 +7,11 @@ import numpy as np
 import torch as T
 import torchvision.transforms as tvt
 
-from waveletfix.models import WaveletFixCompression, WaveletFixImg2Img
-from waveletfix.models.wavelet_packet import WaveletPacket2d
-from waveletfix.train import (
+from deepfixcx.models import DeepFixCXCompression, DeepFixCXImg2Img
+from deepfixcx.models.wavelet_packet import WaveletPacket2d
+from deepfixcx.train import (
     get_dset_chexpert, get_dset_intel_mobileodt, get_dset_kimeye,
-    get_dset_flowers102, get_dset_food101, get_dset_food101_waveletfixed)
+    get_dset_flowers102, get_dset_food101, get_dset_food101_deepfixcxed)
 
 
 #  rand = np.random.uniform
@@ -59,7 +59,7 @@ elif args.dataset == 'food101_224':
     img = dct['test_dset'][1][0]
     img = T.tensor(img/255, dtype=T.float)
 elif args.dataset == 'food101_512':
-    C, H, W = 3, 224, 224  # but waveletfix is computed on 512x512 images
+    C, H, W = 3, 224, 224  # but deepfixcx is computed on 512x512 images
     pass
 
 maxlevels = int(np.ceil(np.log2(max(H,W))))
@@ -78,21 +78,21 @@ for J,P in product(range(1,9), args.patch_sizes):
 
     if args.dataset == 'food101_512':
         # work around the intrusive coding from timm
-        dct, _ = get_dset_food101_waveletfixed(J, P)
+        dct, _ = get_dset_food101_deepfixcxed(J, P)
         recons = dct['test_dset'][1][0].cpu()
         dct['test_dset'].transform = None
         img = tvt.Compose(
             [tvt.ToTensor(), tvt.Resize(256), tvt.CenterCrop(224)]
         )(dct['test_dset'][1][0])
     else:
-        # recons = WaveletFixImg2Img(C, J, P, restore_orig_size=True)(img.unsqueeze_(0))
+        # recons = DeepFixCXImg2Img(C, J, P, restore_orig_size=True)(img.unsqueeze_(0))
         # ... is the same as below:
-        enc = WaveletFixCompression(
+        enc = DeepFixCXCompression(
             in_ch=C, in_ch_multiplier=1, levels=J, wavelet=args.wavelet,
             patch_size=P, patch_features=args.patch_features,
             how_to_error_if_input_too_small='raise')
         wi = WaveletPacket2d(levels=J,wavelet=args.wavelet,inverse=True)
-        # get waveletfix encoding
+        # get deepfixcx encoding
         op = enc(img.unsqueeze(0))
         #
         # get the reconstruction
@@ -163,7 +163,7 @@ ax.set_yticks(
 ax.set_ylabel('Patch Size, P')
 ax.set_xticks(np.linspace(W//2, W*maxlevels-W//2, maxlevels), labels=np.arange(1, maxlevels+1))
 ax.set_xlabel('Wavelet Level, J')
-#  ax.set_title('WaveletFix Image Reconstruction')
+#  ax.set_title('DeepFixCX Image Reconstruction')
 #  fig.suptitle('Reconstructed images')
 save_fp = f'results/plots/reconstructed_imgs_{args.dataset}_{",".join(x for x in args.patch_features)}{"_ssim" if args.ssim else ""}.png'
 fig.savefig(save_fp, bbox_inches='tight', dpi=300)

@@ -1,5 +1,5 @@
 import pandas as pd
-from waveletfix import plotting as P
+from deepfixcx import plotting as P
 import matplotlib.pyplot as plt
 
 stats = [
@@ -15,7 +15,7 @@ stats = [
         'optimized_for': 'baseline',
     },
     {
-        'Dataset': 'Chest X-ray (CheXpert)', 'Model': 'WaveletFix+CNN',
+        'Dataset': 'Chest X-ray (CheXpert)', 'Model': 'DeepFixCX+CNN',
         'Accuracy (ROC AUC)': .867, 'Accuracy (errorbar)': 0.006,
         'In-Memory Compression Ratio': 24,
         'Privacy (SSIM)': .717,
@@ -24,7 +24,7 @@ stats = [
         'J': 1, 'P': 79,
     },
     {
-        'Dataset': 'Chest X-ray (CheXpert)', 'Model': 'WaveletFix+CNN',
+        'Dataset': 'Chest X-ray (CheXpert)', 'Model': 'DeepFixCX+CNN',
         'Accuracy (ROC AUC)': .855, 'Accuracy (errorbar)': None,
         'In-Memory Compression Ratio': 1.410,
         'Privacy (SSIM)': .670,
@@ -43,7 +43,7 @@ stats = [
         'optimized_for': 'baseline',
     },
     {
-        'Dataset': 'Glaucoma (Kimeye)', 'Model': 'WaveletFix+CNN',
+        'Dataset': 'Glaucoma (Kimeye)', 'Model': 'DeepFixCX+CNN',
         'Accuracy (ROC AUC)': .947, 'Accuracy (errorbar)': 0.015,
         'In-Memory Compression Ratio': 11.1,
         'Privacy (SSIM)': .971,
@@ -52,7 +52,7 @@ stats = [
         'optimized_for': 'accuracy',
     },
     {
-        'Dataset': 'Glaucoma (Kimeye)', 'Model': 'WaveletFix+CNN',
+        'Dataset': 'Glaucoma (Kimeye)', 'Model': 'DeepFixCX+CNN',
         'Accuracy (ROC AUC)': .942, 'Accuracy (errorbar)': None,
         'In-Memory Compression Ratio': 0.694,
         'Privacy (SSIM)': 0.975,
@@ -71,7 +71,7 @@ stats = [
         'optimized_for': 'baseline',
     },
     {
-        'Dataset': 'Cervix (IntelMobileODT)', 'Model': 'WaveletFix+CNN',
+        'Dataset': 'Cervix (IntelMobileODT)', 'Model': 'DeepFixCX+CNN',
         'Accuracy (ROC AUC)': 0.763, 'Accuracy (errorbar)': 0.009,
         'In-Memory Compression Ratio': 85,
         'Privacy (SSIM)': .558,
@@ -80,7 +80,7 @@ stats = [
         'J': 5, 'P': 5,
     },
     {
-        'Dataset': 'Cervix (IntelMobileODT)', 'Model': 'WaveletFix+CNN',
+        'Dataset': 'Cervix (IntelMobileODT)', 'Model': 'DeepFixCX+CNN',
         'Accuracy (ROC AUC)': 0.740, 'Accuracy (errorbar)': None,
         'In-Memory Compression Ratio': 0.653,
         'Privacy (SSIM)': .807,
@@ -99,7 +99,7 @@ fig, ax = plt.subplots(figsize=(6.4,4.0))
 for n, (dataset, tmp) in enumerate(df.groupby('Dataset')):
     arrow_start_end = []
     for (model, _), vals in tmp.groupby(['Model', 'optimized_for'], sort=False):
-        marker = 'o' if 'WaveletFix' in model else 'x'
+        marker = 'o' if 'DeepFixCX' in model else 'x'
         label = f'{model} // {dataset}'
         color = plt.cm.Set1(n)
         x = vals['In-Memory Compression Ratio'].item()
@@ -124,10 +124,10 @@ for n, (dataset, tmp) in enumerate(df.groupby('Dataset')):
 ax.add_artist(ax.legend(
     title='Dataset',
     handles=[plt.Line2D([], [], linewidth=0, marker='o', color=color, label=dataset, markersize=10) for dataset, color in set(colors)], loc='lower right'))
-# legend: style for waveletfix / no waveletfix
+# legend: style for deepfixcx / no deepfixcx
 ax.legend(handles=[
-    plt.Line2D([], [], color='black', linewidth=0, marker='o', markersize=10, label='with WaveletFix'),
-    plt.Line2D([], [], color='black', linewidth=0, marker='x', markersize=10, label='without WaveletFix'),], loc='lower left')
+    plt.Line2D([], [], color='black', linewidth=0, marker='o', markersize=10, label='with DeepFixCX'),
+    plt.Line2D([], [], color='black', linewidth=0, marker='x', markersize=10, label='without DeepFixCX'),], loc='lower left')
 ax.set_xlabel('In-Memory Compression Ratio')
 ax.set_ylabel('Accuracy (ROC AUC)')
 ax.set_xlim(-5,125)
@@ -141,7 +141,7 @@ ax.text(x=115, y=.85, s='More Accurate',
         fontsize='xx-large', rotation=-90,verticalalignment='center',)
 plt.show()
 
-fig.savefig('./results/plots/waveletfix_fig1_acc_vs_imr.png', bbox_inches='tight', dpi=300)
+fig.savefig('./results/plots/deepfixcx_fig1_acc_vs_imr.png', bbox_inches='tight', dpi=300)
 
 
 list(df.groupby('Dataset'))

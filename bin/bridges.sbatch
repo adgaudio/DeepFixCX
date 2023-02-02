@@ -21,8 +21,8 @@
 module load AI/anaconda3-tf2.2020.11
 source /opt/packages/anaconda3/2020.11/etc/profile.d/conda.sh
 conda deactivate
-conda activate waveletfix
-cd ~/store/waveletfix
+conda activate deepfixcx
+cd ~/store/deepfixcx
 export PYTHONPATH=`pwd`:$PYTHONPATH
 
 #run pre-compiled program which is already in your project space

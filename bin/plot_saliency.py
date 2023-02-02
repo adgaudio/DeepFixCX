@@ -12,9 +12,9 @@ import pandas as pd
 import random
 import scipy.cluster.hierarchy as sph
 import torch as T
-from waveletfix.train import get_dset_chexpert
-from waveletfix.models.wavelet_packet import WaveletPacket2d
-from waveletfix import plotting as dplt
+from deepfixcx.train import get_dset_chexpert
+from deepfixcx.models.wavelet_packet import WaveletPacket2d
+from deepfixcx import plotting as dplt
 
 
 if __name__ == "__main__":
@@ -45,7 +45,7 @@ if __name__ == "__main__":
     # get model
     print("get model and dataloader")
     mdl = T.load(fp, map_location=args.device)['model'].eval()
-    # backwards compatibility with earlier version of waveletfix
+    # backwards compatibility with earlier version of deepfixcx
     mdl.compression_mdl.wavelet_encoder.adaptive = 0
 
     # get dataloader

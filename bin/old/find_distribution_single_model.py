@@ -4,8 +4,8 @@ from simple_parsing import ArgumentParser, choice
 from os import makedirs
 from dataclasses import dataclass
 from matplotlib import pyplot as plt
-from waveletfix.train import TrainOptions, train_config
-from waveletfix import weight_saliency as W
+from deepfixcx.train import TrainOptions, train_config
+from deepfixcx import weight_saliency as W
 
 
 def plot(histograms:dict[str,T.Tensor]):
