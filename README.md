@@ -5,9 +5,8 @@ Code accompanying the paper.
 [Paper on Wiley Journal of Data Mining and Knowledge Discovery](TODO)
 [Paper arXiv](TODO)
 
-![Graphical Abstract](/DeepFixCX_Graphical_Abstract.svg)
-![Venn Diagram](/deepfix_venndiagram.jpg)
-![Results](/deepfix_fig1_acc_vs_imr.jpg)
+<img alt="Graphical Abstract" src="/DeepFixCX_Graphical_Abstract.svg" width="100%" />
+<img src="/deepfix_venndiagram.jpg" width="45%" /> <img src="/deepfix_fig1_acc_vs_imr.jpg" width="45%" />
 
 ### Citation:
 
