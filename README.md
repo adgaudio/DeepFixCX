@@ -16,20 +16,22 @@ TODO: citation and bibtex.
 
 All experiments are in `./bin/experiments.sh` and `./bin/experiments_extended.sh`
 
-It's research quality code.  Note that the name was "DeepFix" and then I changed
-it to DeepFixCX.  Please open a GitHub issue if there is a reproducibility
-problem.
+It's research quality code.  Please open a GitHub issue if there is a reproducibility
+problem.  Note that the name was "DeepFix" and then we changed it to "DeepFixCX".
 
 ### Use the code
 
 ```
-# compress and privatize images:
+# Install libraries
+pip install -r requirements.txt
+
+# DeepFixCX:  Compress and privatize images:
 from deepfixcx.models import DeepFixCXImg2Img
 
-# this may also be useful in projects:
-from deepfix.models.wavelet_packet import WaveletPacket2d
+# Wavelet Packet layer may be useful in projects:
+from deepfixcx.models.wavelet_packet import WaveletPacket2d
 
-# more control over the details:
+# DeepFixCX: just the compression or reconstruction parts.
 from deepfixcx.models import DeepFixCXCompression, DeepFixCXReconstruct
 ```
 

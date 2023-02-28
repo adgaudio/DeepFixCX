@@ -1,0 +1,12 @@
+numpy
+scipy
+ipython
+pandas
+timm
+einops
+pampy
+PyWavelets
+efficientnet_pytorch
+torch
+torchvision
+torchaudio
