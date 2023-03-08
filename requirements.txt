@@ -10,3 +10,4 @@ efficientnet_pytorch
 torch
 torchvision
 torchaudio
+simplepytorch==1.2.0
